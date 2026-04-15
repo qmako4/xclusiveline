@@ -66,6 +66,63 @@ select.mob-cur option{background:#111}
 .view{display:none}
 .view.active{display:block}
 
+/* ── HERO STRIP ── */
+.hero-strip{background:var(--y);padding:2rem 1.5rem;border-bottom:1.5px solid var(--b)}
+.hero-strip-inner{max-width:1280px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:2rem;flex-wrap:wrap}
+.hero-strip-text{}
+.hero-eyebrow{font-size:11px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:rgba(10,10,10,.5);margin-bottom:.5rem;display:flex;align-items:center;gap:8px}
+.hero-eyebrow::before{content:'';width:20px;height:1.5px;background:rgba(10,10,10,.4)}
+.hero-strip-title{font-family:var(--fd);font-size:clamp(2rem,4vw,3.2rem);font-weight:900;line-height:1;letter-spacing:-.01em;text-transform:uppercase;color:var(--b);margin-bottom:.6rem}
+.hero-strip-title span{-webkit-text-stroke:2px var(--b);color:transparent}
+.hero-trust-row{display:flex;gap:1.2rem;flex-wrap:wrap;margin-top:.5rem}
+.hero-trust-row span{font-size:12px;color:rgba(10,10,10,.55);font-weight:500}
+.hero-strip-right{display:flex;flex-direction:column;align-items:flex-end;gap:.8rem;flex-shrink:0}
+.hero-how-mini{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;justify-content:flex-end}
+.hhm-step{font-size:12px;color:rgba(10,10,10,.55)}
+.hhm-step b{color:var(--b);font-weight:700}
+.hhm-arrow{font-size:12px;color:rgba(10,10,10,.3)}
+.btn-primary{background:var(--b);color:var(--y);border:none;padding:13px 24px;border-radius:7px;font-family:var(--fd);font-size:15px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;cursor:pointer;transition:opacity .2s;text-decoration:none;display:inline-block;white-space:nowrap}
+.btn-primary:hover{opacity:.8}
+.btn-ghost{background:transparent;color:var(--b);border:2px solid var(--b);padding:11px 22px;border-radius:7px;font-family:var(--fd);font-size:15px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;cursor:pointer;transition:.2s}
+.btn-ghost:hover{background:var(--b);color:var(--y)}
+
+/* ── CAROUSEL ── */
+.carousel-section{background:var(--b);padding:2.5rem 0 2rem}
+.carousel-header{max-width:1280px;margin:0 auto;padding:0 1.5rem;display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem}
+.carousel-title{font-family:var(--fd);font-size:clamp(2rem,4vw,3rem);font-weight:900;text-transform:uppercase;color:var(--w);line-height:1}
+.carousel-title span{color:var(--y)}
+.carousel-nav{display:flex;gap:8px}
+.carousel-btn{width:40px;height:40px;border-radius:8px;background:rgba(255,255,255,.08);border:.5px solid rgba(255,255,255,.12);color:var(--w);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.15s;line-height:1}
+.carousel-btn:hover{background:var(--y);color:var(--b);border-color:var(--y)}
+.carousel-wrap{overflow:hidden;padding:0 1.5rem}
+.carousel-track{display:flex;gap:16px;transition:transform .4s cubic-bezier(.16,1,.3,1);will-change:transform}
+.car-card{flex-shrink:0;width:300px;background:var(--b2);border-radius:14px;overflow:hidden;cursor:pointer;position:relative;border:.5px solid rgba(255,255,255,.06);transition:transform .2s,border-color .2s}
+.car-card:hover{transform:translateY(-5px);border-color:rgba(255,255,255,.15)}
+.car-img{height:360px;background:var(--b3);overflow:hidden;position:relative}
+.car-img img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .4s}
+.car-card:hover .car-img img{transform:scale(1.04)}
+.car-img-fb{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-family:var(--fd);font-size:40px;font-weight:900;color:rgba(245,168,0,.1);text-transform:uppercase}
+.car-badge{position:absolute;top:12px;left:12px;background:var(--y);color:var(--b);padding:4px 10px;border-radius:5px;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;font-family:var(--fd)}
+.car-stock{position:absolute;top:12px;right:12px;background:rgba(212,43,43,.85);color:#fff;padding:4px 9px;border-radius:5px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;font-family:var(--fd)}
+.car-info{padding:1rem 1.2rem 1.2rem}
+.car-brand{font-size:10px;color:var(--y);font-weight:700;letter-spacing:.12em;text-transform:uppercase;margin-bottom:3px}
+.car-name{font-family:var(--fd);font-size:1.3rem;font-weight:800;text-transform:uppercase;color:var(--w);line-height:1.1;margin-bottom:.6rem}
+.car-bot{display:flex;align-items:center;justify-content:space-between}
+.car-price{font-size:1.1rem;font-weight:600;color:var(--w)}
+.car-cta{background:var(--y);color:var(--b);border:none;padding:8px 16px;border-radius:6px;font-family:var(--fd);font-size:13px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;cursor:pointer;transition:opacity .2s}
+.car-cta:hover{opacity:.85}
+.carousel-dots{display:flex;justify-content:center;gap:6px;margin-top:1.2rem}
+.car-dot{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.2);cursor:pointer;transition:.2s}
+.car-dot.active{background:var(--y);width:20px;border-radius:3px}
+
+@media(max-width:768px){
+  .hero-strip-inner{flex-direction:column;align-items:flex-start;gap:1.2rem}
+  .hero-strip-right{align-items:flex-start}
+  .hero-how-mini{justify-content:flex-start}
+  .car-card{width:260px}
+  .car-img{height:300px}
+}
+
 /* TRUST BAR */
 .trust{background:var(--b);padding:1.2rem 1.5rem}
 .trust-i{max-width:1280px;margin:0 auto;display:flex;justify-content:center;gap:2.5rem;flex-wrap:wrap}
@@ -111,8 +168,13 @@ select.mob-cur option{background:#111}
 
 /* PRODUCT MODAL */
 .p-modal-grid{display:grid;grid-template-columns:1fr 1fr}
-.p-modal-imgs{background:var(--b2);border-radius:16px 0 0 16px;aspect-ratio:1;overflow:hidden}
-.p-modal-imgs img{width:100%;height:100%;object-fit:cover}
+.p-modal-imgs{background:var(--b2);border-radius:16px 0 0 16px;aspect-ratio:1;overflow:hidden;position:relative;display:flex;flex-direction:column}
+.p-modal-imgs img{width:100%;flex:1;object-fit:cover;transition:opacity .2s}
+.pm-thumbs{display:flex;gap:6px;padding:8px;background:rgba(0,0,0,.3);flex-shrink:0;overflow-x:auto}
+.pm-thumbs:empty{display:none}
+.pm-thumb{width:52px;height:52px;border-radius:5px;overflow:hidden;cursor:pointer;border:2px solid transparent;flex-shrink:0;transition:.15s;opacity:.6}
+.pm-thumb:hover,.pm-thumb.active{border-color:var(--y);opacity:1}
+.pm-thumb img{width:100%;height:100%;object-fit:cover;display:block}
 .p-modal-info{padding:2rem}
 .p-modal-brand{font-size:11px;color:var(--y);font-weight:700;letter-spacing:.12em;text-transform:uppercase;margin-bottom:4px}
 .p-modal-name{font-family:var(--fd);font-size:2rem;font-weight:900;text-transform:uppercase;color:var(--w);line-height:1;margin-bottom:.5rem}
@@ -350,7 +412,7 @@ footer{background:var(--b);padding:3rem 1.5rem 1.5rem;margin-top:0}
   .burger{display:flex}
   .products-grid{grid-template-columns:repeat(2,1fr);gap:10px}
   .p-modal-grid{grid-template-columns:1fr}
-  .p-modal-imgs{border-radius:16px 16px 0 0;aspect-ratio:4/3}
+  .p-modal-imgs{border-radius:16px 16px 0 0;aspect-ratio:unset;height:320px}
   .acc-grid{grid-template-columns:1fr}
   .form-row{grid-template-columns:1fr}
   .foot-top{grid-template-columns:1fr}
@@ -369,8 +431,8 @@ footer{background:var(--b);padding:3rem 1.5rem 1.5rem;margin-top:0}
 <!-- TICKER -->
 <div class="ticker">
   <div class="ticker-t">
-    <span>Free worldwide shipping</span><span> · </span><span>UK-exclusive drops</span><span> · </span><span>Best quality in the world</span><span> · </span><span>Ships to USA & Australia</span><span> · </span><span>5–10 day delivery</span><span> · </span><span>Secure checkout</span><span> · </span>
-    <span>Free worldwide shipping</span><span> · </span><span>UK-exclusive drops</span><span> · </span><span>Best quality in the world</span><span> · </span><span>Ships to USA & Australia</span><span> · </span><span>5–10 day delivery</span><span> · </span><span>Secure checkout</span><span> · </span>
+    <span>Free worldwide shipping</span><span> · </span><span>Exclusive drops</span><span> · </span><span>Best quality in the world</span><span> · </span><span>Ships to USA & Australia</span><span> · </span><span>5–10 day delivery</span><span> · </span><span>Secure checkout</span><span> · </span>
+    <span>Free worldwide shipping</span><span> · </span><span>Exclusive drops</span><span> · </span><span>Best quality in the world</span><span> · </span><span>Ships to USA & Australia</span><span> · </span><span>5–10 day delivery</span><span> · </span><span>Secure checkout</span><span> · </span>
   </div>
 </div>
 
@@ -441,66 +503,81 @@ footer{background:var(--b);padding:3rem 1.5rem 1.5rem;margin-top:0}
 
 <!-- SHOP VIEW -->
 <div class="view active" id="shopView">
+
+  <!-- SLIM HERO STRIP -->
+  <div class="hero-strip">
+    <div class="hero-strip-inner">
+      <div class="hero-strip-text">
+        <div class="hero-eyebrow">New arrivals dropping weekly</div>
+        <h1 class="hero-strip-title">Premium Streetwear.<br><span>Shipped Worldwide.</span></h1>
+        <div class="hero-trust-row">
+          <span>✓ Free worldwide shipping</span>
+          <span>✓ Fast dispatch</span>
+          <span>✓ Secure PayPal checkout</span>
+        </div>
+      </div>
+      <div class="hero-strip-right">
+        <button class="btn-primary" onclick="openAuth('register')">Join Free — Get 10% Off</button>
+        <div class="hero-how-mini">
+          <span class="hhm-step"><b>1</b> Create account</span>
+          <span class="hhm-arrow">→</span>
+          <span class="hhm-step"><b>2</b> Top up via PayPal</span>
+          <span class="hhm-arrow">→</span>
+          <span class="hhm-step"><b>3</b> We ship to you</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FEATURED CAROUSEL -->
+  <div class="carousel-section">
+    <div class="carousel-header">
+      <h2 class="carousel-title">Featured <span>Drops</span></h2>
+      <div class="carousel-nav">
+        <button class="carousel-btn" id="carPrev" onclick="carMove(-1)">←</button>
+        <button class="carousel-btn" id="carNext" onclick="carMove(1)">→</button>
+      </div>
+    </div>
+    <div class="carousel-wrap">
+      <div class="carousel-track" id="carTrack"></div>
+    </div>
+    <div class="carousel-dots" id="carDots"></div>
+  </div>
+
+  <!-- TRUST BAR -->
   <div class="trust">
     <div class="trust-i">
       <div class="trust-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><span><strong>Best quality</strong> in the world</span></div>
-      <div class="trust-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span><strong>5–10 days</strong> US & AU delivery</span></div>
-      <div class="trust-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg><span><strong>Free shipping</strong> worldwide</span></div>
-      <div class="trust-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg><span><strong>Secure</strong> checkout</span></div>
+      <div class="trust-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span><strong>Fast delivery</strong> worldwide</span></div>
+      <div class="trust-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg><span><strong>Free shipping</strong> on all orders</span></div>
+      <div class="trust-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg><span><strong>Secure</strong> PayPal checkout</span></div>
     </div>
   </div>
 
-  <!-- HOW TO ORDER -->
-  <div class="how-wrap">
-    <div class="how-inner">
-      <div class="how-label">Simple as that</div>
-      <h2 class="how-title">How to Order</h2>
-      <div class="how-steps">
-        <div class="how-step">
-          <div class="how-num">01</div>
-          <div class="how-icon">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-          </div>
-          <div class="how-step-title">Create Account</div>
-          <div class="how-step-desc">Sign up free in seconds. No credit card needed to browse.</div>
-        </div>
-        <div class="how-connector"></div>
-        <div class="how-step">
-          <div class="how-num">02</div>
-          <div class="how-icon">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
-          </div>
-          <div class="how-step-title">Top Up Balance</div>
-          <div class="how-step-desc">Add credit to your account via PayPal in your local currency. Instant and secure.</div>
-        </div>
-        <div class="how-connector"></div>
-        <div class="how-step">
-          <div class="how-num">03</div>
-          <div class="how-icon">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
-          </div>
-          <div class="how-step-title">Pick Your Item</div>
-          <div class="how-step-desc">Browse the drops, select your size, add to cart. Prices shown in your currency.</div>
-        </div>
-        <div class="how-connector"></div>
-        <div class="how-step">
-          <div class="how-num">04</div>
-          <div class="how-icon">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-          </div>
-          <div class="how-step-title">We Ship to You</div>
-          <div class="how-step-desc">Balance deducted instantly. Your order is confirmed and on its way worldwide.</div>
-        </div>
+  <!-- ALL PRODUCTS GRID -->
+  <div id="shopSection">
+    <div class="cats"><div class="cats-row" id="catsRow"></div></div>
+    <div class="products"><div class="products-grid" id="productsGrid"><div class="no-products" style="grid-column:1/-1;color:rgba(10,10,10,.2)"><div class="spinner" style="border-top-color:var(--b)"></div></div></div></div>
+  </div>
+
+  <!-- EMAIL CAPTURE -->
+  <div class="email-section">
+    <div class="email-box">
+      <div>
+        <p class="email-label">Early access</p>
+        <h3 class="email-title">Get First Pick<br>On New Drops</h3>
+        <p class="email-sub">Sign up and get 10% off your first order, plus early access to limited restocks before they sell out.</p>
       </div>
-      <div class="how-cta">
-        <button class="how-cta-btn" onclick="openAuth('register')">Create Free Account</button>
-        <span class="how-cta-note">Already have an account? <a onclick="openAuth('login')">Log in</a></span>
+      <div>
+        <div class="email-form">
+          <input type="email" class="email-input" placeholder="your@email.com">
+          <button class="email-cta" onclick="openAuth('register')">Claim 10% Off</button>
+        </div>
+        <p class="email-note">No spam. Unsubscribe any time.</p>
       </div>
     </div>
   </div>
 
-  <div class="cats"><div class="cats-row" id="catsRow"></div></div>
-  <div class="products"><div class="products-grid" id="productsGrid"><div class="no-products" style="grid-column:1/-1;color:rgba(10,10,10,.2)"><div class="spinner" style="border-top-color:var(--b)"></div></div></div></div>
 </div>
 
 <!-- ACCOUNT VIEW -->
@@ -646,7 +723,7 @@ footer{background:var(--b);padding:3rem 1.5rem 1.5rem;margin-top:0}
     <div class="foot-top">
       <div>
         <div class="foot-logo"><div class="foot-logo-bar"></div><div class="foot-logo-txt">XCLUSIVELINE</div></div>
-        <p class="foot-desc">Premium UK streetwear & sneaker resale. Best quality in the world. Ships worldwide.</p>
+        <p class="foot-desc">Premium streetwear & sneaker resale. Best quality in the world. Ships worldwide.</p>
       </div>
       <div><p class="foot-col-title">Shop</p><ul class="foot-links"><li><a onclick="showView('shop')">All Products</a></li><li><a onclick="filterCategory('corteiz');showView('shop')">Corteiz</a></li><li><a onclick="filterCategory('asics');showView('shop')">Asics</a></li><li><a onclick="filterCategory('casablanca');showView('shop')">Casablanca</a></li></ul></div>
       <div><p class="foot-col-title">Help</p><ul class="foot-links"><li><a onclick="showView('account')">My Account</a></li><li><a>Shipping Info</a></li><li><a>Size Guide</a></li><li><a>Contact</a></li></ul></div>
@@ -661,7 +738,10 @@ footer{background:var(--b);padding:3rem 1.5rem 1.5rem;margin-top:0}
   <div class="modal" id="productModal">
     <button class="modal-close" onclick="closeProductModal()">×</button>
     <div class="p-modal-grid">
-      <div class="p-modal-imgs"><img id="pmImg" src="" alt="" style="width:100%;height:100%;object-fit:cover"></div>
+      <div class="p-modal-imgs" id="pmImgsWrap">
+        <img id="pmImg" src="" alt="" style="width:100%;height:100%;object-fit:cover;display:none;">
+        <div class="pm-thumbs" id="pmThumbs"></div>
+      </div>
       <div class="p-modal-info">
         <div class="p-modal-brand" id="pmBrand"></div>
         <div class="p-modal-name" id="pmName"></div>
@@ -823,6 +903,7 @@ function setCurrency(c) {
   state.currency = c;
   document.querySelectorAll('.cur,.mob-cur').forEach(el => el.value = c);
   renderProducts();
+  renderCarousel();
   if (state.selectedProduct) openProductModal(state.selectedProduct);
   updateCartUI();
   if (state.profile) updateBalanceDisplay();
@@ -877,6 +958,7 @@ async function loadProducts() {
     if (!res.ok) { console.error('Products fetch error:', data); return; }
     state.products = Array.isArray(data) ? data : [];
     renderProducts();
+    renderCarousel();
   } catch(e) {
     console.error('loadProducts fetch error:', e);
   }
@@ -924,9 +1006,22 @@ function openProductModal(pOrJson) {
   const p = typeof pOrJson === 'string' ? JSON.parse(pOrJson) : pOrJson;
   state.selectedProduct = p;
   state.selectedSize = null;
-  const img = p.product_images?.sort((a,b)=>a.position-b.position)[0];
-  document.getElementById('pmImg').src = img?.url || '';
-  document.getElementById('pmImg').style.display = img ? 'block' : 'none';
+  const imgs = (p.product_images||[]).sort((a,b)=>a.position-b.position);
+  const mainImg = document.getElementById('pmImg');
+  const thumbs = document.getElementById('pmThumbs');
+
+  if (imgs.length) {
+    mainImg.src = imgs[0].url;
+    mainImg.style.display = 'block';
+    thumbs.innerHTML = imgs.map((img,i) =>
+      `<div class="pm-thumb ${i===0?'active':''}" onclick="switchModalImg('${img.url}',this)">
+        <img src="${img.url}" alt="">
+      </div>`
+    ).join('');
+  } else {
+    mainImg.style.display = 'none';
+    thumbs.innerHTML = '';
+  }
   document.getElementById('pmBrand').textContent = p.brand;
   document.getElementById('pmName').textContent = p.name;
   document.getElementById('pmPrice').textContent = fmt(parseFloat(p.price_gbp));
@@ -954,6 +1049,12 @@ function selectSize(size, stock) {
   const addBtn = document.getElementById('pmAddBtn');
   addBtn.disabled = false;
   addBtn.textContent = 'Add to Cart';
+}
+
+function switchModalImg(url, el) {
+  document.getElementById('pmImg').src = url;
+  document.querySelectorAll('.pm-thumb').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
 }
 
 function closeProductModal() {
@@ -1528,6 +1629,48 @@ function cancelEdit() {
   renderSizePicker('clothing');
 }
 
+// ── REST HELPERS ──
+async function restGet(table, params='') {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${params}`,
+    { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' } });
+  return res.json();
+}
+
+async function restPost(table, body) {
+  const { data:{ session } } = await sb.auth.getSession();
+  const token = session?.access_token || SUPABASE_KEY;
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`,
+    { method:'POST', headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json', 'Prefer': 'return=representation' }, body: JSON.stringify(body) });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || data.error || JSON.stringify(data));
+  return data;
+}
+
+async function restPatch(table, filter, body) {
+  const { data:{ session } } = await sb.auth.getSession();
+  const token = session?.access_token || SUPABASE_KEY;
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${filter}`,
+    { method:'PATCH', headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json', 'Prefer': 'return=representation' }, body: JSON.stringify(body) });
+  if (!res.ok) { const d = await res.json(); throw new Error(d.message || JSON.stringify(d)); }
+  return res;
+}
+
+async function restDelete(table, filter) {
+  const { data:{ session } } = await sb.auth.getSession();
+  const token = session?.access_token || SUPABASE_KEY;
+  await fetch(`${SUPABASE_URL}/rest/v1/${table}?${filter}`,
+    { method:'DELETE', headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' } });
+}
+
+async function restUpload(path, blob) {
+  const { data:{ session } } = await sb.auth.getSession();
+  const token = session?.access_token || SUPABASE_KEY;
+  const res = await fetch(`${SUPABASE_URL}/storage/v1/object/product-images/${path}`,
+    { method:'POST', headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${token}`, 'Content-Type': 'image/jpeg', 'x-upsert': 'true' }, body: blob });
+  if (!res.ok) { const d = await res.json(); throw new Error(d.message || 'Upload failed'); }
+  return `${SUPABASE_URL}/storage/v1/object/public/product-images/${path}`;
+}
+
 async function saveProduct() {
   const name=document.getElementById('pName').value.trim();
   const brand=document.getElementById('pBrand').value;
@@ -1551,50 +1694,39 @@ async function saveProduct() {
     const productData={name,brand,price_gbp:price,category_id:state.selectedCategoryIds[0],size_type:sizeType,active,description:desc};
 
     if (productId) {
-      const {error:ue} = await withTimeout(sb.from('products').update(productData).eq('id',productId));
-      if (ue) throw new Error('Update failed: '+ue.message+' ('+ue.code+')');
-      await sb.from('product_sizes').delete().eq('product_id',productId);
-      await sb.from('product_categories').delete().eq('product_id',productId);
+      await restPatch('products', `id=eq.${productId}`, productData);
+      await restDelete('product_sizes', `product_id=eq.${productId}`);
+      await restDelete('product_categories', `product_id=eq.${productId}`);
     } else {
-      const { data, error:ie } = await withTimeout(sb.from('products').insert(productData).select().single());
-      if (ie) throw new Error('Insert failed: '+ie.message+' ('+ie.code+')');
-      if (!data) throw new Error('Insert returned no data — RLS may be blocking it');
-      productId = data.id;
+      const rows = await restPost('products', productData);
+      if (!rows?.[0]?.id) throw new Error('No product ID returned — check permissions');
+      productId = rows[0].id;
     }
 
     // Categories
     if (state.selectedCategoryIds.length) {
-      const {error:ce} = await sb.from('product_categories').insert(
-        state.selectedCategoryIds.map(cid=>({product_id:productId,category_id:cid}))
-      );
-      if (ce) console.warn('Category error:', ce.message);
+      await restPost('product_categories', state.selectedCategoryIds.map(cid=>({product_id:productId,category_id:cid})));
     }
 
     // Sizes
     if (state.sizeRows.length) {
-      const {error:se} = await sb.from('product_sizes').insert(
-        state.sizeRows.filter(r=>r.size).map(r=>({product_id:productId,size:r.size,stock:parseInt(r.stock)||0}))
-      );
-      if (se) console.warn('Size error:', se.message);
+      const sizes = state.sizeRows.filter(r=>r.size).map(r=>({product_id:productId,size:r.size,stock:parseInt(r.stock)||0}));
+      if (sizes.length) await restPost('product_sizes', sizes);
     }
 
-    // Images — delete all existing first, then re-insert in new order
-    await sb.from('product_images').delete().eq('product_id', productId);
-
+    // Images
+    await restDelete('product_images', `product_id=eq.${productId}`);
     for (let i=0; i<state.imageList.length; i++) {
       const img = state.imageList[i];
-      saveBtn.textContent = `Saving image ${i+1} of ${state.imageList.length}...`;
+      saveBtn.textContent = `Uploading image ${i+1} of ${state.imageList.length}...`;
       try {
         let publicUrl = img.url;
         if (img.type === 'new') {
           const compressed = await compressImage(img.file, 1200, 0.82);
           const fname = `${productId}/${Date.now()}-${i}.jpg`;
-          const { error:upErr } = await sb.storage.from('product-images').upload(fname, compressed, {upsert:true, contentType:'image/jpeg'});
-          if (upErr) { showToast(`Image ${i+1} failed: ${upErr.message}`); continue; }
-          const { data:urlData } = sb.storage.from('product-images').getPublicUrl(fname);
-          publicUrl = urlData.publicUrl;
+          publicUrl = await restUpload(fname, compressed);
         }
-        await sb.from('product_images').insert({product_id:productId, url:publicUrl, position:i});
+        await restPost('product_images', {product_id:productId, url:publicUrl, position:i});
       } catch(imgErr) {
         showToast(`Image ${i+1} skipped: ${imgErr.message}`);
       }
@@ -1619,15 +1751,10 @@ async function saveProduct() {
     console.error('saveProduct error:', err.message);
   }
 }
-
-// Helper: timeout any promise after N seconds
-function withTimeout(promise, ms=10000) {
-  return Promise.race([
-    promise,
-    new Promise((_,reject) => setTimeout(() => reject(new Error('Request timed out — check your connection')), ms))
-  ]);
-}
 function compressImage(file, maxWidth, quality) {
+  // More aggressive compression on mobile
+  const isMobile = window.innerWidth <= 768;
+  if (isMobile) { maxWidth = 800; quality = 0.7; }
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = e => {
@@ -1653,7 +1780,7 @@ function compressImage(file, maxWidth, quality) {
 
 async function deleteProduct(id) {
   if (!confirm('Delete this product? This cannot be undone.')) return;
-  await sb.from('products').delete().eq('id',id);
+  await restDelete('products', `id=eq.${id}`);
   await loadProducts();
   loadAdminProducts();
   showToast('Product deleted');
@@ -1678,7 +1805,7 @@ async function loadAdminOrders() {
 }
 
 async function updateOrderStatus(id, status) {
-  await sb.from('orders').update({status}).eq('id',id);
+  await restPatch('orders', `id=eq.${id}`, {status});
   showToast('Order updated');
 }
 
@@ -1706,7 +1833,90 @@ async function adjustBalance(id, email, current) {
   showToast(`Balance updated to £${val.toFixed(2)}`);
 }
 
-// ── UTILS ──
+// ── CAROUSEL ──
+let carIdx = 0;
+let carTotal = 0;
+let carVisible = 3;
+let carAutoplay;
+
+function renderCarousel() {
+  const track = document.getElementById('carTrack');
+  const dots = document.getElementById('carDots');
+  if (!track || !state.products.length) return;
+
+  carVisible = window.innerWidth <= 768 ? 1 : window.innerWidth <= 1024 ? 2 : 3;
+  carTotal = state.products.length;
+  carIdx = 0;
+
+  track.innerHTML = state.products.map(p => {
+    const imgs = (p.product_images||[]).sort((a,b)=>a.position-b.position);
+    const img = imgs[0];
+    const totalStock = (p.product_sizes||[]).reduce((t,s)=>t+s.stock,0);
+    const isNew = p.created_at > new Date(Date.now()-7*86400000).toISOString();
+    return `<div class="car-card" onclick="openProductById('${p.id}')">
+      <div class="car-img">
+        ${img ? `<img src="${img.url}" alt="${p.name}" onerror="this.parentNode.innerHTML='<div class=\'car-img-fb\'>${p.brand}</div>'">` : `<div class="car-img-fb">${p.brand}</div>`}
+        ${isNew ? '<span class="car-badge">New</span>' : ''}
+        ${totalStock <= 3 && totalStock > 0 ? `<span class="car-stock">Only ${totalStock} left</span>` : ''}
+      </div>
+      <div class="car-info">
+        <div class="car-brand">${p.brand}</div>
+        <div class="car-name">${p.name}</div>
+        <div class="car-bot">
+          <span class="car-price">${fmt(parseFloat(p.price_gbp))}</span>
+          <button class="car-cta" onclick="event.stopPropagation();openProductById('${p.id}')">Shop Now</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  dots.innerHTML = state.products.map((_,i) =>
+    `<div class="car-dot ${i===0?'active':''}" onclick="carGoTo(${i})"></div>`
+  ).join('');
+
+  updateCarPos();
+  startCarAutoplay();
+}
+
+function carMove(dir) {
+  carIdx = (carIdx + dir + carTotal) % carTotal;
+  updateCarPos();
+  resetCarAutoplay();
+}
+
+function carGoTo(i) {
+  carIdx = i;
+  updateCarPos();
+  resetCarAutoplay();
+}
+
+function updateCarPos() {
+  const track = document.getElementById('carTrack');
+  const cardW = window.innerWidth <= 768 ? 276 : 316;
+  if (track) track.style.transform = `translateX(-${carIdx * cardW}px)`;
+  document.querySelectorAll('.car-dot').forEach((d,i) => d.classList.toggle('active', i===carIdx));
+}
+
+function startCarAutoplay() {
+  clearInterval(carAutoplay);
+  carAutoplay = setInterval(() => { carIdx = (carIdx+1) % carTotal; updateCarPos(); }, 3500);
+}
+
+function resetCarAutoplay() {
+  clearInterval(carAutoplay);
+  carAutoplay = setInterval(() => { carIdx = (carIdx+1) % carTotal; updateCarPos(); }, 3500);
+}
+
+// Touch swipe support
+let touchStartX = 0;
+document.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; });
+document.addEventListener('touchend', e => {
+  const diff = touchStartX - e.changedTouches[0].clientX;
+  const track = document.getElementById('carTrack');
+  if (track?.closest('.carousel-wrap') && Math.abs(diff) > 50) {
+    carMove(diff > 0 ? 1 : -1);
+  }
+});
 function toggleMob() {
   const menu = document.getElementById('mobMenu');
   const btn = document.getElementById('burgerBtn');
