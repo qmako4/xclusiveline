@@ -1523,9 +1523,30 @@ async function adjustBalance(id, email, current) {
 
 // ── UTILS ──
 function toggleMob() {
-  document.getElementById('mobMenu').classList.toggle('open');
-  document.getElementById('burgerBtn').classList.toggle('open');
-  document.body.style.overflow=document.getElementById('mobMenu').classList.contains('open')?'hidden':'';
+  const menu = document.getElementById('mobMenu');
+  const btn = document.getElementById('burgerBtn');
+  const isOpen = menu.classList.toggle('open');
+  btn.classList.toggle('open', isOpen);
+  document.body.style.overflow = isOpen ? 'hidden' : '';
+  if (isOpen) syncMobMenu();
+}
+
+function syncMobMenu() {
+  const mobAuthLink = document.getElementById('mobAuthLink');
+  const mobAdminLink = document.getElementById('mobAdminLink');
+  const mobBal = document.getElementById('mobBalance');
+  const mobBalAmt = document.getElementById('mobBalAmt');
+
+  if (state.user && state.profile) {
+    if (mobAuthLink) { mobAuthLink.textContent = 'Sign Out'; mobAuthLink.onclick = () => { logout(); toggleMob(); }; }
+    if (mobAdminLink) mobAdminLink.style.display = state.profile.is_admin ? 'block' : 'none';
+    if (mobBal) mobBal.style.display = 'flex';
+    if (mobBalAmt) mobBalAmt.textContent = fmt(state.profile.balance_gbp);
+  } else {
+    if (mobAuthLink) { mobAuthLink.textContent = 'Login / Register'; mobAuthLink.onclick = () => { openAuth('login'); toggleMob(); }; }
+    if (mobAdminLink) mobAdminLink.style.display = 'none';
+    if (mobBal) mobBal.style.display = 'none';
+  }
 }
 
 function showToast(msg) {
