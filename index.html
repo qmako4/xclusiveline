@@ -1425,45 +1425,103 @@ async function saveProduct() {
   const desc=document.getElementById('pDesc').value.trim();
   if (!name||!brand||!price) { showToast('Fill in name, brand and price'); return; }
   if (!state.selectedCategoryIds.length) { showToast('Select at least one category'); return; }
+
   const saveBtn=document.getElementById('saveBtn');
   const spinner=document.getElementById('saveSpinner');
-  saveBtn.disabled=true; spinner.style.display='inline-block';
-  let productId = state.editingId;
-  const productData={name,brand,price_gbp:price,category_id:state.selectedCategoryIds[0],size_type:sizeType,active,description:desc};
-  if (productId) {
-    await sb.from('products').update(productData).eq('id',productId);
-    await sb.from('product_sizes').delete().eq('product_id',productId);
-    await sb.from('product_categories').delete().eq('product_id',productId);
-  } else {
-    const { data } = await sb.from('products').insert(productData).select().single();
-    productId = data.id;
-  }
-  // Save all selected categories to junction table
-  if (state.selectedCategoryIds.length) {
-    await sb.from('product_categories').insert(
-      state.selectedCategoryIds.map(cid => ({product_id: productId, category_id: cid}))
-    );
-  }
-  // Sizes
-  if (state.sizeRows.length) {
-    await sb.from('product_sizes').insert(state.sizeRows.filter(r=>r.size).map(r=>({product_id:productId,size:r.size,stock:parseInt(r.stock)||0})));
-  }
-  // Images
-  for (let i=0; i<state.uploadedImages.length; i++) {
-    const file = state.uploadedImages[i];
-    const fname = `${productId}/${Date.now()}-${i}-${file.name}`;
-    const { data: up } = await sb.storage.from('product-images').upload(fname, file, {upsert:true});
-    if (up) {
-      const { data: url } = sb.storage.from('product-images').getPublicUrl(fname);
-      await sb.from('product_images').insert({product_id:productId, url:url.publicUrl, position:i});
+  const successMsg=document.getElementById('addSuccess');
+  saveBtn.disabled=true;
+  spinner.style.display='inline-block';
+  saveBtn.textContent='Saving...';
+
+  try {
+    let productId = state.editingId;
+    const productData={name,brand,price_gbp:price,category_id:state.selectedCategoryIds[0],size_type:sizeType,active,description:desc};
+
+    if (productId) {
+      const {error:ue} = await sb.from('products').update(productData).eq('id',productId);
+      if (ue) throw new Error('Failed to update product: '+ue.message);
+      await sb.from('product_sizes').delete().eq('product_id',productId);
+      await sb.from('product_categories').delete().eq('product_id',productId);
+    } else {
+      const { data, error:ie } = await sb.from('products').insert(productData).select().single();
+      if (ie) throw new Error('Failed to create product: '+ie.message);
+      productId = data.id;
     }
+
+    // Categories
+    if (state.selectedCategoryIds.length) {
+      await sb.from('product_categories').insert(
+        state.selectedCategoryIds.map(cid=>({product_id:productId,category_id:cid}))
+      );
+    }
+
+    // Sizes
+    if (state.sizeRows.length) {
+      await sb.from('product_sizes').insert(
+        state.sizeRows.filter(r=>r.size).map(r=>({product_id:productId,size:r.size,stock:parseInt(r.stock)||0}))
+      );
+    }
+
+    // Images — compress then upload one by one with progress
+    const imgs = state.uploadedImages;
+    for (let i=0; i<imgs.length; i++) {
+      saveBtn.textContent = `Uploading image ${i+1} of ${imgs.length}...`;
+      try {
+        const compressed = await compressImage(imgs[i], 1200, 0.82);
+        const ext = imgs[i].name.split('.').pop().toLowerCase().replace(/[^a-z]/g,'') || 'jpg';
+        const fname = `${productId}/${Date.now()}-${i}.${ext}`;
+        const { error: upErr } = await sb.storage.from('product-images').upload(fname, compressed, {upsert:true, contentType:`image/${ext==='jpg'?'jpeg':ext}`});
+        if (upErr) { showToast(`Image ${i+1} failed: ${upErr.message}`); continue; }
+        const { data: urlData } = sb.storage.from('product-images').getPublicUrl(fname);
+        await sb.from('product_images').insert({product_id:productId, url:urlData.publicUrl, position:i});
+      } catch(imgErr) {
+        showToast(`Image ${i+1} skipped: ${imgErr.message}`);
+      }
+    }
+
+    saveBtn.textContent='Save Product';
+    saveBtn.disabled=false;
+    spinner.style.display='none';
+    successMsg.textContent='Product saved successfully!';
+    successMsg.classList.add('show');
+    setTimeout(()=>successMsg.classList.remove('show'),3000);
+    cancelEdit();
+    await loadProducts();
+    loadAdminProducts();
+    showToast('Product saved! ✓');
+
+  } catch(err) {
+    saveBtn.textContent='Save Product';
+    saveBtn.disabled=false;
+    spinner.style.display='none';
+    showToast('Error: '+err.message);
+    console.error(err);
   }
-  saveBtn.disabled=false; spinner.style.display='none';
-  document.getElementById('addSuccess').classList.add('show');
-  setTimeout(()=>document.getElementById('addSuccess').classList.remove('show'),3000);
-  cancelEdit();
-  await loadProducts();
-  showToast('Product saved! ✓');
+}
+
+// Compress image using canvas before uploading
+function compressImage(file, maxWidth, quality) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let w = img.width, h = img.height;
+        if (w > maxWidth) { h = Math.round(h * maxWidth / w); w = maxWidth; }
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        canvas.toBlob(blob => {
+          if (blob) resolve(blob);
+          else reject(new Error('Compression failed'));
+        }, 'image/jpeg', quality);
+      };
+      img.onerror = () => reject(new Error('Could not read image'));
+      img.src = e.target.result;
+    };
+    reader.onerror = () => reject(new Error('Could not read file'));
+    reader.readAsDataURL(file);
+  });
 }
 
 async function deleteProduct(id) {
