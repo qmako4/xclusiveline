@@ -1221,26 +1221,37 @@ function populateCategorySelect() {
 
 // ── SIZE PICKER ──
 const shoeCategories = ['footwear', 'shoes', 'sneakers', 'trainers'];
+const noSizeCategories = ['accessories'];
 
 function onCategoryChange(sel) {
-  const selectedOption = sel.options[sel.selectedIndex];
-  const catName = selectedOption.text.toLowerCase();
   const catSlug = state.categories.find(c => c.id === sel.value)?.slug || '';
+  const catName = (sel.options[sel.selectedIndex].text || '').toLowerCase();
   const isShoe = shoeCategories.some(s => catName.includes(s) || catSlug.includes(s));
+  const isNoSize = noSizeCategories.some(s => catName.includes(s) || catSlug.includes(s));
   const sizeTypeSel = document.getElementById('pSizeType');
+  const sizesBuilder = document.querySelector('.sizes-builder');
+
+  if (isNoSize) {
+    // Hide size section entirely for accessories
+    if (sizesBuilder) sizesBuilder.style.display = 'none';
+    state.sizeRows = [];
+    return;
+  }
+
+  if (sizesBuilder) sizesBuilder.style.display = 'block';
+
   if (sizeTypeSel) {
-    const prev = sizeTypeSel.value;
-    sizeTypeSel.value = isShoe ? 'shoe' : 'clothing';
-    if (sizeTypeSel.value !== prev) {
-      state.sizeRows = [];
-      renderSizePicker();
-    }
+    const newType = isShoe ? 'shoe' : 'clothing';
+    sizeTypeSel.value = newType;
+    state.sizeRows = [];
+    renderSizePicker();
   }
 }
 const shoeSizes = ['6','6.5','7','7.5','8','8.5','9','9.5','10','10.5','11','11.5','12','12.5','13'];
 
 function updateSizePresets() {
-  // Reset sizes when type changes
+  const sizesBuilder = document.querySelector('.sizes-builder');
+  if (sizesBuilder) sizesBuilder.style.display = 'block';
   state.sizeRows = [];
   renderSizePicker();
 }
@@ -1372,7 +1383,10 @@ function cancelEdit() {
   document.getElementById('pPrice').value='';
   document.getElementById('pDesc').value='';
   document.getElementById('pSizeType').value='clothing';
+  document.getElementById('pCategory').value='';
   document.getElementById('imgPreview').innerHTML='';
+  const sizesBuilder = document.querySelector('.sizes-builder');
+  if (sizesBuilder) sizesBuilder.style.display = 'block';
   renderSizePicker();
 }
 
