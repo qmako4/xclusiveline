@@ -859,27 +859,34 @@ function filterCategory(slug) {
 
 // ── PRODUCTS ──
 async function loadProducts() {
-  const { data } = await sb.from('products')
-    .select('*, product_images(*), product_sizes(*), categories(name,slug)')
-    .eq('active', true).order('created_at', {ascending:false});
+  const { data, error } = await sb.from('products')
+    .select('*, product_images(*), product_sizes(*), product_categories(category_id, categories(name,slug))')
+    .eq('active', true)
+    .order('created_at', {ascending:false});
+  if (error) { console.error('loadProducts error:', error.message); return; }
   state.products = data || [];
+  console.log('Loaded products:', state.products.length);
   renderProducts();
 }
 
 function renderProducts() {
   const grid = document.getElementById('productsGrid');
   let prods = state.products;
-  if (state.activeCategory) prods = prods.filter(p => p.categories?.slug === state.activeCategory);
+  if (state.activeCategory) {
+    prods = prods.filter(p =>
+      p.product_categories?.some(pc => pc.categories?.slug === state.activeCategory)
+    );
+  }
   if (!prods.length) { grid.innerHTML = '<div class="no-products" style="grid-column:1/-1">No products found</div>'; return; }
   grid.innerHTML = prods.map(p => {
-    const img = p.product_images?.sort((a,b)=>a.position-b.position)[0];
-    const minStock = p.product_sizes?.reduce((m,s) => Math.min(m,s.stock), Infinity) || 0;
-    const totalStock = p.product_sizes?.reduce((t,s) => t+s.stock, 0) || 0;
-    const tag = totalStock <= 5 ? 'low' : p.created_at > new Date(Date.now()-7*86400000).toISOString() ? 'new' : null;
+    const imgs = (p.product_images||[]).sort((a,b)=>a.position-b.position);
+    const img = imgs[0];
+    const totalStock = (p.product_sizes||[]).reduce((t,s)=>t+s.stock,0);
+    const tag = totalStock<=5&&totalStock>0?'low':p.created_at>new Date(Date.now()-7*86400000).toISOString()?'new':null;
     const tagHTML = tag ? `<span class="p-tag tag-${tag}">${tag==='low'?'Low stock':'New'}</span>` : '';
-    return `<div class="p-card" onclick="openProductModal(${JSON.stringify(JSON.stringify(p))})">
+    return `<div class="p-card" onclick="openProductById('${p.id}')">
       <div class="p-img">
-        ${img ? `<img src="${img.url}" alt="${p.name}" onerror="this.style.display='none';this.parentNode.innerHTML+='<div class=\'p-img-fb\'>${p.brand}</div>'">` : `<div class="p-img-fb">${p.brand}</div>`}
+        ${img?`<img src="${img.url}" alt="${p.name}" onerror="this.style.display='none';this.parentNode.innerHTML+='<div class=\'p-img-fb\'>${p.brand}</div>'">`:`<div class="p-img-fb">${p.brand}</div>`}
         ${tagHTML}
       </div>
       <div class="p-info">
@@ -887,11 +894,16 @@ function renderProducts() {
         <div class="p-name">${p.name}</div>
         <div class="p-bot">
           <span class="p-price">${fmt(parseFloat(p.price_gbp))}</span>
-          <span class="p-stock ${totalStock<=5?'low':'ok'}">${totalStock<=3?`Only ${totalStock} left`:totalStock+' in stock'}</span>
+          <span class="p-stock ${totalStock<=5?'low':'ok'}">${totalStock<=3&&totalStock>0?`Only ${totalStock} left`:totalStock+' in stock'}</span>
         </div>
       </div>
     </div>`;
   }).join('');
+}
+
+function openProductById(id) {
+  const p = state.products.find(p => p.id === id);
+  if (p) openProductModal(p);
 }
 
 // ── PRODUCT MODAL ──
