@@ -1438,49 +1438,58 @@ async function saveProduct() {
   const successMsg=document.getElementById('addSuccess');
   saveBtn.disabled=true;
   spinner.style.display='inline-block';
-  saveBtn.textContent='Saving...';
+  saveBtn.textContent='Checking auth...';
 
   try {
+    // Always get a fresh session first
+    const { data:{ session } } = await sb.auth.getSession();
+    if (!session) throw new Error('Not logged in — please log out and back in');
+    console.log('Session OK, user:', session.user.email);
+
+    saveBtn.textContent='Saving...';
     let productId = state.editingId;
     const productData={name,brand,price_gbp:price,category_id:state.selectedCategoryIds[0],size_type:sizeType,active,description:desc};
+    console.log('Inserting product:', productData);
 
     if (productId) {
       const {error:ue} = await withTimeout(sb.from('products').update(productData).eq('id',productId));
-      if (ue) throw new Error('Failed to update product: '+ue.message);
-      await withTimeout(sb.from('product_sizes').delete().eq('product_id',productId));
-      await withTimeout(sb.from('product_categories').delete().eq('product_id',productId));
+      if (ue) throw new Error('Update failed: '+ue.message+' ('+ue.code+')');
+      await sb.from('product_sizes').delete().eq('product_id',productId);
+      await sb.from('product_categories').delete().eq('product_id',productId);
     } else {
       const { data, error:ie } = await withTimeout(sb.from('products').insert(productData).select().single());
-      if (ie) throw new Error('Failed to create product: '+ie.message);
-      if (!data) throw new Error('No data returned from insert — check RLS policies');
+      console.log('Insert result:', data, ie);
+      if (ie) throw new Error('Insert failed: '+ie.message+' ('+ie.code+')');
+      if (!data) throw new Error('Insert returned no data — RLS may be blocking it');
       productId = data.id;
     }
 
     // Categories
     if (state.selectedCategoryIds.length) {
-      await sb.from('product_categories').insert(
+      const {error:ce} = await sb.from('product_categories').insert(
         state.selectedCategoryIds.map(cid=>({product_id:productId,category_id:cid}))
       );
+      if (ce) console.warn('Category error:', ce.message);
     }
 
     // Sizes
     if (state.sizeRows.length) {
-      await sb.from('product_sizes').insert(
+      const {error:se} = await sb.from('product_sizes').insert(
         state.sizeRows.filter(r=>r.size).map(r=>({product_id:productId,size:r.size,stock:parseInt(r.stock)||0}))
       );
+      if (se) console.warn('Size error:', se.message);
     }
 
-    // Images — compress then upload one by one with progress
+    // Images
     const imgs = state.uploadedImages;
     for (let i=0; i<imgs.length; i++) {
       saveBtn.textContent = `Uploading image ${i+1} of ${imgs.length}...`;
       try {
         const compressed = await compressImage(imgs[i], 1200, 0.82);
-        const ext = imgs[i].name.split('.').pop().toLowerCase().replace(/[^a-z]/g,'') || 'jpg';
-        const fname = `${productId}/${Date.now()}-${i}.${ext}`;
-        const { error: upErr } = await sb.storage.from('product-images').upload(fname, compressed, {upsert:true, contentType:`image/${ext==='jpg'?'jpeg':ext}`});
+        const fname = `${productId}/${Date.now()}-${i}.jpg`;
+        const { error:upErr } = await sb.storage.from('product-images').upload(fname, compressed, {upsert:true, contentType:'image/jpeg'});
         if (upErr) { showToast(`Image ${i+1} failed: ${upErr.message}`); continue; }
-        const { data: urlData } = sb.storage.from('product-images').getPublicUrl(fname);
+        const { data:urlData } = sb.storage.from('product-images').getPublicUrl(fname);
         await sb.from('product_images').insert({product_id:productId, url:urlData.publicUrl, position:i});
       } catch(imgErr) {
         showToast(`Image ${i+1} skipped: ${imgErr.message}`);
@@ -1490,7 +1499,7 @@ async function saveProduct() {
     saveBtn.textContent='Save Product';
     saveBtn.disabled=false;
     spinner.style.display='none';
-    successMsg.textContent='Product saved successfully!';
+    successMsg.textContent='Product saved!';
     successMsg.classList.add('show');
     setTimeout(()=>successMsg.classList.remove('show'),3000);
     cancelEdit();
@@ -1503,7 +1512,7 @@ async function saveProduct() {
     saveBtn.disabled=false;
     spinner.style.display='none';
     showToast('Error: '+err.message);
-    console.error(err);
+    console.error('saveProduct error:', err.message);
   }
 }
 
