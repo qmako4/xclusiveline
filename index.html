@@ -246,14 +246,18 @@ select.mob-cur option{background:#111}
 .size-row-rm{background:rgba(212,43,43,.15);border:.5px solid rgba(212,43,43,.3);color:#ff6b6b;padding:6px 10px;border-radius:6px;cursor:pointer;font-size:14px;line-height:1}
 .add-size-btn{background:rgba(255,255,255,.06);border:.5px solid rgba(255,255,255,.12);color:rgba(255,255,255,.6);padding:7px 14px;border-radius:6px;cursor:pointer;font-size:13px;font-family:var(--fb)}
 .add-size-btn:hover{border-color:var(--y);color:var(--y)}
-.img-upload-area{border:1.5px dashed rgba(255,255,255,.15);border-radius:8px;padding:1.5rem;text-align:center;cursor:pointer;transition:.2s;margin-bottom:1rem}
+.img-upload-area{border:1.5px dashed rgba(255,255,255,.15);border-radius:8px;padding:1.2rem;text-align:center;cursor:pointer;transition:.2s;margin-bottom:.8rem}
 .img-upload-area:hover{border-color:var(--y)}
 .img-upload-area input[type=file]{display:none}
 .img-upload-txt{font-size:13px;color:rgba(255,255,255,.35)}
-.img-preview{display:flex;gap:8px;flex-wrap:wrap;margin-top:.8rem}
-.img-prev-item{width:70px;height:90px;border-radius:6px;overflow:hidden;position:relative}
-.img-prev-item img{width:100%;height:100%;object-fit:cover}
-.img-prev-rm{position:absolute;top:3px;right:3px;background:rgba(0,0,0,.7);color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:10px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.img-preview{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:1rem}
+.img-prev-item{width:90px;height:110px;border-radius:8px;overflow:hidden;position:relative;cursor:grab;border:2px solid transparent;transition:.2s;flex-shrink:0}
+.img-prev-item:active{cursor:grabbing}
+.img-prev-item.dragging{opacity:.4;border-color:var(--y)}
+.img-prev-item.drag-over{border-color:var(--y);transform:scale(1.05)}
+.img-prev-item.is-first::after{content:'Main';position:absolute;bottom:0;left:0;right:0;background:var(--y);color:var(--b);font-size:10px;font-weight:800;text-align:center;padding:3px;font-family:var(--fd);letter-spacing:.06em;text-transform:uppercase}
+.img-prev-item img{width:100%;height:100%;object-fit:cover;display:block;pointer-events:none}
+.img-prev-rm{position:absolute;top:4px;right:4px;background:rgba(0,0,0,.8);color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2}
 .save-btn{background:var(--y);color:var(--b);border:none;padding:12px 28px;border-radius:8px;font-family:var(--fd);font-size:16px;font-weight:900;letter-spacing:.07em;text-transform:uppercase;cursor:pointer;transition:opacity var(--trs)}
 .save-btn:hover{opacity:.85}
 .save-btn:disabled{opacity:.4;cursor:not-allowed}
@@ -582,12 +586,18 @@ footer{background:var(--b);padding:3rem 1.5rem 1.5rem;margin-top:0}
         </div>
         <div class="form-field" style="margin-bottom:1rem"><label>Description</label><textarea id="pDesc" placeholder="Product description..."></textarea></div>
         <!-- IMAGES -->
-        <div class="sizes-builder-label" style="margin-bottom:8px">Product Images</div>
-        <div class="img-upload-area" onclick="document.getElementById('imgInput').click()">
-          <input type="file" id="imgInput" accept="image/*" multiple onchange="previewImages(this)">
-          <div class="img-upload-txt">Click to upload images (JPG, PNG, WebP)</div>
-          <div class="img-preview" id="imgPreview"></div>
+        <div class="sizes-builder-label" style="margin-bottom:8px">
+          Product Images <span style="font-size:10px;color:rgba(255,255,255,.3);font-weight:400">(drag to reorder — first image is the main photo)</span>
         </div>
+        <div class="img-upload-area" id="imgDropZone"
+          onclick="document.getElementById('imgInput').click()"
+          ondragover="event.preventDefault();this.style.borderColor='var(--y)'"
+          ondragleave="this.style.borderColor=''"
+          ondrop="handleImgDrop(event)">
+          <input type="file" id="imgInput" accept="image/*" multiple onchange="addImages(this)">
+          <div class="img-upload-txt">Click or drag & drop images here</div>
+        </div>
+        <div class="img-preview" id="imgPreview"></div>
         <!-- SIZES -->
         <div class="sizes-builder">
           <div class="sizes-builder-label">Sizes & Stock</div>
@@ -758,6 +768,7 @@ let state = {
   topupAmount: 0,
   editingId: null,
   uploadedImages: [],
+  imageList: [],
   sizeRows: [],
   selectedCategoryIds: [],
 };
@@ -1370,16 +1381,70 @@ async function loadAdminProducts() {
   }).join('');
 }
 
-function previewImages(input) {
+
+// ── IMAGE MANAGEMENT ──
+let dragIdx = null;
+
+function renderImagePreview() {
   const preview = document.getElementById('imgPreview');
-  state.uploadedImages = Array.from(input.files);
-  preview.innerHTML = state.uploadedImages.map((f,i)=>{
-    const url = URL.createObjectURL(f);
-    return `<div class="img-prev-item"><img src="${url}"><button class="img-prev-rm" onclick="removeImg(${i})">✕</button></div>`;
-  }).join('');
+  if (!preview) return;
+  if (!state.imageList.length) { preview.innerHTML=''; return; }
+  preview.innerHTML = state.imageList.map((img,i) => `
+    <div class="img-prev-item ${i===0?'is-first':''}"
+      draggable="true" data-idx="${i}"
+      ondragstart="imgDragStart(event,${i})"
+      ondragover="imgDragOver(event,${i})"
+      ondragend="imgDragEnd()"
+      ondrop="imgDrop(event,${i})">
+      <img src="${img.url}" alt="image ${i+1}">
+      <button class="img-prev-rm" onclick="removeImgAt(${i})">✕</button>
+    </div>`).join('');
 }
 
-function removeImg(i) { state.uploadedImages.splice(i,1); previewImages({files:state.uploadedImages}); }
+function addImages(input) {
+  Array.from(input.files).forEach(file => {
+    state.imageList.push({type:'new', file, url:URL.createObjectURL(file)});
+  });
+  input.value='';
+  renderImagePreview();
+}
+
+function handleImgDrop(event) {
+  event.preventDefault();
+  document.getElementById('imgDropZone').style.borderColor='';
+  Array.from(event.dataTransfer.files)
+    .filter(f=>f.type.startsWith('image/'))
+    .forEach(file => state.imageList.push({type:'new', file, url:URL.createObjectURL(file)}));
+  renderImagePreview();
+}
+
+function removeImgAt(i) { state.imageList.splice(i,1); renderImagePreview(); }
+
+function imgDragStart(e,i) {
+  dragIdx=i;
+  setTimeout(()=>e.target.closest('.img-prev-item')?.classList.add('dragging'),0);
+  e.dataTransfer.effectAllowed='move';
+}
+function imgDragOver(e,i) {
+  e.preventDefault();
+  document.querySelectorAll('.img-prev-item').forEach(el=>el.classList.remove('drag-over'));
+  e.target.closest('.img-prev-item')?.classList.add('drag-over');
+}
+function imgDragEnd() {
+  document.querySelectorAll('.img-prev-item').forEach(el=>el.classList.remove('dragging','drag-over'));
+  dragIdx=null;
+}
+function imgDrop(e,i) {
+  e.preventDefault();
+  if (dragIdx===null||dragIdx===i) return;
+  const moved=state.imageList.splice(dragIdx,1)[0];
+  state.imageList.splice(i,0,moved);
+  renderImagePreview();
+}
+
+// Legacy compat
+function previewImages(input) { addImages(input); }
+function removeImg(i) { removeImgAt(i); }
 
 async function editProduct(id) {
   const { data: p } = await sb.from('products').select('*, product_images(*), product_sizes(*), product_categories(category_id)').eq('id',id).single();
@@ -1400,10 +1465,11 @@ async function editProduct(id) {
   // Load sizes
   state.sizeRows = (p.product_sizes||[]).map(s=>({size:s.size, stock:s.stock.toString()}));
   renderSizePicker(p.size_type);
-  const prev = document.getElementById('imgPreview');
-  prev.innerHTML = (p.product_images||[]).sort((a,b)=>a.position-b.position).map((img,i)=>
-    `<div class="img-prev-item"><img src="${img.url}"><button class="img-prev-rm" onclick="deleteExistingImg('${img.id}',this.parentNode)">✕</button></div>`
-  ).join('');
+  // Load existing images into imageList for drag-drop editing
+  state.imageList = (p.product_images||[])
+    .sort((a,b)=>a.position-b.position)
+    .map(img => ({type:'existing', id:img.id, url:img.url}));
+  renderImagePreview();
 }
 
 async function deleteExistingImg(id, el) {
@@ -1412,7 +1478,7 @@ async function deleteExistingImg(id, el) {
 }
 
 function cancelEdit() {
-  state.editingId=null; state.sizeRows=[]; state.uploadedImages=[]; state.selectedCategoryIds=[];
+  state.editingId=null; state.sizeRows=[]; state.uploadedImages=[]; state.imageList=[]; state.selectedCategoryIds=[];
   document.getElementById('addFormTitle').textContent='Add New Product';
   document.getElementById('cancelEditBtn').style.display='none';
   document.getElementById('pName').value='';
@@ -1435,24 +1501,18 @@ async function saveProduct() {
   const desc=document.getElementById('pDesc').value.trim();
   if (!name||!brand||!price) { showToast('Fill in name, brand and price'); return; }
   if (!state.selectedCategoryIds.length) { showToast('Select at least one category'); return; }
+  if (!state.user) { showToast('Please log in first'); return; }
 
   const saveBtn=document.getElementById('saveBtn');
   const spinner=document.getElementById('saveSpinner');
   const successMsg=document.getElementById('addSuccess');
   saveBtn.disabled=true;
   spinner.style.display='inline-block';
-  saveBtn.textContent='Checking auth...';
+  saveBtn.textContent='Saving...';
 
   try {
-    // Always get a fresh session first
-    const { data:{ session } } = await sb.auth.getSession();
-    if (!session) throw new Error('Not logged in — please log out and back in');
-    console.log('Session OK, user:', session.user.email);
-
-    saveBtn.textContent='Saving...';
     let productId = state.editingId;
     const productData={name,brand,price_gbp:price,category_id:state.selectedCategoryIds[0],size_type:sizeType,active,description:desc};
-    console.log('Inserting product:', productData);
 
     if (productId) {
       const {error:ue} = await withTimeout(sb.from('products').update(productData).eq('id',productId));
@@ -1461,7 +1521,6 @@ async function saveProduct() {
       await sb.from('product_categories').delete().eq('product_id',productId);
     } else {
       const { data, error:ie } = await withTimeout(sb.from('products').insert(productData).select().single());
-      console.log('Insert result:', data, ie);
       if (ie) throw new Error('Insert failed: '+ie.message+' ('+ie.code+')');
       if (!data) throw new Error('Insert returned no data — RLS may be blocking it');
       productId = data.id;
@@ -1483,17 +1542,23 @@ async function saveProduct() {
       if (se) console.warn('Size error:', se.message);
     }
 
-    // Images
-    const imgs = state.uploadedImages;
-    for (let i=0; i<imgs.length; i++) {
-      saveBtn.textContent = `Uploading image ${i+1} of ${imgs.length}...`;
+    // Images — delete all existing first, then re-insert in new order
+    await sb.from('product_images').delete().eq('product_id', productId);
+
+    for (let i=0; i<state.imageList.length; i++) {
+      const img = state.imageList[i];
+      saveBtn.textContent = `Saving image ${i+1} of ${state.imageList.length}...`;
       try {
-        const compressed = await compressImage(imgs[i], 1200, 0.82);
-        const fname = `${productId}/${Date.now()}-${i}.jpg`;
-        const { error:upErr } = await sb.storage.from('product-images').upload(fname, compressed, {upsert:true, contentType:'image/jpeg'});
-        if (upErr) { showToast(`Image ${i+1} failed: ${upErr.message}`); continue; }
-        const { data:urlData } = sb.storage.from('product-images').getPublicUrl(fname);
-        await sb.from('product_images').insert({product_id:productId, url:urlData.publicUrl, position:i});
+        let publicUrl = img.url;
+        if (img.type === 'new') {
+          const compressed = await compressImage(img.file, 1200, 0.82);
+          const fname = `${productId}/${Date.now()}-${i}.jpg`;
+          const { error:upErr } = await sb.storage.from('product-images').upload(fname, compressed, {upsert:true, contentType:'image/jpeg'});
+          if (upErr) { showToast(`Image ${i+1} failed: ${upErr.message}`); continue; }
+          const { data:urlData } = sb.storage.from('product-images').getPublicUrl(fname);
+          publicUrl = urlData.publicUrl;
+        }
+        await sb.from('product_images').insert({product_id:productId, url:publicUrl, position:i});
       } catch(imgErr) {
         showToast(`Image ${i+1} skipped: ${imgErr.message}`);
       }
