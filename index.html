@@ -558,7 +558,7 @@ footer{background:var(--b);padding:3rem 1.5rem 1.5rem;margin-top:0}
         <div class="admin-card-title">All Products</div>
         <div style="overflow-x:auto">
           <table class="admin-table">
-            <thead><tr><th>Image</th><th>Name</th><th>Brand</th><th>Price</th><th>Category</th><th>Status</th><th>Actions</th></tr></thead>
+            <thead><tr><th>Image</th><th>Name</th><th>Brand</th><th>Price</th><th>Status</th><th>Actions</th></tr></thead>
             <tbody id="adminProductsTbl"><tr><td colspan="7" style="text-align:center;padding:2rem;color:rgba(255,255,255,.3)">Loading...</td></tr></tbody>
           </table>
         </div>
@@ -839,10 +839,18 @@ function showView(v) {
 
 // ── CATEGORIES ──
 async function loadCategories() {
-  const { data } = await sb.from('categories').select('*').order('name');
-  state.categories = data || [];
-  renderCategories();
-  populateCategorySelect();
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/categories?select=id,name,slug&order=name`,
+      { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` } }
+    );
+    const data = await res.json();
+    state.categories = Array.isArray(data) ? data : [];
+    renderCategories();
+    populateCategorySelect();
+  } catch(e) {
+    console.error('loadCategories error:', e);
+  }
 }
 
 function renderCategories() {
@@ -859,14 +867,19 @@ function filterCategory(slug) {
 
 // ── PRODUCTS ──
 async function loadProducts() {
-  const { data, error } = await sb.from('products')
-    .select('*, product_images(*), product_sizes(*), product_categories(category_id, categories(name,slug))')
-    .eq('active', true)
-    .order('created_at', {ascending:false});
-  if (error) { console.error('loadProducts error:', error.message); return; }
-  state.products = data || [];
-  console.log('Loaded products:', state.products.length);
-  renderProducts();
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/products?select=id,name,brand,description,price_gbp,size_type,active,created_at,product_images(id,url,position),product_sizes(id,size,stock),product_categories(category_id)&active=eq.true&order=created_at.desc`,
+      { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` } }
+    );
+    const data = await res.json();
+    console.log('Products:', data?.length, data);
+    if (!res.ok) { console.error('Products fetch error:', data); return; }
+    state.products = Array.isArray(data) ? data : [];
+    renderProducts();
+  } catch(e) {
+    console.error('loadProducts fetch error:', e);
+  }
 }
 
 function renderProducts() {
@@ -1373,24 +1386,35 @@ function addSizeRow() {}
 function removeSizeRow(i) { state.sizeRows.splice(i,1); renderSizePicker(); }
 
 async function loadAdminProducts() {
-  const { data } = await sb.from('products').select('*, product_images(*), categories(name)').order('created_at',{ascending:false});
   const tbl = document.getElementById('adminProductsTbl');
-  if (!data?.length) { tbl.innerHTML='<tr><td colspan="7" style="text-align:center;padding:2rem;color:rgba(255,255,255,.3)">No products yet</td></tr>'; return; }
-  tbl.innerHTML = data.map(p => {
-    const img = p.product_images?.sort((a,b)=>a.position-b.position)[0];
-    return `<tr>
-      <td>${img?`<img class="admin-product-img" src="${img.url}" alt="">`:'<div class="admin-product-img" style="background:var(--b3)"></div>'}</td>
-      <td style="color:var(--w);font-weight:500">${p.name}</td>
-      <td>${p.brand}</td>
-      <td>£${p.price_gbp}</td>
-      <td>${p.categories?.name||'—'}</td>
-      <td><span class="badge badge-${p.active?'active':'inactive'}">${p.active?'Active':'Hidden'}</span></td>
-      <td style="display:flex;gap:6px;flex-wrap:wrap">
-        <button class="edit-btn" onclick="editProduct('${p.id}')">Edit</button>
-        <button class="danger-btn" onclick="deleteProduct('${p.id}')">Delete</button>
-      </td>
-    </tr>`;
-  }).join('');
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/products?select=id,name,brand,price_gbp,active,created_at,product_images(id,url,position)&order=created_at.desc`,
+      { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` } }
+    );
+    const data = await res.json();
+    if (!res.ok || !Array.isArray(data)) {
+      tbl.innerHTML=`<tr><td colspan="6" style="text-align:center;padding:2rem;color:#ff6b6b">Error loading: ${JSON.stringify(data)}</td></tr>`;
+      return;
+    }
+    if (!data.length) { tbl.innerHTML='<tr><td colspan="6" style="text-align:center;padding:2rem;color:rgba(255,255,255,.3)">No products yet — click Add Product to get started</td></tr>'; return; }
+    tbl.innerHTML = data.map(p => {
+      const img = (p.product_images||[]).sort((a,b)=>a.position-b.position)[0];
+      return `<tr>
+        <td>${img?`<img class="admin-product-img" src="${img.url}" alt="">`:'<div class="admin-product-img" style="background:var(--b3)"></div>'}</td>
+        <td style="color:var(--w);font-weight:500">${p.name}</td>
+        <td>${p.brand}</td>
+        <td>£${p.price_gbp}</td>
+        <td><span class="badge badge-${p.active?'active':'inactive'}">${p.active?'Active':'Hidden'}</span></td>
+        <td style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="edit-btn" onclick="editProduct('${p.id}')">Edit</button>
+          <button class="danger-btn" onclick="deleteProduct('${p.id}')">Delete</button>
+        </td>
+      </tr>`;
+    }).join('');
+  } catch(e) {
+    tbl.innerHTML=`<tr><td colspan="6" style="text-align:center;padding:2rem;color:#ff6b6b">Error: ${e.message}</td></tr>`;
+  }
 }
 
 
