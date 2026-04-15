@@ -560,12 +560,12 @@ footer{background:var(--b);padding:3rem 1.5rem 1.5rem;margin-top:0}
         </div>
         <div class="form-row">
           <div class="form-field"><label>Price (£ GBP)</label><input id="pPrice" type="number" step="0.01" placeholder="0.00"></div>
-          <div class="form-field"><label>Category</label><select id="pCategory"><option value="">Select category...</option></select></div>
+          <div class="form-field"><label>Category</label><select id="pCategory" onchange="onCategoryChange(this)"><option value="">Select category...</option></select></div>
         </div>
         <div class="form-row">
-          <div class="form-field"><label>Size Type</label>
+          <div class="form-field"><label>Size Type <span style="font-size:10px;color:rgba(255,255,255,.3);font-weight:400">(auto-set by category)</span></label>
             <select id="pSizeType" onchange="updateSizePresets()">
-              <option value="clothing">Clothing (XS-XL)</option>
+              <option value="clothing">Clothing (XS–XL)</option>
               <option value="shoe">Shoe (UK sizes)</option>
             </select>
           </div>
@@ -1220,7 +1220,23 @@ function populateCategorySelect() {
 }
 
 // ── SIZE PICKER ──
-const clothingSizes = ['XS','S','M','L','XL','XXL'];
+const shoeCategories = ['footwear', 'shoes', 'sneakers', 'trainers'];
+
+function onCategoryChange(sel) {
+  const selectedOption = sel.options[sel.selectedIndex];
+  const catName = selectedOption.text.toLowerCase();
+  const catSlug = state.categories.find(c => c.id === sel.value)?.slug || '';
+  const isShoe = shoeCategories.some(s => catName.includes(s) || catSlug.includes(s));
+  const sizeTypeSel = document.getElementById('pSizeType');
+  if (sizeTypeSel) {
+    const prev = sizeTypeSel.value;
+    sizeTypeSel.value = isShoe ? 'shoe' : 'clothing';
+    if (sizeTypeSel.value !== prev) {
+      state.sizeRows = [];
+      renderSizePicker();
+    }
+  }
+}
 const shoeSizes = ['6','6.5','7','7.5','8','8.5','9','9.5','10','10.5','11','11.5','12','12.5','13'];
 
 function updateSizePresets() {
