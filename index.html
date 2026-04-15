@@ -723,7 +723,10 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
     persistSession: true,
     detectSessionInUrl: true,
     flowType: 'implicit',
-    lock: false
+    storage: window.localStorage,
+    storageKey: 'xl-auth',
+    autoRefreshToken: true,
+    lock: (name, acquireTimeout, fn) => fn()
   }
 });
 const rates = {GBP:1, USD:1.27, AUD:1.98, CAD:1.73, EUR:1.17, JPY:190.5, SGD:1.71, AED:4.66};
