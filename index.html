@@ -302,6 +302,15 @@ select.mob-cur option{background:#111}
 .nav-balance-label{font-size:9px;color:rgba(245,168,0,.6);font-weight:700;letter-spacing:.1em;text-transform:uppercase}
 .nav-balance-amt{font-family:var(--fd);font-size:15px;font-weight:900;color:var(--y)}
 
+.size-picker-grid{display:flex;flex-wrap:wrap;gap:8px}
+.size-pick-item{display:flex;flex-direction:column;align-items:center;gap:5px}
+.size-pick-btn{min-width:48px;height:40px;padding:0 10px;border:1.5px solid rgba(255,255,255,.12);border-radius:6px;background:transparent;color:rgba(255,255,255,.4);font-family:var(--fb);font-size:14px;font-weight:500;cursor:pointer;transition:.15s;display:flex;align-items:center;justify-content:center}
+.size-pick-item.active .size-pick-btn{border-color:var(--y);background:rgba(245,168,0,.1);color:var(--y);font-weight:700}
+.size-pick-stock{display:flex;flex-direction:column;align-items:center}
+.size-pick-stock.hidden{display:none}
+.size-pick-stock input{width:52px;background:rgba(255,255,255,.06);border:.5px solid rgba(255,255,255,.12);color:var(--w);padding:5px 6px;border-radius:5px;font-family:var(--fb);font-size:12px;text-align:center;outline:none}
+.size-pick-stock input:focus{border-color:var(--y)}
+
 /* FOOTER */
 footer{background:var(--b);padding:3rem 1.5rem 1.5rem;margin-top:0}
 .foot-i{max-width:1280px;margin:0 auto}
@@ -576,7 +585,6 @@ footer{background:var(--b);padding:3rem 1.5rem 1.5rem;margin-top:0}
         <div class="sizes-builder">
           <div class="sizes-builder-label">Sizes & Stock</div>
           <div id="sizesContainer"></div>
-          <button type="button" class="add-size-btn" onclick="addSizeRow()">+ Add Size</button>
         </div>
         <input type="hidden" id="editingProductId">
         <div style="display:flex;gap:10px;margin-top:1rem;align-items:center">
@@ -1189,9 +1197,11 @@ async function renderAdmin() {
   if (!state.profile?.is_admin) {
     document.getElementById('adminNotice').style.display='block';
   }
+  // Always reload categories fresh so dropdowns are never empty
+  await loadCategories();
   populateCategorySelect();
   populateBrandSelect();
-  updateSizePresets();
+  renderSizePicker();
   loadAdminProducts();
 }
 
@@ -1204,8 +1214,75 @@ function populateBrandSelect() {
 
 function populateCategorySelect() {
   const sel = document.getElementById('pCategory');
+  if (!sel) return;
   sel.innerHTML = '<option value="">Select category...</option>' +
     state.categories.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+}
+
+// ── SIZE PICKER ──
+const clothingSizes = ['XS','S','M','L','XL','XXL'];
+const shoeSizes = ['6','6.5','7','7.5','8','8.5','9','9.5','10','10.5','11','11.5','12','12.5','13'];
+
+function updateSizePresets() {
+  // Reset sizes when type changes
+  state.sizeRows = [];
+  renderSizePicker();
+}
+
+function renderSizePicker() {
+  const type = document.getElementById('pSizeType')?.value || 'clothing';
+  const sizes = type === 'shoe' ? shoeSizes : clothingSizes;
+  const c = document.getElementById('sizesContainer');
+  if (!c) return;
+
+  c.innerHTML = `
+    <div class="size-picker-grid">
+      ${sizes.map(s => {
+        const existing = state.sizeRows.find(r => r.size === s);
+        const checked = !!existing;
+        const stock = existing?.stock || '5';
+        return `<div class="size-pick-item ${checked?'active':''}" id="spitem-${s}">
+          <div class="size-pick-btn" onclick="toggleSize('${s}')">${s}</div>
+          <div class="size-pick-stock ${checked?'':'hidden'}" id="spstock-${s}">
+            <input type="number" min="0" max="999" value="${stock}"
+              placeholder="Qty"
+              onchange="updateSizeStock('${s}', this.value)"
+              onclick="event.stopPropagation()">
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+    <p style="font-size:12px;color:rgba(255,255,255,.3);margin-top:.8rem">
+      ${type === 'shoe' ? '🇬🇧 UK sizes — automatically converted to US/AU for international customers' : 'Tap a size to toggle it on/off, then set stock quantity'}
+    </p>`;
+}
+
+function toggleSize(size) {
+  const idx = state.sizeRows.findIndex(r => r.size === size);
+  const item = document.getElementById('spitem-'+size);
+  const stockEl = document.getElementById('spstock-'+size);
+  if (idx > -1) {
+    state.sizeRows.splice(idx, 1);
+    item?.classList.remove('active');
+    stockEl?.classList.add('hidden');
+  } else {
+    state.sizeRows.push({size, stock:'5'});
+    item?.classList.add('active');
+    stockEl?.classList.remove('hidden');
+  }
+}
+
+function updateSizeStock(size, val) {
+  const row = state.sizeRows.find(r => r.size === size);
+  if (row) row.stock = val;
+}
+
+function addSizeRow() {
+  // Legacy - not needed with new picker but kept for compatibility
+}
+function removeSizeRow(i) {
+  state.sizeRows.splice(i, 1);
+  renderSizePicker();
 }
 
 async function loadAdminProducts() {
@@ -1229,29 +1306,6 @@ async function loadAdminProducts() {
   }).join('');
 }
 
-function updateSizePresets() {
-  const type = document.getElementById('pSizeType')?.value;
-  if (!state.sizeRows?.length) {
-    state.sizeRows = type==='shoe' ?
-      [{size:'7',stock:'5'},{size:'8',stock:'5'},{size:'9',stock:'5'},{size:'10',stock:'5'}] :
-      [{size:'XS',stock:'5'},{size:'S',stock:'5'},{size:'M',stock:'5'},{size:'L',stock:'5'},{size:'XL',stock:'5'}];
-    renderSizeRows();
-  }
-}
-
-function renderSizeRows() {
-  const c = document.getElementById('sizesContainer');
-  c.innerHTML = state.sizeRows.map((r,i)=>`
-    <div class="size-row">
-      <input value="${r.size}" placeholder="Size" onchange="state.sizeRows[${i}].size=this.value">
-      <input type="number" value="${r.stock}" placeholder="Stock" style="width:80px" onchange="state.sizeRows[${i}].stock=this.value">
-      <button class="size-row-rm" onclick="removeSizeRow(${i})">✕</button>
-    </div>`).join('');
-}
-
-function addSizeRow() { state.sizeRows.push({size:'',stock:'0'}); renderSizeRows(); }
-function removeSizeRow(i) { state.sizeRows.splice(i,1); renderSizeRows(); }
-
 function previewImages(input) {
   const preview = document.getElementById('imgPreview');
   state.uploadedImages = Array.from(input.files);
@@ -1267,6 +1321,9 @@ async function editProduct(id) {
   const { data: p } = await sb.from('products').select('*, product_images(*), product_sizes(*)').eq('id',id).single();
   state.editingId = id;
   adminTab('add');
+  // Make sure dropdowns are populated
+  populateBrandSelect();
+  populateCategorySelect();
   document.getElementById('addFormTitle').textContent = 'Edit Product';
   document.getElementById('cancelEditBtn').style.display='block';
   document.getElementById('pName').value = p.name;
@@ -1276,8 +1333,9 @@ async function editProduct(id) {
   document.getElementById('pSizeType').value = p.size_type;
   document.getElementById('pActive').value = p.active.toString();
   document.getElementById('pDesc').value = p.description||'';
-  state.sizeRows = (p.product_sizes||[]).map(s=>({size:s.size,stock:s.stock.toString()}));
-  renderSizeRows();
+  // Load existing sizes into state and render picker
+  state.sizeRows = (p.product_sizes||[]).map(s=>({size:s.size, stock:s.stock.toString()}));
+  renderSizePicker();
   const prev = document.getElementById('imgPreview');
   prev.innerHTML = (p.product_images||[]).sort((a,b)=>a.position-b.position).map((img,i)=>
     `<div class="img-prev-item"><img src="${img.url}"><button class="img-prev-rm" onclick="deleteExistingImg('${img.id}',this.parentNode)">✕</button></div>`
@@ -1293,10 +1351,13 @@ function cancelEdit() {
   state.editingId=null; state.sizeRows=[]; state.uploadedImages=[];
   document.getElementById('addFormTitle').textContent='Add New Product';
   document.getElementById('cancelEditBtn').style.display='none';
-  document.getElementById('pName').value='';document.getElementById('pBrand').value='';
-  document.getElementById('pPrice').value='';document.getElementById('pDesc').value='';
+  document.getElementById('pName').value='';
+  document.getElementById('pBrand').value='';
+  document.getElementById('pPrice').value='';
+  document.getElementById('pDesc').value='';
+  document.getElementById('pSizeType').value='clothing';
   document.getElementById('imgPreview').innerHTML='';
-  updateSizePresets();
+  renderSizePicker();
 }
 
 async function saveProduct() {
