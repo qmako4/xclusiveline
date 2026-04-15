@@ -863,6 +863,7 @@ async function init() {
   const { data: { session } } = await sb.auth.getSession();
   if (session) {
     state.user = session.user;
+    cachedToken = session.access_token;
     await loadProfile();
     updateAuthUI();
     if (document.getElementById('accountView').classList.contains('active')) renderAccount();
@@ -870,6 +871,8 @@ async function init() {
 
   sb.auth.onAuthStateChange(async (event, session) => {
     state.user = session?.user || null;
+    if (session?.access_token) cachedToken = session.access_token;
+    else cachedToken = null;
     if (state.user) {
       await loadProfile();
       updateAuthUI();
@@ -1630,15 +1633,32 @@ function cancelEdit() {
 }
 
 // ── REST HELPERS ──
+let cachedToken = null;
+
+async function getToken() {
+  if (cachedToken) return cachedToken;
+  // Try localStorage directly - fastest, no lock
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.includes('xl-auth')) {
+      try {
+        const val = JSON.parse(localStorage.getItem(key));
+        if (val?.access_token) { cachedToken = val.access_token; return cachedToken; }
+        if (val?.session?.access_token) { cachedToken = val.session.access_token; return cachedToken; }
+      } catch(e) {}
+    }
+  }
+  return SUPABASE_KEY;
+}
+
 async function restGet(table, params='') {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${params}`,
-    { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' } });
+    { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` } });
   return res.json();
 }
 
 async function restPost(table, body) {
-  const { data:{ session } } = await sb.auth.getSession();
-  const token = session?.access_token || SUPABASE_KEY;
+  const token = await getToken();
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`,
     { method:'POST', headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json', 'Prefer': 'return=representation' }, body: JSON.stringify(body) });
   const data = await res.json();
@@ -1647,8 +1667,7 @@ async function restPost(table, body) {
 }
 
 async function restPatch(table, filter, body) {
-  const { data:{ session } } = await sb.auth.getSession();
-  const token = session?.access_token || SUPABASE_KEY;
+  const token = await getToken();
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${filter}`,
     { method:'PATCH', headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json', 'Prefer': 'return=representation' }, body: JSON.stringify(body) });
   if (!res.ok) { const d = await res.json(); throw new Error(d.message || JSON.stringify(d)); }
@@ -1656,15 +1675,13 @@ async function restPatch(table, filter, body) {
 }
 
 async function restDelete(table, filter) {
-  const { data:{ session } } = await sb.auth.getSession();
-  const token = session?.access_token || SUPABASE_KEY;
+  const token = await getToken();
   await fetch(`${SUPABASE_URL}/rest/v1/${table}?${filter}`,
-    { method:'DELETE', headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' } });
+    { method:'DELETE', headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${token}` } });
 }
 
 async function restUpload(path, blob) {
-  const { data:{ session } } = await sb.auth.getSession();
-  const token = session?.access_token || SUPABASE_KEY;
+  const token = await getToken();
   const res = await fetch(`${SUPABASE_URL}/storage/v1/object/product-images/${path}`,
     { method:'POST', headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${token}`, 'Content-Type': 'image/jpeg', 'x-upsert': 'true' }, body: blob });
   if (!res.ok) { const d = await res.json(); throw new Error(d.message || 'Upload failed'); }
