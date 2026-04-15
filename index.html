@@ -400,15 +400,10 @@ footer{background:var(--b);padding:3rem 1.5rem 1.5rem;margin-top:0}
       </div>
       <h2 class="acc-section-title">Top Up Balance</h2>
       <div class="topup-box">
-        <div class="topup-label">Select amount</div>
-        <div class="topup-amounts">
-          <div class="topup-amt" onclick="selectTopup(20)">£20</div>
-          <div class="topup-amt" onclick="selectTopup(50)">£50</div>
-          <div class="topup-amt" onclick="selectTopup(100)">£100</div>
-          <div class="topup-amt" onclick="selectTopup(200)">£200</div>
-        </div>
+        <div class="topup-label">Select amount to add to your balance</div>
+        <div class="topup-amounts" id="topupAmounts"></div>
         <div class="topup-custom">
-          <input type="number" id="customTopup" placeholder="Custom amount £" min="5" max="500" oninput="selectTopup(parseFloat(this.value)||0,true)">
+          <input type="number" id="customTopup" placeholder="Custom amount (GBP £)" min="5" max="500" oninput="selectTopup(parseFloat(this.value)||0,true)">
         </div>
         <div id="paypal-buttons"></div>
         <p class="paypal-note" id="paypalNote"></p>
@@ -617,6 +612,18 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const rates = {GBP:1, USD:1.27, AUD:1.98};
 const syms = {GBP:'£', USD:'$', AUD:'A$'};
 const ukToUS = {'6':'7','6.5':'7.5','7':'8','7.5':'8.5','8':'9','8.5':'9.5','9':'10','9.5':'10.5','10':'11','10.5':'11.5','11':'12','12':'13'};
+
+function roundPrice(gbp, currency) {
+  if (currency === 'GBP') return parseFloat(gbp);
+  const converted = parseFloat(gbp) * rates[currency];
+  // Round to nearest whole number then subtract 0.01 for .99 pricing
+  return Math.ceil(converted) - 0.01;
+}
+
+function fmt(gbp) {
+  const price = roundPrice(gbp, state.currency);
+  return syms[state.currency] + price.toFixed(2);
+}
 
 let state = {
   user: null, profile: null,
@@ -921,17 +928,31 @@ async function renderAccount() {
   document.getElementById('accLoggedIn').style.display='block';
   document.getElementById('accTitle').textContent = `Hey, ${state.profile.full_name||state.profile.email.split('@')[0]} 👋`;
   updateBalanceDisplay();
+  renderTopupAmounts();
   await loadOrders();
   initPayPal();
 }
 
 // ── TOPUP / PAYPAL ──
-function selectTopup(amt, fromInput=false) {
-  state.topupAmount = amt;
+function renderTopupAmounts() {
+  const presets = [20, 50, 100, 200]; // always in GBP
+  const el = document.getElementById('topupAmounts');
+  if (!el) return;
+  el.innerHTML = presets.map(gbp => {
+    const local = roundPrice(gbp, state.currency);
+    return `<div class="topup-amt" onclick="selectTopup(${gbp})">${syms[state.currency]}${local.toFixed(0)}</div>`;
+  }).join('');
+}
+
+function selectTopup(gbpAmt, fromInput=false) {
+  state.topupAmount = gbpAmt;
   document.querySelectorAll('.topup-amt').forEach(el => el.classList.remove('sel'));
   if (!fromInput) { document.getElementById('customTopup').value=''; }
-  document.querySelectorAll('.topup-amt').forEach(el => { if (el.textContent===`£${amt}`) el.classList.add('sel'); });
-  if (amt > 0) initPayPal();
+  const localAmt = roundPrice(gbpAmt, state.currency);
+  document.querySelectorAll('.topup-amt').forEach(el => {
+    if (el.textContent === `${syms[state.currency]}${localAmt.toFixed(0)}`) el.classList.add('sel');
+  });
+  if (gbpAmt > 0) initPayPal();
 }
 
 function initPayPal() {
@@ -941,11 +962,11 @@ function initPayPal() {
     document.getElementById('paypal-buttons').innerHTML = `<div style="background:rgba(255,255,255,.06);border:.5px solid rgba(255,255,255,.12);border-radius:8px;padding:14px;text-align:center;color:rgba(255,255,255,.4);font-size:13px;">PayPal will appear here once Client ID is configured</div>`;
     return;
   }
-  const script = document.getElementById('paypal-sdk');
-  if (script) { renderPayPalButtons(); return; }
+  const existingScript = document.getElementById('paypal-sdk');
+  if (existingScript) { existingScript.remove(); }
   const s = document.createElement('script');
   s.id = 'paypal-sdk';
-  s.src = `https://www.paypal.com/sdk/js?client-id=${PAYPAL_CLIENT_ID}&currency=GBP&components=buttons`;
+  s.src = `https://www.paypal.com/sdk/js?client-id=${PAYPAL_CLIENT_ID}&currency=${state.currency}&components=buttons`;
   s.onload = renderPayPalButtons;
   document.head.appendChild(s);
 }
@@ -953,21 +974,28 @@ function initPayPal() {
 function renderPayPalButtons() {
   document.getElementById('paypal-buttons').innerHTML = '';
   if (!window.paypal) return;
+  const localAmount = roundPrice(state.topupAmount, state.currency).toFixed(2);
+  const currency = state.currency;
   paypal.Buttons({
     createOrder: (data, actions) => actions.order.create({
-      purchase_units:[{amount:{value:state.topupAmount.toFixed(2),currency_code:'GBP'},description:'XclusiveLine Credit Top-Up'}]
+      purchase_units:[{
+        amount:{value:localAmount, currency_code:currency},
+        description:'XclusiveLine Credit Top-Up'
+      }]
     }),
     onApprove: async (data, actions) => {
       const order = await actions.order.capture();
+      // Always store balance in GBP
+      const gbpAmount = parseFloat(state.topupAmount);
       const { data: topup, error } = await sb.from('topups').insert({
-        user_id: state.user.id, amount_gbp: state.topupAmount,
+        user_id: state.user.id, amount_gbp: gbpAmount,
         paypal_order_id: order.id, status:'pending'
       }).select().single();
       if (error) { showToast('Error recording top-up'); return; }
       await sb.rpc('confirm_topup', {p_topup_id: topup.id});
       await loadProfile();
       updateBalanceDisplay();
-      showToast(`£${state.topupAmount.toFixed(2)} added to your balance! 🎉`);
+      showToast(`${syms[currency]}${localAmount} added to your balance! 🎉`);
       state.topupAmount = 0;
       document.getElementById('paypal-buttons').innerHTML = '';
     },
