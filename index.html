@@ -718,7 +718,14 @@ const SUPABASE_URL = 'https://ptucjxjqyvirhumzdggo.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB0dWNqeGpxeXZpcmh1bXpkZ2dvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYyMDkzNzEsImV4cCI6MjA5MTc4NTM3MX0.o-kQ-zVRnEVIuPRS1mqFtkY2znkrEgIXh_qPMwIRvm4';
 const PAYPAL_CLIENT_ID = 'AViPSrHXjYHOGpq30UOuIQB7iPkpRGCz2_SLMkUw3yk8w_X1QA0SJq-psuTff3JquBUtCdibI21McjV9'; // ← Replace with your PayPal client ID
 
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth: {
+    persistSession: true,
+    detectSessionInUrl: true,
+    flowType: 'implicit',
+    lock: false
+  }
+});
 const rates = {GBP:1, USD:1.27, AUD:1.98, CAD:1.73, EUR:1.17, JPY:190.5, SGD:1.71, AED:4.66};
 const syms = {GBP:'£', USD:'$', AUD:'A$', CAD:'C$', EUR:'€', JPY:'¥', SGD:'S$', AED:'AED '};
 const ukToUS = {'6':'7','6.5':'7.5','7':'8','7.5':'8.5','8':'9','8.5':'9.5','9':'10','9.5':'10.5','10':'11','10.5':'11.5','11':'12','12':'13'};
@@ -1438,13 +1445,14 @@ async function saveProduct() {
     const productData={name,brand,price_gbp:price,category_id:state.selectedCategoryIds[0],size_type:sizeType,active,description:desc};
 
     if (productId) {
-      const {error:ue} = await sb.from('products').update(productData).eq('id',productId);
+      const {error:ue} = await withTimeout(sb.from('products').update(productData).eq('id',productId));
       if (ue) throw new Error('Failed to update product: '+ue.message);
-      await sb.from('product_sizes').delete().eq('product_id',productId);
-      await sb.from('product_categories').delete().eq('product_id',productId);
+      await withTimeout(sb.from('product_sizes').delete().eq('product_id',productId));
+      await withTimeout(sb.from('product_categories').delete().eq('product_id',productId));
     } else {
-      const { data, error:ie } = await sb.from('products').insert(productData).select().single();
+      const { data, error:ie } = await withTimeout(sb.from('products').insert(productData).select().single());
       if (ie) throw new Error('Failed to create product: '+ie.message);
+      if (!data) throw new Error('No data returned from insert — check RLS policies');
       productId = data.id;
     }
 
@@ -1499,7 +1507,13 @@ async function saveProduct() {
   }
 }
 
-// Compress image using canvas before uploading
+// Helper: timeout any promise after N seconds
+function withTimeout(promise, ms=10000) {
+  return Promise.race([
+    promise,
+    new Promise((_,reject) => setTimeout(() => reject(new Error('Request timed out — check your connection')), ms))
+  ]);
+}
 function compressImage(file, maxWidth, quality) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
