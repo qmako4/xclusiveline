@@ -56,6 +56,9 @@ select.cur option{background:#111;color:var(--y)}
 .mob-links a{font-family:var(--fd);font-size:2.8rem;font-weight:900;letter-spacing:.04em;text-transform:uppercase;color:rgba(255,255,255,.25);text-decoration:none;padding:.5rem 0;border-bottom:.5px solid rgba(255,255,255,.06);transition:color .15s;cursor:pointer}
 .mob-links a:hover{color:var(--y)}
 .mob-bot{padding:1.2rem 1.5rem;border-top:.5px solid rgba(255,255,255,.08);display:flex;gap:10px}
+.mob-balance{padding:1rem 1.5rem;border-top:.5px solid rgba(255,255,255,.08);display:flex;justify-content:space-between;align-items:center}
+.mob-balance-label{font-size:12px;color:rgba(255,255,255,.4);letter-spacing:.08em;text-transform:uppercase}
+.mob-balance-amt{font-family:var(--fd);font-size:1.6rem;font-weight:900;color:var(--y)}
 select.mob-cur{flex:1;background:rgba(255,255,255,.06);border:.5px solid rgba(255,255,255,.12);color:var(--w);padding:10px;border-radius:8px;font-family:var(--fb);font-size:14px}
 select.mob-cur option{background:#111}
 
@@ -302,6 +305,10 @@ select.mob-cur option{background:#111}
 .nav-balance-label{font-size:9px;color:rgba(245,168,0,.6);font-weight:700;letter-spacing:.1em;text-transform:uppercase}
 .nav-balance-amt{font-family:var(--fd);font-size:15px;font-weight:900;color:var(--y)}
 
+.cat-picker-grid{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.cat-pick-btn{padding:7px 16px;border:1.5px solid rgba(255,255,255,.12);border-radius:20px;background:transparent;color:rgba(255,255,255,.45);font-family:var(--fb);font-size:13px;font-weight:500;cursor:pointer;transition:.15s}
+.cat-pick-btn:hover{border-color:rgba(255,255,255,.3);color:var(--w)}
+.cat-pick-btn.active{border-color:var(--y);background:rgba(245,168,0,.1);color:var(--y);font-weight:600}
 .size-picker-grid{display:flex;flex-wrap:wrap;gap:8px}
 .size-pick-item{display:flex;flex-direction:column;align-items:center;gap:5px}
 .size-pick-btn{min-width:48px;height:40px;padding:0 10px;border:1.5px solid rgba(255,255,255,.12);border-radius:6px;background:transparent;color:rgba(255,255,255,.4);font-family:var(--fb);font-size:14px;font-weight:500;cursor:pointer;transition:.15s;display:flex;align-items:center;justify-content:center}
@@ -407,7 +414,12 @@ footer{background:var(--b);padding:3rem 1.5rem 1.5rem;margin-top:0}
     <a onclick="showView('shop');toggleMob()">Shop</a>
     <a onclick="showView('account');toggleMob()">Account</a>
     <a onclick="openCart();toggleMob()">Cart</a>
-    <a onclick="openAuth('login');toggleMob()">Login / Register</a>
+    <a id="mobAuthLink" onclick="openAuth('login');toggleMob()">Login / Register</a>
+    <a id="mobAdminLink" style="display:none;color:var(--y)!important;opacity:1!important" onclick="showView('admin');toggleMob()">Admin Panel</a>
+  </div>
+  <div class="mob-balance" id="mobBalance" style="display:none">
+    <span class="mob-balance-label">Your Balance</span>
+    <span class="mob-balance-amt" id="mobBalAmt">£0.00</span>
   </div>
   <div class="mob-bot">
     <select class="mob-cur" onchange="setCurrency(this.value);document.getElementById('curSel').value=this.value">
@@ -560,18 +572,13 @@ footer{background:var(--b);padding:3rem 1.5rem 1.5rem;margin-top:0}
         </div>
         <div class="form-row">
           <div class="form-field"><label>Price (£ GBP)</label><input id="pPrice" type="number" step="0.01" placeholder="0.00"></div>
-          <div class="form-field"><label>Category</label><select id="pCategory" onchange="onCategoryChange(this)"><option value="">Select category...</option></select></div>
-        </div>
-        <div class="form-row">
-          <div class="form-field"><label>Size Type <span style="font-size:10px;color:rgba(255,255,255,.3);font-weight:400">(auto-set by category)</span></label>
-            <select id="pSizeType" onchange="updateSizePresets()">
-              <option value="clothing">Clothing (XS–XL)</option>
-              <option value="shoe">Shoe (UK sizes)</option>
-            </select>
-          </div>
           <div class="form-field"><label>Status</label>
             <select id="pActive"><option value="true">Active</option><option value="false">Hidden</option></select>
           </div>
+        </div>
+        <div class="form-field" style="margin-bottom:1rem">
+          <label>Categories <span style="font-size:10px;color:rgba(255,255,255,.3);font-weight:400">(select one or more)</span></label>
+          <div class="cat-picker-grid" id="catPickerGrid"></div>
         </div>
         <div class="form-field" style="margin-bottom:1rem"><label>Description</label><textarea id="pDesc" placeholder="Product description..."></textarea></div>
         <!-- IMAGES -->
@@ -742,6 +749,7 @@ let state = {
   editingId: null,
   uploadedImages: [],
   sizeRows: [],
+  selectedCategoryIds: [],
 };
 
 // ── INIT ──
@@ -1002,14 +1010,18 @@ async function logout() {
 
 function updateAuthUI() {
   const btn = document.getElementById('authBtn');
+  const mobAuthLink = document.getElementById('mobAuthLink');
+  const mobAdminLink = document.getElementById('mobAdminLink');
   if (state.user) {
-    btn.textContent = 'Admin';
-    btn.onclick = () => showView('admin');
-    btn.style.display = state.profile?.is_admin ? 'block' : 'none';
+    if (btn) { btn.textContent='Admin'; btn.onclick=()=>showView('admin'); btn.style.display=state.profile?.is_admin?'block':'none'; }
+    if (mobAuthLink) { mobAuthLink.textContent='Sign Out'; mobAuthLink.onclick=()=>{logout();toggleMob();}; }
+    if (mobAdminLink) mobAdminLink.style.display = state.profile?.is_admin ? 'block' : 'none';
   } else {
-    btn.textContent = 'Login';
-    btn.onclick = () => openAuth('login');
-    btn.style.display = 'block';
+    if (btn) { btn.textContent='Login'; btn.onclick=()=>openAuth('login'); btn.style.display='block'; }
+    if (mobAuthLink) { mobAuthLink.textContent='Login / Register'; mobAuthLink.onclick=()=>{openAuth('login');toggleMob();}; }
+    if (mobAdminLink) mobAdminLink.style.display='none';
+    const mobBal = document.getElementById('mobBalance');
+    if (mobBal) mobBal.style.display='none';
   }
 }
 
@@ -1027,9 +1039,13 @@ function updateBalanceDisplay() {
   const accEl = document.getElementById('balDisplay');
   const navEl = document.getElementById('navBalAmt');
   const navWrap = document.getElementById('navBalance');
+  const mobEl = document.getElementById('mobBalAmt');
+  const mobWrap = document.getElementById('mobBalance');
   if (accEl) accEl.textContent = bal;
   if (navEl) navEl.textContent = bal;
   if (navWrap) navWrap.style.display = 'flex';
+  if (mobEl) mobEl.textContent = bal;
+  if (mobWrap) mobWrap.style.display = 'flex';
 }
 
 // ── ACCOUNT ──
@@ -1197,11 +1213,10 @@ async function renderAdmin() {
   if (!state.profile?.is_admin) {
     document.getElementById('adminNotice').style.display='block';
   }
-  // Always reload categories fresh so dropdowns are never empty
   await loadCategories();
-  populateCategorySelect();
   populateBrandSelect();
-  renderSizePicker();
+  renderCategoryPicker();
+  renderSizePicker('clothing');
   loadAdminProducts();
 }
 
@@ -1219,75 +1234,92 @@ function populateCategorySelect() {
     state.categories.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
 }
 
-// ── SIZE PICKER ──
+// ── CATEGORY & SIZE PICKER ──
 const clothingSizes = ['XS','S','M','L','XL','XXL'];
 const shoeSizes = ['6','6.5','7','7.5','8','8.5','9','9.5','10','10.5','11','11.5','12','12.5','13'];
-const shoeCategories = ['footwear', 'shoes', 'sneakers', 'trainers'];
+const shoeCategories = ['footwear','shoes','sneakers','trainers'];
 const noSizeCategories = ['accessories'];
 
-function onCategoryChange(sel) {
-  const catSlug = state.categories.find(c => c.id === sel.value)?.slug || '';
-  const catName = (sel.options[sel.selectedIndex].text || '').toLowerCase();
-  const isShoe = shoeCategories.some(s => catName.includes(s) || catSlug.includes(s));
-  const isNoSize = noSizeCategories.some(s => catName.includes(s) || catSlug.includes(s));
-  const sizeTypeSel = document.getElementById('pSizeType');
-  const sizesBuilder = document.querySelector('.sizes-builder');
+function renderCategoryPicker() {
+  const grid = document.getElementById('catPickerGrid');
+  if (!grid || !state.categories.length) return;
+  grid.innerHTML = state.categories.map(c =>
+    `<button type="button" class="cat-pick-btn ${state.selectedCategoryIds.includes(c.id)?'active':''}"
+      onclick="toggleCategory('${c.id}','${c.slug}')">${c.name}</button>`
+  ).join('');
+}
 
-  if (isNoSize) {
-    // Hide size section entirely for accessories
+function toggleCategory(id, slug) {
+  const idx = state.selectedCategoryIds.indexOf(id);
+  if (idx > -1) state.selectedCategoryIds.splice(idx, 1);
+  else state.selectedCategoryIds.push(id);
+  renderCategoryPicker();
+  updateSizeTypeFromCategories();
+}
+
+function updateSizeTypeFromCategories() {
+  const selectedSlugs = state.categories
+    .filter(c => state.selectedCategoryIds.includes(c.id))
+    .map(c => c.slug);
+  const sizesBuilder = document.querySelector('.sizes-builder');
+  const isShoe = selectedSlugs.some(s => shoeCategories.includes(s));
+  const allNoSize = selectedSlugs.length > 0 && selectedSlugs.every(s => noSizeCategories.includes(s));
+  if (allNoSize) {
     if (sizesBuilder) sizesBuilder.style.display = 'none';
     state.sizeRows = [];
     return;
   }
-
   if (sizesBuilder) sizesBuilder.style.display = 'block';
-
-  if (sizeTypeSel) {
-    const newType = isShoe ? 'shoe' : 'clothing';
-    sizeTypeSel.value = newType;
+  const newType = isShoe ? 'shoe' : 'clothing';
+  const pSizeType = document.getElementById('pSizeType');
+  const currentType = pSizeType?.value;
+  if (currentType !== newType) {
+    if (pSizeType) pSizeType.value = newType;
     state.sizeRows = [];
-    renderSizePicker();
+    renderSizePicker(newType);
   }
 }
+
 function updateSizePresets() {
   const sizesBuilder = document.querySelector('.sizes-builder');
   if (sizesBuilder) sizesBuilder.style.display = 'block';
+  const type = document.getElementById('pSizeType')?.value || 'clothing';
   state.sizeRows = [];
-  renderSizePicker();
+  renderSizePicker(type);
 }
 
-function renderSizePicker() {
-  const type = document.getElementById('pSizeType')?.value || 'clothing';
+function renderSizePicker(typeOverride) {
+  const type = typeOverride || document.getElementById('pSizeType')?.value || 'clothing';
   const sizes = type === 'shoe' ? shoeSizes : clothingSizes;
   const c = document.getElementById('sizesContainer');
   if (!c) return;
-
   c.innerHTML = `
+    <input type="hidden" id="pSizeType" value="${type}">
     <div class="size-picker-grid">
       ${sizes.map(s => {
+        const key = s.replace('.','_');
         const existing = state.sizeRows.find(r => r.size === s);
-        const checked = !!existing;
+        const active = !!existing;
         const stock = existing?.stock || '5';
-        return `<div class="size-pick-item ${checked?'active':''}" id="spitem-${s}">
+        return `<div class="size-pick-item ${active?'active':''}" id="spitem-${key}">
           <div class="size-pick-btn" onclick="toggleSize('${s}')">${s}</div>
-          <div class="size-pick-stock ${checked?'':'hidden'}" id="spstock-${s}">
-            <input type="number" min="0" max="999" value="${stock}"
-              placeholder="Qty"
-              onchange="updateSizeStock('${s}', this.value)"
-              onclick="event.stopPropagation()">
+          <div class="size-pick-stock ${active?'':'hidden'}" id="spstock-${key}">
+            <input type="number" min="0" max="999" value="${stock}" placeholder="Qty"
+              onchange="updateSizeStock('${s}',this.value)" onclick="event.stopPropagation()">
           </div>
         </div>`;
       }).join('')}
     </div>
     <p style="font-size:12px;color:rgba(255,255,255,.3);margin-top:.8rem">
-      ${type === 'shoe' ? '🇬🇧 UK sizes — automatically converted to US/AU for international customers' : 'Tap a size to toggle it on/off, then set stock quantity'}
+      ${type==='shoe'?'🇬🇧 UK sizes — auto-converted to US/AU/etc for international customers':'Tap a size to select it, then set stock quantity'}
     </p>`;
 }
 
 function toggleSize(size) {
+  const key = size.replace('.','_');
   const idx = state.sizeRows.findIndex(r => r.size === size);
-  const item = document.getElementById('spitem-'+size);
-  const stockEl = document.getElementById('spstock-'+size);
+  const item = document.getElementById('spitem-'+key);
+  const stockEl = document.getElementById('spstock-'+key);
   if (idx > -1) {
     state.sizeRows.splice(idx, 1);
     item?.classList.remove('active');
@@ -1304,13 +1336,8 @@ function updateSizeStock(size, val) {
   if (row) row.stock = val;
 }
 
-function addSizeRow() {
-  // Legacy - not needed with new picker but kept for compatibility
-}
-function removeSizeRow(i) {
-  state.sizeRows.splice(i, 1);
-  renderSizePicker();
-}
+function addSizeRow() {}
+function removeSizeRow(i) { state.sizeRows.splice(i,1); renderSizePicker(); }
 
 async function loadAdminProducts() {
   const { data } = await sb.from('products').select('*, product_images(*), categories(name)').order('created_at',{ascending:false});
@@ -1345,24 +1372,24 @@ function previewImages(input) {
 function removeImg(i) { state.uploadedImages.splice(i,1); previewImages({files:state.uploadedImages}); }
 
 async function editProduct(id) {
-  const { data: p } = await sb.from('products').select('*, product_images(*), product_sizes(*)').eq('id',id).single();
+  const { data: p } = await sb.from('products').select('*, product_images(*), product_sizes(*), product_categories(category_id)').eq('id',id).single();
   state.editingId = id;
   adminTab('add');
-  // Make sure dropdowns are populated
   populateBrandSelect();
-  populateCategorySelect();
   document.getElementById('addFormTitle').textContent = 'Edit Product';
   document.getElementById('cancelEditBtn').style.display='block';
   document.getElementById('pName').value = p.name;
   document.getElementById('pBrand').value = p.brand;
   document.getElementById('pPrice').value = p.price_gbp;
-  document.getElementById('pCategory').value = p.category_id||'';
-  document.getElementById('pSizeType').value = p.size_type;
   document.getElementById('pActive').value = p.active.toString();
   document.getElementById('pDesc').value = p.description||'';
-  // Load existing sizes into state and render picker
+  // Load selected categories
+  state.selectedCategoryIds = (p.product_categories||[]).map(pc => pc.category_id);
+  if (!state.selectedCategoryIds.length && p.category_id) state.selectedCategoryIds = [p.category_id];
+  renderCategoryPicker();
+  // Load sizes
   state.sizeRows = (p.product_sizes||[]).map(s=>({size:s.size, stock:s.stock.toString()}));
-  renderSizePicker();
+  renderSizePicker(p.size_type);
   const prev = document.getElementById('imgPreview');
   prev.innerHTML = (p.product_images||[]).sort((a,b)=>a.position-b.position).map((img,i)=>
     `<div class="img-prev-item"><img src="${img.url}"><button class="img-prev-rm" onclick="deleteExistingImg('${img.id}',this.parentNode)">✕</button></div>`
@@ -1375,41 +1402,47 @@ async function deleteExistingImg(id, el) {
 }
 
 function cancelEdit() {
-  state.editingId=null; state.sizeRows=[]; state.uploadedImages=[];
+  state.editingId=null; state.sizeRows=[]; state.uploadedImages=[]; state.selectedCategoryIds=[];
   document.getElementById('addFormTitle').textContent='Add New Product';
   document.getElementById('cancelEditBtn').style.display='none';
   document.getElementById('pName').value='';
   document.getElementById('pBrand').value='';
   document.getElementById('pPrice').value='';
   document.getElementById('pDesc').value='';
-  document.getElementById('pSizeType').value='clothing';
-  document.getElementById('pCategory').value='';
   document.getElementById('imgPreview').innerHTML='';
   const sizesBuilder = document.querySelector('.sizes-builder');
   if (sizesBuilder) sizesBuilder.style.display = 'block';
-  renderSizePicker();
+  renderCategoryPicker();
+  renderSizePicker('clothing');
 }
 
 async function saveProduct() {
   const name=document.getElementById('pName').value.trim();
   const brand=document.getElementById('pBrand').value;
   const price=parseFloat(document.getElementById('pPrice').value);
-  const catId=document.getElementById('pCategory').value;
-  const sizeType=document.getElementById('pSizeType').value;
+  const sizeType=document.getElementById('pSizeType')?.value || 'clothing';
   const active=document.getElementById('pActive').value==='true';
   const desc=document.getElementById('pDesc').value.trim();
   if (!name||!brand||!price) { showToast('Fill in name, brand and price'); return; }
+  if (!state.selectedCategoryIds.length) { showToast('Select at least one category'); return; }
   const saveBtn=document.getElementById('saveBtn');
   const spinner=document.getElementById('saveSpinner');
   saveBtn.disabled=true; spinner.style.display='inline-block';
   let productId = state.editingId;
-  const productData={name,brand,price_gbp:price,category_id:catId||null,size_type:sizeType,active,description:desc};
+  const productData={name,brand,price_gbp:price,category_id:state.selectedCategoryIds[0],size_type:sizeType,active,description:desc};
   if (productId) {
     await sb.from('products').update(productData).eq('id',productId);
     await sb.from('product_sizes').delete().eq('product_id',productId);
+    await sb.from('product_categories').delete().eq('product_id',productId);
   } else {
     const { data } = await sb.from('products').insert(productData).select().single();
     productId = data.id;
+  }
+  // Save all selected categories to junction table
+  if (state.selectedCategoryIds.length) {
+    await sb.from('product_categories').insert(
+      state.selectedCategoryIds.map(cid => ({product_id: productId, category_id: cid}))
+    );
   }
   // Sizes
   if (state.sizeRows.length) {
