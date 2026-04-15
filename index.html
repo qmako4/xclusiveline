@@ -153,7 +153,14 @@ select.mob-cur option{background:#111}
 .p-brand{font-size:10px;color:var(--y);font-weight:700;letter-spacing:.12em;text-transform:uppercase;margin-bottom:2px}
 .p-name{font-family:var(--fd);font-size:17px;font-weight:800;text-transform:uppercase;color:var(--w);line-height:1.15;margin-bottom:6px}
 .p-bot{display:flex;align-items:center;justify-content:space-between}
-.p-price{font-size:15px;font-weight:500;color:var(--w)}
+.p-price-wrap{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.p-price-sale{font-size:15px;font-weight:700;color:#ff6b6b}
+.p-price-orig{font-size:13px;color:rgba(255,255,255,.35);text-decoration:line-through}
+.sale-tag{background:rgba(212,43,43,.2);color:#ff6b6b;border:.5px solid rgba(212,43,43,.4);padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.pm-price-sale{font-size:1.8rem;font-weight:700;color:#ff6b6b}
+.pm-price-orig{font-size:1.1rem;color:rgba(255,255,255,.35);text-decoration:line-through;margin-left:6px}
+.car-price-sale{font-size:1.1rem;font-weight:700;color:#ff6b6b}
+.car-price-orig{font-size:.9rem;color:rgba(255,255,255,.3);text-decoration:line-through;margin-left:4px}
 .p-stock{font-size:10px;font-weight:600}
 .p-stock.ok{color:rgba(255,255,255,.35)}
 .p-stock.low{color:#ff6b6b}
@@ -417,13 +424,28 @@ footer{background:var(--b);padding:3rem 1.5rem 1.5rem;margin-top:0}
   .form-row{grid-template-columns:1fr}
   .foot-top{grid-template-columns:1fr}
   .cart-drawer{width:100%}
-  .admin-tabs{gap:6px}
-  .admin-tab{font-size:13px;padding:7px 14px}
+  .admin-tabs{gap:6px;overflow-x:auto;padding-bottom:4px;flex-wrap:nowrap}
+  .admin-tab{font-size:12px;padding:7px 12px;white-space:nowrap;flex-shrink:0}
+  .admin-wrap{padding:1.5rem 1rem}
+  /* Hide table on mobile, show cards instead */
+  .admin-table-wrap{display:none}
+  .admin-cards-mobile{display:flex;flex-direction:column;gap:10px}
+  .admin-product-mob-card{background:var(--b2);border:.5px solid rgba(255,255,255,.08);border-radius:10px;padding:12px;display:flex;gap:12px;align-items:center}
+  .admin-product-mob-img{width:54px;height:68px;border-radius:6px;object-fit:cover;background:var(--b3);flex-shrink:0}
+  .admin-product-mob-info{flex:1;min-width:0}
+  .admin-product-mob-name{font-size:14px;font-weight:600;color:var(--w);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .admin-product-mob-meta{font-size:12px;color:rgba(255,255,255,.4);margin-top:2px}
+  .admin-product-mob-actions{display:flex;flex-direction:column;gap:6px;flex-shrink:0}
+  .modal{max-width:100%;margin:0.5rem}
+  .checkout-modal{max-width:100%;margin:0.5rem}
+  .auth-modal{max-width:100%;margin:0.5rem}
 }
 @media(max-width:480px){
   .products-grid{gap:8px}
   .topup-amounts{gap:6px}
 }
+/* Desktop: show table, hide mobile cards */
+.admin-cards-mobile{display:none}
 </style>
 </head>
 <body>
@@ -633,12 +655,13 @@ footer{background:var(--b);padding:3rem 1.5rem 1.5rem;margin-top:0}
     <div class="admin-panel active" id="panel-products">
       <div class="admin-card">
         <div class="admin-card-title">All Products</div>
-        <div style="overflow-x:auto">
+        <div class="admin-table-wrap" style="overflow-x:auto">
           <table class="admin-table">
             <thead><tr><th>Image</th><th>Name</th><th>Brand</th><th>Price</th><th>Status</th><th>Actions</th></tr></thead>
-            <tbody id="adminProductsTbl"><tr><td colspan="7" style="text-align:center;padding:2rem;color:rgba(255,255,255,.3)">Loading...</td></tr></tbody>
+            <tbody id="adminProductsTbl"><tr><td colspan="6" style="text-align:center;padding:2rem;color:rgba(255,255,255,.3)">Loading...</td></tr></tbody>
           </table>
         </div>
+        <div class="admin-cards-mobile" id="adminProductsMob"></div>
       </div>
     </div>
 
@@ -653,6 +676,7 @@ footer{background:var(--b);padding:3rem 1.5rem 1.5rem;margin-top:0}
         </div>
         <div class="form-row">
           <div class="form-field"><label>Price (£ GBP)</label><input id="pPrice" type="number" step="0.01" placeholder="0.00"></div>
+          <div class="form-field"><label>Sale Price (£ GBP) <span style="font-size:10px;color:rgba(255,255,255,.3);font-weight:400">optional — leave blank for no sale</span></label><input id="pSalePrice" type="number" step="0.01" placeholder="Leave blank if no sale"></div>
           <div class="form-field"><label>Status</label>
             <select id="pActive"><option value="true">Active</option><option value="false">Hidden</option></select>
           </div>
@@ -838,6 +862,13 @@ function fmt(gbp) {
   return syms[state.currency] + price.toFixed(2);
 }
 
+function fmtPriceHTML(price_gbp, sale_price_gbp) {
+  if (sale_price_gbp && parseFloat(sale_price_gbp) > 0) {
+    return `<span class="p-price-sale">${fmt(parseFloat(sale_price_gbp))}</span><span class="p-price-orig">${fmt(parseFloat(price_gbp))}</span>`;
+  }
+  return `<span class="p-price">${fmt(parseFloat(price_gbp))}</span>`;
+}
+
 let state = {
   user: null, profile: null,
   currency: 'GBP',
@@ -953,7 +984,7 @@ function filterCategory(slug) {
 async function loadProducts() {
   try {
     const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/products?select=id,name,brand,description,price_gbp,size_type,active,created_at,product_images(id,url,position),product_sizes(id,size,stock),product_categories(category_id)&active=eq.true&order=created_at.desc`,
+      `${SUPABASE_URL}/rest/v1/products?select=id,name,brand,description,price_gbp,sale_price_gbp,size_type,active,created_at,product_images(id,url,position),product_sizes(id,size,stock),product_categories(category_id)&active=eq.true&order=created_at.desc`,
       { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` } }
     );
     const data = await res.json();
@@ -980,8 +1011,9 @@ function renderProducts() {
     const imgs = (p.product_images||[]).sort((a,b)=>a.position-b.position);
     const img = imgs[0];
     const totalStock = (p.product_sizes||[]).reduce((t,s)=>t+s.stock,0);
-    const tag = totalStock<=5&&totalStock>0?'low':p.created_at>new Date(Date.now()-7*86400000).toISOString()?'new':null;
-    const tagHTML = tag ? `<span class="p-tag tag-${tag}">${tag==='low'?'Low stock':'New'}</span>` : '';
+    const isOnSale = p.sale_price_gbp && parseFloat(p.sale_price_gbp) > 0;
+    const tag = isOnSale ? 'sale' : totalStock<=5&&totalStock>0?'low':p.created_at>new Date(Date.now()-7*86400000).toISOString()?'new':null;
+    const tagHTML = tag ? `<span class="p-tag ${tag==='sale'?'tag-low':tag==='low'?'tag-low':'tag-new'}">${tag==='sale'?'🔥 Sale':tag==='low'?'Low stock':'New'}</span>` : '';
     return `<div class="p-card" onclick="openProductById('${p.id}')">
       <div class="p-img">
         ${img?`<img src="${img.url}" alt="${p.name}" onerror="this.style.display='none';this.parentNode.innerHTML+='<div class=\'p-img-fb\'>${p.brand}</div>'">`:`<div class="p-img-fb">${p.brand}</div>`}
@@ -991,7 +1023,7 @@ function renderProducts() {
         <div class="p-brand">${p.brand}</div>
         <div class="p-name">${p.name}</div>
         <div class="p-bot">
-          <span class="p-price">${fmt(parseFloat(p.price_gbp))}</span>
+          <div class="p-price-wrap">${fmtPriceHTML(p.price_gbp, p.sale_price_gbp)}</div>
           <span class="p-stock ${totalStock<=5?'low':'ok'}">${totalStock<=3&&totalStock>0?`Only ${totalStock} left`:totalStock+' in stock'}</span>
         </div>
       </div>
@@ -1027,7 +1059,9 @@ function openProductModal(pOrJson) {
   }
   document.getElementById('pmBrand').textContent = p.brand;
   document.getElementById('pmName').textContent = p.name;
-  document.getElementById('pmPrice').textContent = fmt(parseFloat(p.price_gbp));
+  document.getElementById('pmPrice').innerHTML = p.sale_price_gbp && parseFloat(p.sale_price_gbp) > 0
+    ? `<span class="pm-price-sale">${fmt(parseFloat(p.sale_price_gbp))}</span><span class="pm-price-orig">${fmt(parseFloat(p.price_gbp))}</span>`
+    : fmt(parseFloat(p.price_gbp));
   document.getElementById('pmDesc').textContent = p.description || '';
   document.getElementById('pmSizeRegion').textContent = sizeRegion();
   const sizes = p.product_sizes || [];
@@ -1073,7 +1107,8 @@ function addToCart() {
   if (existing) { existing.qty++; }
   else {
     const img = p.product_images?.sort((a,b)=>a.position-b.position)[0];
-    state.cart.push({id:p.id, name:p.name, brand:p.brand, price:parseFloat(p.price_gbp), size:state.selectedSize, sizeType:p.size_type, img:img?.url||'', qty:1});
+    const cartPrice = p.sale_price_gbp && parseFloat(p.sale_price_gbp) > 0 ? parseFloat(p.sale_price_gbp) : parseFloat(p.price_gbp);
+    state.cart.push({id:p.id, name:p.name, brand:p.brand, price:cartPrice, size:state.selectedSize, sizeType:p.size_type, img:img?.url||'', qty:1});
   }
   saveCart(); updateCartUI();
   closeProductModal();
@@ -1491,24 +1526,32 @@ function removeSizeRow(i) { state.sizeRows.splice(i,1); renderSizePicker(); }
 
 async function loadAdminProducts() {
   const tbl = document.getElementById('adminProductsTbl');
+  const mob = document.getElementById('adminProductsMob');
   try {
     const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/products?select=id,name,brand,price_gbp,active,created_at,product_images(id,url,position)&order=created_at.desc`,
+      `${SUPABASE_URL}/rest/v1/products?select=id,name,brand,price_gbp,sale_price_gbp,active,created_at,product_images(id,url,position)&order=created_at.desc`,
       { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` } }
     );
     const data = await res.json();
     if (!res.ok || !Array.isArray(data)) {
-      tbl.innerHTML=`<tr><td colspan="6" style="text-align:center;padding:2rem;color:#ff6b6b">Error loading: ${JSON.stringify(data)}</td></tr>`;
+      const msg = `<tr><td colspan="6" style="text-align:center;padding:2rem;color:#ff6b6b">Error: ${JSON.stringify(data)}</td></tr>`;
+      tbl.innerHTML = msg;
       return;
     }
-    if (!data.length) { tbl.innerHTML='<tr><td colspan="6" style="text-align:center;padding:2rem;color:rgba(255,255,255,.3)">No products yet — click Add Product to get started</td></tr>'; return; }
+    if (!data.length) {
+      tbl.innerHTML='<tr><td colspan="6" style="text-align:center;padding:2rem;color:rgba(255,255,255,.3)">No products yet — click Add Product to get started</td></tr>';
+      if (mob) mob.innerHTML='<p style="text-align:center;color:rgba(255,255,255,.3);padding:2rem;font-size:14px">No products yet</p>';
+      return;
+    }
+
+    // Desktop table
     tbl.innerHTML = data.map(p => {
       const img = (p.product_images||[]).sort((a,b)=>a.position-b.position)[0];
       return `<tr>
         <td>${img?`<img class="admin-product-img" src="${img.url}" alt="">`:'<div class="admin-product-img" style="background:var(--b3)"></div>'}</td>
         <td style="color:var(--w);font-weight:500">${p.name}</td>
         <td>${p.brand}</td>
-        <td>£${p.price_gbp}</td>
+        <td>${p.sale_price_gbp?`<span style="color:#ff6b6b">£${p.sale_price_gbp}</span> <span style="text-decoration:line-through;opacity:.4;font-size:11px">£${p.price_gbp}</span>`:`£${p.price_gbp}`}</td>
         <td><span class="badge badge-${p.active?'active':'inactive'}">${p.active?'Active':'Hidden'}</span></td>
         <td style="display:flex;gap:6px;flex-wrap:wrap">
           <button class="edit-btn" onclick="editProduct('${p.id}')">Edit</button>
@@ -1516,6 +1559,26 @@ async function loadAdminProducts() {
         </td>
       </tr>`;
     }).join('');
+
+    // Mobile cards
+    if (mob) {
+      mob.innerHTML = data.map(p => {
+        const img = (p.product_images||[]).sort((a,b)=>a.position-b.position)[0];
+        return `<div class="admin-product-mob-card">
+          ${img?`<img class="admin-product-mob-img" src="${img.url}" alt="">`:'<div class="admin-product-mob-img"></div>'}
+          <div class="admin-product-mob-info">
+            <div class="admin-product-mob-name">${p.name}</div>
+            <div class="admin-product-mob-meta">${p.brand} · ${p.sale_price_gbp?`<span style="color:#ff6b6b">£${p.sale_price_gbp}</span> <s style="opacity:.4">£${p.price_gbp}</s>`:`£${p.price_gbp}`}</div>
+            <div class="admin-product-mob-meta" style="margin-top:3px"><span class="badge badge-${p.active?'active':'inactive'}">${p.active?'Active':'Hidden'}</span></div>
+          </div>
+          <div class="admin-product-mob-actions">
+            <button class="edit-btn" onclick="editProduct('${p.id}')">Edit</button>
+            <button class="danger-btn" onclick="deleteProduct('${p.id}')">Del</button>
+          </div>
+        </div>`;
+      }).join('');
+    }
+
   } catch(e) {
     tbl.innerHTML=`<tr><td colspan="6" style="text-align:center;padding:2rem;color:#ff6b6b">Error: ${e.message}</td></tr>`;
   }
@@ -1596,6 +1659,7 @@ async function editProduct(id) {
   document.getElementById('pName').value = p.name;
   document.getElementById('pBrand').value = p.brand;
   document.getElementById('pPrice').value = p.price_gbp;
+  document.getElementById('pSalePrice').value = p.sale_price_gbp || '';
   document.getElementById('pActive').value = p.active.toString();
   document.getElementById('pDesc').value = p.description||'';
   // Load selected categories
@@ -1624,6 +1688,7 @@ function cancelEdit() {
   document.getElementById('pName').value='';
   document.getElementById('pBrand').value='';
   document.getElementById('pPrice').value='';
+  document.getElementById('pSalePrice').value='';
   document.getElementById('pDesc').value='';
   document.getElementById('imgPreview').innerHTML='';
   const sizesBuilder = document.querySelector('.sizes-builder');
@@ -1692,6 +1757,7 @@ async function saveProduct() {
   const name=document.getElementById('pName').value.trim();
   const brand=document.getElementById('pBrand').value;
   const price=parseFloat(document.getElementById('pPrice').value);
+  const salePrice=parseFloat(document.getElementById('pSalePrice').value)||null;
   const sizeType=document.getElementById('pSizeType')?.value || 'clothing';
   const active=document.getElementById('pActive').value==='true';
   const desc=document.getElementById('pDesc').value.trim();
@@ -1708,7 +1774,7 @@ async function saveProduct() {
 
   try {
     let productId = state.editingId;
-    const productData={name,brand,price_gbp:price,category_id:state.selectedCategoryIds[0],size_type:sizeType,active,description:desc};
+    const productData={name,brand,price_gbp:price,sale_price_gbp:salePrice,category_id:state.selectedCategoryIds[0],size_type:sizeType,active,description:desc};
 
     if (productId) {
       await restPatch('products', `id=eq.${productId}`, productData);
@@ -1880,7 +1946,9 @@ function renderCarousel() {
         <div class="car-brand">${p.brand}</div>
         <div class="car-name">${p.name}</div>
         <div class="car-bot">
-          <span class="car-price">${fmt(parseFloat(p.price_gbp))}</span>
+          <div>${p.sale_price_gbp && parseFloat(p.sale_price_gbp) > 0
+            ? `<span class="car-price-sale">${fmt(parseFloat(p.sale_price_gbp))}</span><span class="car-price-orig">${fmt(parseFloat(p.price_gbp))}</span>`
+            : `<span class="car-price">${fmt(parseFloat(p.price_gbp))}</span>`}</div>
           <button class="car-cta" onclick="event.stopPropagation();openProductById('${p.id}')">Shop Now</button>
         </div>
       </div>
