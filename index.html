@@ -643,13 +643,19 @@ async function init() {
     state.user = session.user;
     await loadProfile();
     updateAuthUI();
+    if (document.getElementById('accountView').classList.contains('active')) renderAccount();
   }
 
   sb.auth.onAuthStateChange(async (event, session) => {
     state.user = session?.user || null;
-    if (state.user) { await loadProfile(); }
-    else { state.profile = null; }
-    updateAuthUI();
+    if (state.user) {
+      await loadProfile();
+      updateAuthUI();
+      if (document.getElementById('accountView').classList.contains('active')) renderAccount();
+    } else {
+      state.profile = null;
+      updateAuthUI();
+    }
   });
 }
 
@@ -902,6 +908,10 @@ function updateBalanceDisplay() {
 
 // ── ACCOUNT ──
 async function renderAccount() {
+  if (!state.user) {
+    const { data: { session } } = await sb.auth.getSession();
+    if (session) { state.user = session.user; await loadProfile(); }
+  }
   if (!state.user || !state.profile) {
     document.getElementById('accGuest').style.display='block';
     document.getElementById('accLoggedIn').style.display='none';
