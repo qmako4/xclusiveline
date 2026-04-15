@@ -271,6 +271,37 @@ select.mob-cur option{background:#111}
 .admin-notice{background:rgba(245,168,0,.1);border:.5px solid rgba(245,168,0,.3);color:var(--y);padding:14px;border-radius:8px;font-size:13px;margin-bottom:1.5rem;line-height:1.6}
 .admin-notice code{background:rgba(0,0,0,.3);padding:2px 6px;border-radius:4px;font-family:monospace;font-size:12px}
 
+/* HOW TO ORDER */
+.how-wrap{background:var(--b);padding:4rem 1.5rem}
+.how-inner{max-width:1280px;margin:0 auto}
+.how-label{font-size:11px;color:rgba(255,255,255,.3);letter-spacing:.2em;text-transform:uppercase;margin-bottom:.6rem;font-family:var(--fd)}
+.how-title{font-family:var(--fd);font-size:clamp(2.2rem,4vw,3.5rem);font-weight:900;text-transform:uppercase;color:var(--w);line-height:1;margin-bottom:3rem}
+.how-steps{display:flex;align-items:flex-start;gap:0;margin-bottom:3rem}
+.how-step{flex:1;display:flex;flex-direction:column;align-items:center;text-align:center;padding:0 1.5rem;position:relative}
+.how-num{font-family:var(--fd);font-size:3.5rem;font-weight:900;color:rgba(245,168,0,.1);line-height:1;margin-bottom:.5rem}
+.how-icon{width:56px;height:56px;background:rgba(245,168,0,.1);border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--y);margin-bottom:1rem}
+.how-step-title{font-family:var(--fd);font-size:1.3rem;font-weight:800;text-transform:uppercase;color:var(--w);margin-bottom:.5rem}
+.how-step-desc{font-size:13px;color:rgba(255,255,255,.45);line-height:1.65;max-width:180px}
+.how-connector{width:40px;height:1.5px;background:rgba(245,168,0,.2);margin-top:84px;flex-shrink:0}
+.how-cta{display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap}
+.how-cta-btn{background:var(--y);color:var(--b);border:none;padding:14px 32px;border-radius:8px;font-family:var(--fd);font-size:17px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;transition:opacity .2s}
+.how-cta-btn:hover{opacity:.85}
+.how-cta-note{font-size:13px;color:rgba(255,255,255,.35)}
+.how-cta-note a{color:var(--y);cursor:pointer;text-decoration:underline}
+@media(max-width:768px){
+  .how-steps{flex-direction:column;align-items:stretch;gap:2rem}
+  .how-step{flex-direction:row;text-align:left;align-items:flex-start;padding:0}
+  .how-step-desc{max-width:100%}
+  .how-connector{display:none}
+  .how-icon{flex-shrink:0;margin-bottom:0;margin-right:1rem}
+  .how-num{display:none}
+}
+
+.nav-balance{display:flex;flex-direction:column;align-items:center;background:var(--b);border-radius:6px;padding:4px 12px;cursor:pointer;transition:opacity .2s;line-height:1.2}
+.nav-balance:hover{opacity:.8}
+.nav-balance-label{font-size:9px;color:rgba(245,168,0,.6);font-weight:700;letter-spacing:.1em;text-transform:uppercase}
+.nav-balance-amt{font-family:var(--fd);font-size:15px;font-weight:900;color:var(--y)}
+
 /* FOOTER */
 footer{background:var(--b);padding:3rem 1.5rem 1.5rem;margin-top:0}
 .foot-i{max-width:1280px;margin:0 auto}
@@ -318,8 +349,8 @@ footer{background:var(--b);padding:3rem 1.5rem 1.5rem;margin-top:0}
 <!-- TICKER -->
 <div class="ticker">
   <div class="ticker-t">
-    <span>Free worldwide shipping</span><span> · </span><span>UK-exclusive drops</span><span> · </span><span>100% verified authentic</span><span> · </span><span>Ships to USA & Australia</span><span> · </span><span>5–10 day delivery</span><span> · </span><span>Secure checkout</span><span> · </span>
-    <span>Free worldwide shipping</span><span> · </span><span>UK-exclusive drops</span><span> · </span><span>100% verified authentic</span><span> · </span><span>Ships to USA & Australia</span><span> · </span><span>5–10 day delivery</span><span> · </span><span>Secure checkout</span><span> · </span>
+    <span>Free worldwide shipping</span><span> · </span><span>UK-exclusive drops</span><span> · </span><span>Best quality in the world</span><span> · </span><span>Ships to USA & Australia</span><span> · </span><span>5–10 day delivery</span><span> · </span><span>Secure checkout</span><span> · </span>
+    <span>Free worldwide shipping</span><span> · </span><span>UK-exclusive drops</span><span> · </span><span>Best quality in the world</span><span> · </span><span>Ships to USA & Australia</span><span> · </span><span>5–10 day delivery</span><span> · </span><span>Secure checkout</span><span> · </span>
   </div>
 </div>
 
@@ -340,8 +371,17 @@ footer{background:var(--b);padding:3rem 1.5rem 1.5rem;margin-top:0}
         <option value="GBP">£ GBP</option>
         <option value="USD">$ USD</option>
         <option value="AUD">A$ AUD</option>
+        <option value="CAD">C$ CAD</option>
+        <option value="EUR">€ EUR</option>
+        <option value="JPY">¥ JPY</option>
+        <option value="SGD">S$ SGD</option>
+        <option value="AED">AED</option>
       </select>
       <button class="nav-btn ghost" id="authBtn" onclick="openAuth('login')">Login</button>
+      <div class="nav-balance" id="navBalance" style="display:none" onclick="showView('account')">
+        <span class="nav-balance-label">Balance</span>
+        <span class="nav-balance-amt" id="navBalAmt">£0.00</span>
+      </div>
       <button class="nav-btn" onclick="openCart()">Cart <span class="cart-count" id="cartCount">0</span></button>
     </div>
     <button class="burger" id="burgerBtn" onclick="toggleMob()"><span></span><span></span><span></span></button>
@@ -365,6 +405,11 @@ footer{background:var(--b);padding:3rem 1.5rem 1.5rem;margin-top:0}
       <option value="GBP">£ GBP</option>
       <option value="USD">$ USD</option>
       <option value="AUD">A$ AUD</option>
+      <option value="CAD">C$ CAD</option>
+      <option value="EUR">€ EUR</option>
+      <option value="JPY">¥ JPY</option>
+      <option value="SGD">S$ SGD</option>
+      <option value="AED">AED</option>
     </select>
   </div>
 </div>
@@ -373,12 +418,62 @@ footer{background:var(--b);padding:3rem 1.5rem 1.5rem;margin-top:0}
 <div class="view active" id="shopView">
   <div class="trust">
     <div class="trust-i">
-      <div class="trust-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><span><strong>100% verified</strong> authentic</span></div>
+      <div class="trust-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><span><strong>Best quality</strong> in the world</span></div>
       <div class="trust-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span><strong>5–10 days</strong> US & AU delivery</span></div>
       <div class="trust-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg><span><strong>Free shipping</strong> worldwide</span></div>
       <div class="trust-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg><span><strong>Secure</strong> checkout</span></div>
     </div>
   </div>
+
+  <!-- HOW TO ORDER -->
+  <div class="how-wrap">
+    <div class="how-inner">
+      <div class="how-label">Simple as that</div>
+      <h2 class="how-title">How to Order</h2>
+      <div class="how-steps">
+        <div class="how-step">
+          <div class="how-num">01</div>
+          <div class="how-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          </div>
+          <div class="how-step-title">Create Account</div>
+          <div class="how-step-desc">Sign up free in seconds. No credit card needed to browse.</div>
+        </div>
+        <div class="how-connector"></div>
+        <div class="how-step">
+          <div class="how-num">02</div>
+          <div class="how-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+          </div>
+          <div class="how-step-title">Top Up Balance</div>
+          <div class="how-step-desc">Add credit to your account via PayPal in your local currency. Instant and secure.</div>
+        </div>
+        <div class="how-connector"></div>
+        <div class="how-step">
+          <div class="how-num">03</div>
+          <div class="how-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
+          </div>
+          <div class="how-step-title">Pick Your Item</div>
+          <div class="how-step-desc">Browse the drops, select your size, add to cart. Prices shown in your currency.</div>
+        </div>
+        <div class="how-connector"></div>
+        <div class="how-step">
+          <div class="how-num">04</div>
+          <div class="how-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </div>
+          <div class="how-step-title">We Ship to You</div>
+          <div class="how-step-desc">Balance deducted instantly. Your order is confirmed and on its way worldwide.</div>
+        </div>
+      </div>
+      <div class="how-cta">
+        <button class="how-cta-btn" onclick="openAuth('register')">Create Free Account</button>
+        <span class="how-cta-note">Already have an account? <a onclick="openAuth('login')">Log in</a></span>
+      </div>
+    </div>
+  </div>
+
   <div class="cats"><div class="cats-row" id="catsRow"></div></div>
   <div class="products"><div class="products-grid" id="productsGrid"><div class="no-products" style="grid-column:1/-1;color:rgba(10,10,10,.2)"><div class="spinner" style="border-top-color:var(--b)"></div></div></div></div>
 </div>
@@ -452,7 +547,7 @@ footer{background:var(--b);padding:3rem 1.5rem 1.5rem;margin-top:0}
         <div class="success-msg" id="addSuccess">Product saved successfully!</div>
         <div class="form-row">
           <div class="form-field"><label>Product Name</label><input id="pName" placeholder="e.g. 95 Gutta Green"></div>
-          <div class="form-field"><label>Brand</label><input id="pBrand" placeholder="e.g. Corteiz"></div>
+          <div class="form-field"><label>Brand</label><select id="pBrand"><option value="">Select brand...</option></select></div>
         </div>
         <div class="form-row">
           <div class="form-field"><label>Price (£ GBP)</label><input id="pPrice" type="number" step="0.01" placeholder="0.00"></div>
@@ -526,12 +621,12 @@ footer{background:var(--b);padding:3rem 1.5rem 1.5rem;margin-top:0}
     <div class="foot-top">
       <div>
         <div class="foot-logo"><div class="foot-logo-bar"></div><div class="foot-logo-txt">XCLUSIVELINE</div></div>
-        <p class="foot-desc">Premium UK streetwear & sneaker resale. Verified authentic. Ships worldwide.</p>
+        <p class="foot-desc">Premium UK streetwear & sneaker resale. Best quality in the world. Ships worldwide.</p>
       </div>
       <div><p class="foot-col-title">Shop</p><ul class="foot-links"><li><a onclick="showView('shop')">All Products</a></li><li><a onclick="filterCategory('corteiz');showView('shop')">Corteiz</a></li><li><a onclick="filterCategory('asics');showView('shop')">Asics</a></li><li><a onclick="filterCategory('casablanca');showView('shop')">Casablanca</a></li></ul></div>
       <div><p class="foot-col-title">Help</p><ul class="foot-links"><li><a onclick="showView('account')">My Account</a></li><li><a>Shipping Info</a></li><li><a>Size Guide</a></li><li><a>Contact</a></li></ul></div>
     </div>
-    <div class="foot-bot"><p class="foot-copy">© 2026 xclusiveline.com</p><p class="foot-copy">🇬🇧 UK · 🇺🇸 USA · 🇦🇺 Australia</p></div>
+    <div class="foot-bot"><p class="foot-copy">© 2026 xclusiveline.com</p><p class="foot-copy">🇬🇧 UK · 🇺🇸 USA · 🇦🇺 AU · 🇨🇦 CA · 🇪🇺 EU · 🇯🇵 JP · 🇸🇬 SG · 🇦🇪 UAE</p></div>
   </div>
 </footer>
 
@@ -609,19 +704,22 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const PAYPAL_CLIENT_ID = 'AViPSrHXjYHOGpq30UOuIQB7iPkpRGCz2_SLMkUw3yk8w_X1QA0SJq-psuTff3JquBUtCdibI21McjV9'; // ← Replace with your PayPal client ID
 
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-const rates = {GBP:1, USD:1.27, AUD:1.98};
-const syms = {GBP:'£', USD:'$', AUD:'A$'};
+const rates = {GBP:1, USD:1.27, AUD:1.98, CAD:1.73, EUR:1.17, JPY:190.5, SGD:1.71, AED:4.66};
+const syms = {GBP:'£', USD:'$', AUD:'A$', CAD:'C$', EUR:'€', JPY:'¥', SGD:'S$', AED:'AED '};
 const ukToUS = {'6':'7','6.5':'7.5','7':'8','7.5':'8.5','8':'9','8.5':'9.5','9':'10','9.5':'10.5','10':'11','10.5':'11.5','11':'12','12':'13'};
+const brands = ['Nike','Corteiz','Arc\'teryx','Casablanca','Asics','Adidas','New Balance','Palace','Stone Island','Supreme','Off-White','Fear of God','Essentials','Trapstar','Other'];
 
 function roundPrice(gbp, currency) {
   if (currency === 'GBP') return parseFloat(gbp);
+  if (currency === 'JPY') return Math.round(parseFloat(gbp) * rates[currency]);
   const converted = parseFloat(gbp) * rates[currency];
-  // Round to nearest whole number then subtract 0.01 for .99 pricing
   return Math.ceil(converted) - 0.01;
 }
 
 function fmt(gbp) {
   const price = roundPrice(gbp, state.currency);
+  if (state.currency === 'JPY') return syms[state.currency] + Math.round(price).toLocaleString();
+  if (state.currency === 'AED') return syms[state.currency] + price.toFixed(2);
   return syms[state.currency] + price.toFixed(2);
 }
 
@@ -669,7 +767,12 @@ async function init() {
 function detectCountry() {
   const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
   if (tz.includes('Australia')) setCurrency('AUD');
-  else if (tz.includes('America') || tz.includes('US')) setCurrency('USD');
+  else if (tz.includes('Asia/Tokyo')) setCurrency('JPY');
+  else if (tz.includes('Asia/Singapore')) setCurrency('SGD');
+  else if (tz.includes('Asia/Dubai')) setCurrency('AED');
+  else if (tz.includes('America/Toronto')||tz.includes('America/Vancouver')||tz.includes('America/Edmonton')||tz.includes('America/Winnipeg')||tz.includes('America/Halifax')) setCurrency('CAD');
+  else if (tz.includes('America')) setCurrency('USD');
+  else if (tz.includes('Europe') && !tz.includes('Europe/London')) setCurrency('EUR');
   else setCurrency('GBP');
 }
 
@@ -883,6 +986,8 @@ async function submitAuth() {
 async function logout() {
   await sb.auth.signOut();
   state.user=null; state.profile=null;
+  const navWrap = document.getElementById('navBalance');
+  if (navWrap) navWrap.style.display='none';
   showView('shop');
   showToast('Logged out');
 }
@@ -910,7 +1015,13 @@ async function loadProfile() {
 
 function updateBalanceDisplay() {
   if (!state.profile) return;
-  document.getElementById('balDisplay').textContent = fmt(state.profile.balance_gbp);
+  const bal = fmt(state.profile.balance_gbp);
+  const accEl = document.getElementById('balDisplay');
+  const navEl = document.getElementById('navBalAmt');
+  const navWrap = document.getElementById('navBalance');
+  if (accEl) accEl.textContent = bal;
+  if (navEl) navEl.textContent = bal;
+  if (navWrap) navWrap.style.display = 'flex';
 }
 
 // ── ACCOUNT ──
@@ -1079,8 +1190,16 @@ async function renderAdmin() {
     document.getElementById('adminNotice').style.display='block';
   }
   populateCategorySelect();
+  populateBrandSelect();
   updateSizePresets();
   loadAdminProducts();
+}
+
+function populateBrandSelect() {
+  const sel = document.getElementById('pBrand');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">Select brand...</option>' +
+    brands.map(b => `<option value="${b}">${b}</option>`).join('');
 }
 
 function populateCategorySelect() {
@@ -1182,7 +1301,7 @@ function cancelEdit() {
 
 async function saveProduct() {
   const name=document.getElementById('pName').value.trim();
-  const brand=document.getElementById('pBrand').value.trim();
+  const brand=document.getElementById('pBrand').value;
   const price=parseFloat(document.getElementById('pPrice').value);
   const catId=document.getElementById('pCategory').value;
   const sizeType=document.getElementById('pSizeType').value;
