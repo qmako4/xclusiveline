@@ -143,45 +143,49 @@ select.mob-cur option{background:#111}
 }
 
 /* TRUST BAR */
-.trust{background:var(--b);padding:1.2rem 1.5rem}
-.trust-i{max-width:1280px;margin:0 auto;display:flex;justify-content:center;gap:2.5rem;flex-wrap:wrap}
-.trust-item{display:flex;align-items:center;gap:8px;font-size:13px;color:rgba(255,255,255,.55)}
+.trust{background:var(--b);padding:1rem 1.5rem}
+.trust-i{max-width:1280px;margin:0 auto;display:flex;justify-content:center;gap:2rem;flex-wrap:wrap}
+.trust-item{display:flex;align-items:center;gap:7px;font-size:12px;color:rgba(255,255,255,.5)}
 .trust-item svg{color:var(--y);flex-shrink:0}
 .trust-item strong{color:var(--w)}
 
 /* CATEGORIES */
-.cats{max-width:1280px;margin:0 auto;padding:2rem 1.5rem 0}
-.cats-row{display:flex;gap:8px;flex-wrap:wrap}
-.cat-btn{background:transparent;border:1.5px solid var(--b);color:var(--b);padding:7px 16px;border-radius:20px;font-family:var(--fd);font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;transition:.15s}
-.cat-btn:hover,.cat-btn.active{background:var(--b);color:var(--y)}
+.cats{background:var(--b);max-width:100%;padding:1.2rem 0 0}
+.cats-row{max-width:1280px;margin:0 auto;padding:0 1.5rem;display:flex;gap:8px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding-bottom:1.2rem}
+.cats-row::-webkit-scrollbar{display:none}
+.cat-btn{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.55);padding:8px 18px;border-radius:20px;font-family:var(--fd);font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;transition:.15s;flex-shrink:0;white-space:nowrap}
+.cat-btn:hover{background:rgba(255,255,255,.12);color:var(--w)}
+.cat-btn.active{background:var(--y);color:var(--b);border-color:var(--y)}
 
 /* PRODUCTS */
-.products{max-width:1280px;margin:0 auto;padding:2rem 1.5rem 5rem}
-.products-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
-.p-card{background:var(--b);border-radius:var(--br);overflow:hidden;cursor:pointer;transition:transform .2s;position:relative}
-.p-card:hover{transform:translateY(-4px)}
+.products{background:var(--b);padding:0}
+.products-inner{max-width:1280px;margin:0 auto;padding:1.5rem 1.5rem 5rem}
+.products-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.p-card{background:var(--b);border-radius:12px;overflow:hidden;cursor:pointer;transition:transform .2s,box-shadow .2s;position:relative;border:.5px solid rgba(255,255,255,.06)}
+.p-card:hover{transform:translateY(-5px);box-shadow:0 16px 40px rgba(0,0,0,.4);border-color:rgba(255,255,255,.12)}
 .p-img{aspect-ratio:3/4;background:var(--b2);position:relative;overflow:hidden}
 .p-img img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .4s}
-.p-card:hover .p-img img{transform:scale(1.04)}
+.p-card:hover .p-img img{transform:scale(1.06)}
 .p-img-fb{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-family:var(--fd);font-size:36px;font-weight:900;color:rgba(245,168,0,.1);text-transform:uppercase}
-.p-tag{position:absolute;top:10px;left:10px;padding:3px 9px;border-radius:4px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.p-tag{position:absolute;top:10px;left:10px;padding:4px 10px;border-radius:5px;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;font-family:var(--fd)}
 .tag-new{background:var(--y);color:var(--b)}
-.tag-low{background:rgba(212,43,43,.2);color:#ff6b6b;border:.5px solid rgba(212,43,43,.4)}
+.tag-low{background:rgba(212,43,43,.85);color:#fff}
 .tag-hot{background:rgba(255,255,255,.12);color:var(--w)}
-.p-info{padding:10px 12px 14px}
-.p-brand{font-size:10px;color:var(--y);font-weight:700;letter-spacing:.12em;text-transform:uppercase;margin-bottom:2px}
-.p-name{font-family:var(--fd);font-size:17px;font-weight:800;text-transform:uppercase;color:var(--w);line-height:1.15;margin-bottom:6px}
-.p-bot{display:flex;align-items:center;justify-content:space-between}
-.p-price-wrap{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.p-price-sale{font-size:15px;font-weight:700;color:#ff6b6b}
-.p-price-orig{font-size:13px;color:rgba(255,255,255,.35);text-decoration:line-through}
+.p-info{padding:12px 14px 16px}
+.p-brand{font-size:10px;color:var(--y);font-weight:700;letter-spacing:.12em;text-transform:uppercase;margin-bottom:3px}
+.p-name{font-family:var(--fd);font-size:17px;font-weight:800;text-transform:uppercase;color:var(--w);line-height:1.15;margin-bottom:8px}
+.p-bot{display:flex;align-items:center;justify-content:space-between;gap:6px}
+.p-price-wrap{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.p-price{font-size:16px;font-weight:700;color:var(--w)}
+.p-price-sale{font-size:16px;font-weight:700;color:#ff6b6b}
+.p-price-orig{font-size:12px;color:rgba(255,255,255,.3);text-decoration:line-through}
 .sale-tag{background:rgba(212,43,43,.2);color:#ff6b6b;border:.5px solid rgba(212,43,43,.4);padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
 .pm-price-sale{font-size:1.8rem;font-weight:700;color:#ff6b6b}
 .pm-price-orig{font-size:1.1rem;color:rgba(255,255,255,.35);text-decoration:line-through;margin-left:6px}
 .car-price-sale{font-size:1.1rem;font-weight:700;color:#ff6b6b}
 .car-price-orig{font-size:.9rem;color:rgba(255,255,255,.3);text-decoration:line-through;margin-left:4px}
-.p-stock{font-size:10px;font-weight:600}
-.p-stock.ok{color:rgba(255,255,255,.35)}
+.p-stock{font-size:10px;font-weight:600;white-space:nowrap}
+.p-stock.ok{color:rgba(255,255,255,.3)}
 .p-stock.low{color:#ff6b6b}
 .no-products{text-align:center;padding:4rem;font-family:var(--fd);font-size:2rem;font-weight:900;text-transform:uppercase;color:rgba(10,10,10,.2)}
 
@@ -410,6 +414,27 @@ select.mob-cur option{background:#111}
 .size-pick-stock input{width:52px;background:rgba(255,255,255,.06);border:.5px solid rgba(255,255,255,.12);color:var(--w);padding:5px 6px;border-radius:5px;font-family:var(--fb);font-size:12px;text-align:center;outline:none}
 .size-pick-stock input:focus{border-color:var(--y)}
 
+/* ── POLICY PAGES ── */
+.policy-wrap{max-width:720px;margin:0 auto;padding:3rem 1.5rem 5rem}
+.policy-back{background:none;border:none;color:var(--b);font-size:14px;font-weight:600;cursor:pointer;padding:0;margin-bottom:2rem;display:flex;align-items:center;gap:6px;opacity:.6;transition:opacity .2s}
+.policy-back:hover{opacity:1}
+.policy-box{background:var(--b);border-radius:16px;padding:2.5rem}
+.policy-title{font-family:var(--fd);font-size:clamp(2rem,5vw,3rem);font-weight:900;text-transform:uppercase;color:var(--w);margin-bottom:.5rem}
+.policy-sub{font-size:14px;color:rgba(255,255,255,.4);margin-bottom:2rem;padding-bottom:1.5rem;border-bottom:.5px solid rgba(255,255,255,.08)}
+.policy-section{margin-bottom:1.8rem}
+.policy-section h2{font-family:var(--fd);font-size:1.2rem;font-weight:800;text-transform:uppercase;color:var(--y);margin-bottom:.7rem;letter-spacing:.04em}
+.policy-section p{font-size:14px;color:rgba(255,255,255,.6);line-height:1.75}
+.policy-section ul{list-style:none;padding:0;display:flex;flex-direction:column;gap:.4rem}
+.policy-section ul li{font-size:14px;color:rgba(255,255,255,.6);padding-left:1.2rem;position:relative;line-height:1.6}
+.policy-section ul li::before{content:'→';position:absolute;left:0;color:var(--y);font-size:12px}
+.policy-section strong{color:var(--w);font-weight:600}
+.ig-btn{display:inline-flex;align-items:center;gap:10px;background:var(--y);color:var(--b);padding:13px 22px;border-radius:10px;font-family:var(--fd);font-size:16px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;text-decoration:none;margin:1rem 0 1.5rem;transition:opacity .2s}
+.ig-btn:hover{opacity:.85}
+@media(max-width:768px){
+  .policy-wrap{padding:2rem 1.2rem 4rem}
+  .policy-box{padding:1.5rem}
+}
+
 /* FOOTER */
 footer{background:var(--b);padding:3rem 1.5rem 1.5rem;margin-top:0}
 .foot-i{max-width:1280px;margin:0 auto}
@@ -567,7 +592,7 @@ footer{background:var(--b);padding:3rem 1.5rem 1.5rem;margin-top:0}
   <!-- PRODUCTS GRID FIRST -->
   <div id="shopSection">
     <div class="cats"><div class="cats-row" id="catsRow"></div></div>
-    <div class="products"><div class="products-grid" id="productsGrid"><div class="no-products" style="grid-column:1/-1;color:rgba(10,10,10,.2)"><div class="spinner" style="border-top-color:var(--b)"></div></div></div></div>
+    <div class="products"><div class="products-inner"><div class="products-grid" id="productsGrid"><div class="no-products" style="grid-column:1/-1;color:rgba(255,255,255,.2);padding:4rem 0;text-align:center"><div class="spinner"></div></div></div></div></div>
   </div>
 
   <!-- FEATURED CAROUSEL BELOW GRID -->
@@ -744,6 +769,83 @@ footer{background:var(--b);padding:3rem 1.5rem 1.5rem;margin-top:0}
   </div>
 </div>
 
+<!-- CONTACT VIEW -->
+<div class="view" id="contactView">
+  <div class="policy-wrap">
+    <button class="policy-back" onclick="showView('shop')">← Back to Shop</button>
+    <div class="policy-box">
+      <h1 class="policy-title">Contact Us</h1>
+      <p class="policy-sub">Got a question? We're here to help. The fastest way to reach us is via Instagram DM.</p>
+      <a href="https://instagram.com/xclusivelines" target="_blank" class="ig-btn">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="5"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg>
+        Message us @xclusivelines
+      </a>
+      <div class="policy-section">
+        <h2>What we can help with</h2>
+        <ul>
+          <li>Order status and tracking updates</li>
+          <li>Questions about sizing or products</li>
+          <li>Returns and refund requests</li>
+          <li>Balance or payment queries</li>
+          <li>Any other questions</li>
+        </ul>
+      </div>
+      <div class="policy-section">
+        <h2>Response times</h2>
+        <p>We typically respond to DMs within 24 hours. For urgent queries please mark your message as urgent and we'll get back to you as soon as possible.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- RETURNS VIEW -->
+<div class="view" id="returnsView">
+  <div class="policy-wrap">
+    <button class="policy-back" onclick="showView('shop')">← Back to Shop</button>
+    <div class="policy-box">
+      <h1 class="policy-title">Returns Policy</h1>
+      <p class="policy-sub">Last updated: April 2026</p>
+      <div class="policy-section">
+        <h2>Our Returns Window</h2>
+        <p>We accept return requests within <strong>14 days</strong> of your order being delivered. Items must be unused, unworn and in their original condition with all tags attached.</p>
+      </div>
+      <div class="policy-section">
+        <h2>Eligible for Return</h2>
+        <ul>
+          <li>Items received in a damaged or faulty condition</li>
+          <li>Items that are significantly different from their description</li>
+          <li>Wrong item received</li>
+        </ul>
+      </div>
+      <div class="policy-section">
+        <h2>Not Eligible for Return</h2>
+        <ul>
+          <li>Items that have been worn, washed or altered</li>
+          <li>Items without original tags or packaging</li>
+          <li>Change of mind purchases</li>
+          <li>Items purchased during a sale or at a discounted price</li>
+        </ul>
+      </div>
+      <div class="policy-section">
+        <h2>How to Request a Return</h2>
+        <p>To start a return, message us on Instagram at <strong>@xclusivelines</strong> with your order number and reason for return. We'll review your request and get back to you within 24 hours with next steps.</p>
+        <a href="https://instagram.com/xclusivelines" target="_blank" class="ig-btn">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="5"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg>
+          DM us @xclusivelines
+        </a>
+      </div>
+      <div class="policy-section">
+        <h2>Refunds</h2>
+        <p>Once your return is approved and received, we will issue a refund to your XclusiveLine account balance within 3–5 business days. The balance can then be used on future orders or we can arrange a PayPal refund upon request.</p>
+      </div>
+      <div class="policy-section">
+        <h2>Shipping Costs</h2>
+        <p>Return shipping costs are the responsibility of the customer unless the item is faulty or incorrectly sent. We recommend using a tracked shipping service for all returns as we cannot be held responsible for items lost in transit.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- FOOTER -->
 <footer>
   <div class="foot-i">
@@ -753,7 +855,7 @@ footer{background:var(--b);padding:3rem 1.5rem 1.5rem;margin-top:0}
         <p class="foot-desc">Premium streetwear & sneaker resale. Best quality in the world. Ships worldwide.</p>
       </div>
       <div><p class="foot-col-title">Shop</p><ul class="foot-links"><li><a onclick="showView('shop')">All Products</a></li><li><a onclick="filterCategory('corteiz');showView('shop')">Corteiz</a></li><li><a onclick="filterCategory('asics');showView('shop')">Asics</a></li><li><a onclick="filterCategory('casablanca');showView('shop')">Casablanca</a></li></ul></div>
-      <div><p class="foot-col-title">Help</p><ul class="foot-links"><li><a onclick="showView('account')">My Account</a></li><li><a>Shipping Info</a></li><li><a>Size Guide</a></li><li><a>Contact</a></li></ul></div>
+      <div><p class="foot-col-title">Help</p><ul class="foot-links"><li><a onclick="showView('account')">My Account</a></li><li><a onclick="showView('returns')">Returns Policy</a></li><li><a onclick="showView('contact')">Contact Us</a></li></ul></div>
     </div>
     <div class="foot-bot"><p class="foot-copy">© 2026 xclusiveline.com</p><p class="foot-copy">🇬🇧 UK · 🇺🇸 USA · 🇦🇺 AU · 🇨🇦 CA · 🇪🇺 EU · 🇯🇵 JP · 🇸🇬 SG · 🇦🇪 UAE</p></div>
   </div>
