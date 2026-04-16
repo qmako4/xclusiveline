@@ -456,25 +456,59 @@ footer{background:var(--b);padding:3rem 1.5rem 1.5rem;margin-top:0}
 .toast{position:fixed;bottom:2rem;right:2rem;background:var(--b);color:var(--w);padding:12px 20px;border-radius:10px;font-size:14px;font-weight:500;z-index:900;transform:translateY(100px);opacity:0;transition:.3s;border-left:3px solid var(--y)}
 .toast.show{transform:translateY(0);opacity:1}
 
+/* ── LIGHTBOX ── */
+.lightbox{position:fixed;inset:0;background:rgba(0,0,0,.96);z-index:1000;display:none;align-items:center;justify-content:center}
+.lightbox.open{display:flex}
+.lightbox-img{max-width:90vw;max-height:90vh;object-fit:contain;border-radius:4px}
+.lightbox-close{position:absolute;top:1rem;right:1rem;background:rgba(255,255,255,.1);border:none;color:#fff;width:44px;height:44px;border-radius:50%;font-size:24px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:10}
+.lightbox-prev,.lightbox-next{position:absolute;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.1);border:none;color:#fff;width:48px;height:48px;border-radius:50%;font-size:30px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.15s}
+.lightbox-prev{left:1rem}.lightbox-next{right:1rem}
+.lightbox-prev:hover,.lightbox-next:hover{background:var(--y);color:var(--b)}
+.lightbox-dots{position:absolute;bottom:1.5rem;left:50%;transform:translateX(-50%);display:flex;gap:6px}
+.lightbox-dot{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.3);cursor:pointer}
+.lightbox-dot.active{background:var(--y);width:18px;border-radius:3px}
+.pm-zoom-hint{position:absolute;bottom:56px;right:10px;background:rgba(0,0,0,.6);color:rgba(255,255,255,.7);font-size:11px;padding:4px 8px;border-radius:4px;pointer-events:none;display:none}
+
 /* RESPONSIVE */
 @media(max-width:1024px){.products-grid{grid-template-columns:repeat(3,1fr)}}
+
 @media(max-width:768px){
+  /* NAV */
   .nav-links,.nav-r{display:none}
   .burger{display:flex}
+  nav .logo img{height:32px}
+
+  /* PRODUCTS GRID */
   .products-grid{grid-template-columns:repeat(2,1fr);gap:10px}
-  .p-modal-grid{grid-template-columns:1fr}
-  .p-modal-imgs{border-radius:16px 16px 0 0;aspect-ratio:unset;height:auto;min-height:280px;max-height:60vw}
-  .p-modal-imgs>img{height:100%;min-height:240px;max-height:56vw;object-fit:cover}
-  .pm-thumbs{overflow-x:auto;-webkit-overflow-scrolling:touch;flex-wrap:nowrap}
-  .pm-thumb{flex-shrink:0;width:56px;height:56px}
-  .p-modal-info{padding:1.2rem}
-  .acc-grid{grid-template-columns:1fr}
-  .form-row{grid-template-columns:1fr}
-  .foot-top{grid-template-columns:1fr}
-  .cart-drawer{width:100%;max-width:100vw}
+  .p-card{border-radius:10px}
+  .p-name{font-size:14px}
+  .p-price{font-size:14px}
+  .p-price-sale{font-size:14px}
+
+  /* PRODUCT MODAL — full screen bottom sheet on mobile */
+  .overlay{padding:0;align-items:flex-end}
+  .modal{max-width:100vw;width:100vw;margin:0;border-radius:20px 20px 0 0;max-height:96vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
+  .modal-close{top:.8rem;right:.8rem;z-index:20}
+  .p-modal-grid{grid-template-columns:1fr;display:flex;flex-direction:column}
+  .p-modal-imgs{border-radius:0;height:72vw;min-height:260px;max-height:75vw;flex-shrink:0;position:relative}
+  .p-modal-imgs>img{min-height:unset;max-height:unset;height:100%;cursor:zoom-in}
+  .pm-zoom-hint{display:block}
+  .pm-thumbs{overflow-x:auto;-webkit-overflow-scrolling:touch;flex-wrap:nowrap;padding:8px 10px;gap:8px}
+  .pm-thumb{flex-shrink:0;width:58px;height:58px;border-radius:6px}
+  .p-modal-info{padding:1rem 1.2rem 2rem}
+  .p-modal-name{font-size:1.5rem}
+  .p-modal-price{font-size:1.2rem;margin-bottom:.8rem}
+  .add-btn{width:100%;padding:16px;font-size:17px}
+  .sizes-grid{gap:8px}
+  .sz-btn{padding:10px 8px;font-size:14px}
+
+  /* AUTH & CHECKOUT MODALS */
+  .checkout-modal,.auth-modal{max-width:100vw;width:100vw;margin:0;border-radius:20px 20px 0 0}
+
+  /* ADMIN */
   .admin-tabs{gap:6px;overflow-x:auto;padding-bottom:4px;flex-wrap:nowrap}
   .admin-tab{font-size:12px;padding:7px 12px;white-space:nowrap;flex-shrink:0}
-  .admin-wrap{padding:1.5rem 1rem}
+  .admin-wrap{padding:1.2rem .8rem}
   .admin-table-wrap{display:none}
   .admin-cards-mobile{display:flex;flex-direction:column;gap:10px}
   .admin-product-mob-card{background:var(--b2);border:.5px solid rgba(255,255,255,.08);border-radius:10px;padding:12px;display:flex;gap:12px;align-items:center}
@@ -483,21 +517,64 @@ footer{background:var(--b);padding:3rem 1.5rem 1.5rem;margin-top:0}
   .admin-product-mob-name{font-size:14px;font-weight:600;color:var(--w);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .admin-product-mob-meta{font-size:12px;color:rgba(255,255,255,.4);margin-top:2px}
   .admin-product-mob-actions{display:flex;flex-direction:column;gap:6px;flex-shrink:0}
-  .modal{max-width:calc(100vw - 1rem);margin:0.5rem;width:calc(100vw - 1rem)}
-  .checkout-modal{max-width:calc(100vw - 1rem);margin:0.5rem;width:calc(100vw - 1rem)}
-  .auth-modal{max-width:calc(100vw - 1rem);margin:0.5rem;width:calc(100vw - 1rem)}
-  .overlay{padding:0.5rem}
-  .cats-row{flex-wrap:wrap;gap:6px}
-  .cat-btn{font-size:12px;padding:6px 12px}
-  .email-box{padding:1.5rem 1.2rem}
+
+  /* GENERAL */
+  .acc-grid{grid-template-columns:1fr}
+  .form-row{grid-template-columns:1fr}
+  .foot-top{grid-template-columns:1fr}
+  .cart-drawer{width:100%;max-width:100vw}
+  .email-box{padding:1.5rem 1.2rem;grid-template-columns:1fr}
   .trust-i{gap:1rem}
   .trust-item{font-size:12px}
+  .ticker{display:none}
+  .products{padding:0}
+  .products-inner{padding:1rem 1rem 4rem}
 }
-}
+
 @media(max-width:480px){
   .products-grid{gap:8px}
   .topup-amounts{gap:6px}
+  .p-info{padding:8px 10px 12px}
+  .p-brand{font-size:9px}
+  .p-name{font-size:13px}
 }
+
+/* ── MOBILE BOTTOM NAV ── */
+.mob-bottom-nav{display:none;position:fixed;bottom:0;left:0;right:0;z-index:250;background:var(--b);border-top:.5px solid rgba(255,255,255,.1);padding:0;safe-area-inset-bottom:env(safe-area-inset-bottom)}
+.mob-bottom-nav-inner{display:flex;align-items:stretch;height:62px;padding-bottom:env(safe-area-inset-bottom)}
+.mob-nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;background:none;border:none;color:rgba(255,255,255,.45);cursor:pointer;font-size:9px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;font-family:var(--fb);transition:.15s;position:relative}
+.mob-nav-btn.active,.mob-nav-btn:active{color:var(--y)}
+.mob-nav-btn svg{width:22px;height:22px;stroke-width:1.8}
+.mob-nav-cart-count{position:absolute;top:8px;right:calc(50% - 18px);background:var(--red);color:#fff;border-radius:50%;width:16px;height:16px;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center}
+@media(max-width:768px){
+  .mob-bottom-nav{display:block}
+  body{padding-bottom:62px}
+}
+
+/* ── HOW TO ORDER STRIP ── */
+.how-strip{background:var(--b);border-bottom:.5px solid rgba(255,255,255,.07);padding:2rem 1.5rem}
+.how-strip-inner{max-width:1280px;margin:0 auto}
+.how-strip-label{font-size:11px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--y);margin-bottom:1rem;display:flex;align-items:center;gap:8px}
+.how-strip-label::after{content:'';flex:1;height:1px;background:rgba(255,255,255,.07)}
+.how-strip-steps{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:rgba(255,255,255,.06);border-radius:12px;overflow:hidden}
+.how-strip-step{background:var(--b2);padding:1.2rem 1rem;display:flex;flex-direction:column;align-items:flex-start;gap:.5rem;position:relative}
+.how-strip-step::after{content:'→';position:absolute;right:-10px;top:50%;transform:translateY(-50%);color:rgba(255,255,255,.15);font-size:18px;z-index:1}
+.how-strip-step:last-child::after{display:none}
+.how-strip-num{width:28px;height:28px;border-radius:50%;background:var(--y);color:var(--b);font-family:var(--fd);font-size:15px;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.how-strip-title{font-family:var(--fd);font-size:15px;font-weight:800;text-transform:uppercase;color:var(--w);line-height:1.1}
+.how-strip-desc{font-size:12px;color:rgba(255,255,255,.4);line-height:1.5}
+.how-strip-cta{margin-top:1.2rem;display:flex;align-items:center;gap:1rem;flex-wrap:wrap}
+.how-strip-cta-note{font-size:13px;color:rgba(255,255,255,.4)}
+.how-strip-cta-note a{color:var(--y);cursor:pointer;text-decoration:underline}
+@media(max-width:768px){
+  .how-strip-steps{grid-template-columns:1fr 1fr;gap:1px}
+  .how-strip-step::after{display:none}
+  .how-strip{padding:1.5rem 1rem}
+}
+@media(max-width:480px){
+  .how-strip-steps{grid-template-columns:1fr 1fr}
+}
+
 /* Desktop: show table, hide mobile cards */
 .admin-cards-mobile{display:none}
 </style>
@@ -576,8 +653,64 @@ footer{background:var(--b);padding:3rem 1.5rem 1.5rem;margin-top:0}
   </div>
 </div>
 
+<!-- MOBILE BOTTOM NAV -->
+<div class="mob-bottom-nav">
+  <div class="mob-bottom-nav-inner">
+    <button class="mob-nav-btn active" id="mobNavShop" onclick="showView('shop');setMobNav('shop')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      Shop
+    </button>
+    <button class="mob-nav-btn" id="mobNavTopup" onclick="showView('account');setTimeout(()=>document.getElementById('topupSection')?.scrollIntoView({behavior:'smooth'}),200);setMobNav('topup')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+      Top Up
+    </button>
+    <button class="mob-nav-btn" id="mobNavCart" onclick="openCart();setMobNav('cart')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 001.98 1.61h9.72a2 2 0 001.98-1.61L23 6H6"/></svg>
+      <span class="mob-nav-cart-count" id="mobCartCount" style="display:none">0</span>
+      Cart
+    </button>
+    <button class="mob-nav-btn" id="mobNavAccount" onclick="showView('account');setMobNav('account')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      Account
+    </button>
+  </div>
+</div>
+
 <!-- SHOP VIEW -->
 <div class="view active" id="shopView">
+
+  <!-- HOW TO ORDER -->
+  <div class="how-strip">
+    <div class="how-strip-inner">
+      <div class="how-strip-label">How to order</div>
+      <div class="how-strip-steps">
+        <div class="how-strip-step">
+          <div class="how-strip-num">1</div>
+          <div class="how-strip-title">Create Account</div>
+          <div class="how-strip-desc">Sign up free — takes 30 seconds. No card needed to browse.</div>
+        </div>
+        <div class="how-strip-step">
+          <div class="how-strip-num">2</div>
+          <div class="how-strip-title">Top Up Balance</div>
+          <div class="how-strip-desc">Add credit via PayPal in your local currency. Instant &amp; secure.</div>
+        </div>
+        <div class="how-strip-step">
+          <div class="how-strip-num">3</div>
+          <div class="how-strip-title">Pick Your Size</div>
+          <div class="how-strip-desc">Browse below, select your size and add to cart. Simple.</div>
+        </div>
+        <div class="how-strip-step">
+          <div class="how-strip-num">4</div>
+          <div class="how-strip-title">We Ship to You</div>
+          <div class="how-strip-desc">Balance deducted instantly. Dispatched fast, tracked worldwide.</div>
+        </div>
+      </div>
+      <div class="how-strip-cta">
+        <button class="btn-primary" style="padding:11px 22px;font-size:14px" onclick="openAuth('register')">Create Free Account</button>
+        <span class="how-strip-cta-note">Already have one? <a onclick="openAuth('login')">Log in</a></span>
+      </div>
+    </div>
+  </div>
 
   <!-- TRUST BAR -->
   <div class="trust">
@@ -646,7 +779,7 @@ footer{background:var(--b);padding:3rem 1.5rem 1.5rem;margin-top:0}
         <div class="acc-card"><div class="acc-card-label">Total Orders</div><div class="acc-card-val" id="orderCount">0</div></div>
       </div>
       <h2 class="acc-section-title">Top Up Balance</h2>
-      <div class="topup-box">
+      <div class="topup-box" id="topupSection">
         <div class="topup-label">Select amount to add to your balance</div>
         <div class="topup-amounts" id="topupAmounts"></div>
         <div class="topup-custom">
@@ -867,10 +1000,13 @@ footer{background:var(--b);padding:3rem 1.5rem 1.5rem;margin-top:0}
   <div class="modal" id="productModal">
     <button class="modal-close" onclick="closeProductModal()">×</button>
     <div class="p-modal-grid">
+      <!-- IMAGE SECTION -->
       <div class="p-modal-imgs" id="pmImgsWrap">
-        <img id="pmImg" src="" alt="" style="width:100%;height:100%;object-fit:cover;display:none;">
+        <img id="pmImg" src="" alt="" onclick="openLightbox()" style="width:100%;height:100%;object-fit:cover;display:none;cursor:zoom-in;">
+        <div class="pm-zoom-hint" id="pmZoomHint">Tap to zoom</div>
         <div class="pm-thumbs" id="pmThumbs"></div>
       </div>
+      <!-- INFO SECTION -->
       <div class="p-modal-info">
         <div class="p-modal-brand" id="pmBrand"></div>
         <div class="p-modal-name" id="pmName"></div>
@@ -883,6 +1019,15 @@ footer{background:var(--b);padding:3rem 1.5rem 1.5rem;margin-top:0}
       </div>
     </div>
   </div>
+</div>
+
+<!-- Image Lightbox -->
+<div class="lightbox" id="lightbox" onclick="closeLightbox()">
+  <button class="lightbox-close" onclick="closeLightbox()">×</button>
+  <button class="lightbox-prev" onclick="event.stopPropagation();lightboxNav(-1)">‹</button>
+  <img class="lightbox-img" id="lightboxImg" src="" alt="">
+  <button class="lightbox-next" onclick="event.stopPropagation();lightboxNav(1)">›</button>
+  <div class="lightbox-dots" id="lightboxDots"></div>
 </div>
 
 <!-- Auth Modal -->
@@ -989,6 +1134,13 @@ let state = {
   selectedCategoryIds: [],
 };
 
+// ── MOBILE BOTTOM NAV ──
+function setMobNav(active) {
+  document.querySelectorAll('.mob-nav-btn').forEach(b => b.classList.remove('active'));
+  const ids = {shop:'mobNavShop',topup:'mobNavTopup',cart:'mobNavCart',account:'mobNavAccount'};
+  if (ids[active]) document.getElementById(ids[active])?.classList.add('active');
+}
+
 // ── INIT ──
 async function init() {
   detectCountry();
@@ -1055,6 +1207,8 @@ function showView(v) {
   if (v === 'account') renderAccount();
   if (v === 'admin') renderAdmin();
   window.scrollTo(0,0);
+  const navMap = {shop:'shop',account:'account'};
+  setMobNav(navMap[v] || '');
 }
 
 // ── CATEGORIES ──
@@ -1193,11 +1347,57 @@ function selectSize(size, stock) {
   addBtn.textContent = 'Add to Cart';
 }
 
-function switchModalImg(url, el) {
-  document.getElementById('pmImg').src = url;
-  document.querySelectorAll('.pm-thumb').forEach(t => t.classList.remove('active'));
-  el.classList.add('active');
+// ── LIGHTBOX ──
+let lightboxImgs = [];
+let lightboxIdx = 0;
+
+function openLightbox() {
+  const p = state.selectedProduct;
+  if (!p) return;
+  lightboxImgs = (p.product_images||[]).sort((a,b)=>a.position-b.position).map(i=>i.url);
+  if (!lightboxImgs.length) return;
+  lightboxIdx = lightboxImgs.findIndex(u => u === document.getElementById('pmImg').src) || 0;
+  if (lightboxIdx < 0) lightboxIdx = 0;
+  renderLightbox();
+  document.getElementById('lightbox').classList.add('open');
+  document.body.style.overflow = 'hidden';
 }
+
+function closeLightbox() {
+  document.getElementById('lightbox').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+function lightboxNav(dir) {
+  lightboxIdx = (lightboxIdx + dir + lightboxImgs.length) % lightboxImgs.length;
+  renderLightbox();
+}
+
+function renderLightbox() {
+  document.getElementById('lightboxImg').src = lightboxImgs[lightboxIdx];
+  const dots = document.getElementById('lightboxDots');
+  dots.innerHTML = lightboxImgs.map((_,i) =>
+    `<div class="lightbox-dot ${i===lightboxIdx?'active':''}" onclick="event.stopPropagation();lightboxIdx=${i};renderLightbox()"></div>`
+  ).join('');
+  // hide nav arrows if only 1 image
+  document.querySelector('.lightbox-prev').style.display = lightboxImgs.length > 1 ? '' : 'none';
+  document.querySelector('.lightbox-next').style.display = lightboxImgs.length > 1 ? '' : 'none';
+}
+
+// Swipe on lightbox
+let lbTouchX = 0;
+document.getElementById && document.addEventListener('DOMContentLoaded', () => {
+  const lb = document.getElementById('lightbox');
+  if (lb) {
+    lb.addEventListener('touchstart', e => { lbTouchX = e.touches[0].clientX; }, {passive:true});
+    lb.addEventListener('touchend', e => {
+      const diff = lbTouchX - e.changedTouches[0].clientX;
+      if (Math.abs(diff) > 40) lightboxNav(diff > 0 ? 1 : -1);
+    });
+  }
+});
+
+
 
 function closeProductModal() {
   document.getElementById('productOverlay').classList.remove('open');
@@ -1232,6 +1432,12 @@ function updateCartUI() {
   const count = state.cart.reduce((t,i)=>t+i.qty,0);
   document.getElementById('cartCount').textContent = count;
   document.getElementById('cartTotal').textContent = fmt(total);
+  // Mobile bottom nav cart badge
+  const mobCount = document.getElementById('mobCartCount');
+  if (mobCount) {
+    mobCount.textContent = count;
+    mobCount.style.display = count > 0 ? 'flex' : 'none';
+  }
 }
 
 function renderCart() {
@@ -2021,7 +2227,15 @@ async function adjustBalance(id, email, current) {
   showToast(`Balance updated to £${val.toFixed(2)}`);
 }
 
-// ── INTERACTIVE HERO STEPS ──
+function switchModalImg(url, el) {
+  document.getElementById('pmImg').src = url;
+  document.querySelectorAll('.pm-thumb').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  // keep lightbox in sync
+  lightboxIdx = lightboxImgs.indexOf(url);
+}
+
+
 let hsiTimer;
 function hsiClick(i) {
   clearInterval(hsiTimer);
