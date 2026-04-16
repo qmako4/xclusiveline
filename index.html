@@ -1182,6 +1182,12 @@ async function init() {
 }
 
 function detectCountry() {
+  // Check URL param first — ?currency=USD etc
+  const urlParams = new URLSearchParams(window.location.search);
+  const urlCur = urlParams.get('currency')?.toUpperCase();
+  if (urlCur && ['GBP','USD','AUD','CAD','EUR','JPY','SGD','AED'].includes(urlCur)) {
+    setCurrency(urlCur); return;
+  }
   const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
   if (tz.includes('Australia')) setCurrency('AUD');
   else if (tz.includes('Asia/Tokyo')) setCurrency('JPY');
