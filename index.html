@@ -1108,10 +1108,10 @@ const ukToUS = {'6':'7','6.5':'7.5','7':'8','7.5':'8.5','8':'9','8.5':'9.5','9':
 const brands = ['Nike','Corteiz','Arc\'teryx','Casablanca','Asics','Adidas','New Balance','Palace','Stone Island','Supreme','Off-White','Fear of God','Essentials','Trapstar','Other'];
 
 function roundPrice(gbp, currency) {
-  if (currency === 'GBP') return parseFloat(gbp);
-  if (currency === 'JPY') return Math.round(parseFloat(gbp) * rates[currency]);
-  const converted = parseFloat(gbp) * rates[currency];
-  return Math.ceil(converted) - 0.01;
+  const raw = parseFloat(gbp) * rates[currency];
+  if (currency === 'JPY') return Math.round(raw); // JPY has no decimals
+  // Round up to nearest whole number then subtract 0.01 → always ends in .99
+  return Math.ceil(raw) - 0.01;
 }
 
 function fmt(gbp) {
@@ -1198,8 +1198,6 @@ function detectCountry() {
   else if (tz.includes('Europe') && !tz.includes('Europe/London')) setCurrency('EUR');
   else setCurrency('GBP');
 }
-
-function fmt(gbp) { return syms[state.currency] + (gbp * rates[state.currency]).toFixed(2); }
 
 function sizeRegion() { return state.currency === 'GBP' ? 'UK' : state.currency === 'USD' ? 'US' : 'AU'; }
 function convertSize(s, type) { return (type === 'shoe' && state.currency !== 'GBP') ? (ukToUS[s]||s) : s; }
