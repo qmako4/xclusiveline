@@ -16,7 +16,7 @@
   --br:10px;--trs:0.2s ease;
 }
 html{scroll-behavior:smooth;max-width:100vw;overflow-x:hidden}
-body{background:var(--y);color:var(--b);font-family:var(--fb);font-size:15px;line-height:1.6;overflow-x:hidden;max-width:100vw}
+body{background:var(--b);color:var(--b);font-family:var(--fb);font-size:15px;line-height:1.6;overflow-x:hidden;max-width:100vw}
 
 /* TICKER */
 .ticker{background:var(–b);padding:8px 0;overflow:hidden}
@@ -25,7 +25,7 @@ body{background:var(--y);color:var(--b);font-family:var(--fb);font-size:15px;lin
 @keyframes tick{from{transform:translateX(0)}to{transform:translateX(-50%)}}
 
 /* NAV */
-nav{position:sticky;top:0;z-index:200;background:rgba(245,168,0,.97);backdrop-filter:blur(8px);border-bottom:1.5px solid var(–b)}
+nav{position:sticky;top:0;z-index:200;background:var(–y);border-bottom:1.5px solid var(–b)}
 .nav-i{max-width:1280px;margin:0 auto;padding:0 1.5rem;height:62px;display:flex;align-items:center;justify-content:space-between;gap:1rem}
 .logo{display:flex;align-items:center;gap:0;text-decoration:none;cursor:pointer}
 .logo-bar{width:4px;height:34px;background:var(–b);border-radius:2px;margin-right:9px}
@@ -65,6 +65,8 @@ select.mob-cur option{background:#111}
 
 /* VIEWS */
 .view{display:none}
+.view.active{display:block}
+#shopView{background:var(–b)}
 .view.active{display:block}
 
 /* ── HERO ── */
@@ -562,9 +564,9 @@ body{padding-bottom:62px}
 }
 
 /* ── HOW TO ORDER ── */
-.how-strip{background:var(–b);border-bottom:.5px solid rgba(255,255,255,.07);padding:0}
+.how-strip{background:var(–b);border-bottom:.5px solid rgba(255,255,255,.07);padding:0;position:relative;z-index:1}
 .how-strip-inner{max-width:1280px;margin:0 auto}
-.how-strip-header{padding:2.5rem 1.5rem 1.5rem;text-align:center}
+.how-strip-header{padding:2.5rem 1.5rem 1.5rem;text-align:center;background:var(–b)}
 .how-strip-headline{font-family:var(–fd);font-size:clamp(1.6rem,4vw,2.6rem);font-weight:900;text-transform:uppercase;color:var(–w);line-height:1;margin-bottom:.4rem}
 .how-strip-headline span{color:var(–y)}
 .how-strip-subline{font-size:13px;color:rgba(255,255,255,.4);margin-top:.5rem}
@@ -607,6 +609,12 @@ body{padding-bottom:62px}
 
 /* Desktop: show table, hide mobile cards */
 .admin-cards-mobile{display:none}
+.admin-table-wrap{display:block}
+
+@media(max-width:768px){
+.admin-table-wrap{display:none!important}
+.admin-cards-mobile{display:flex!important;flex-direction:column;gap:10px}
+}
 </style>
 
 </head>
