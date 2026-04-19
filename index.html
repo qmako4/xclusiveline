@@ -275,20 +275,23 @@ select.mob-cur option{background:#111}
 /* ACCOUNT VIEW */
 .acc-wrap{max-width:900px;margin:0 auto;padding:3rem 1.5rem}
 .acc-title{font-family:var(--fd);font-size:3rem;font-weight:900;text-transform:uppercase;color:var(--b);margin-bottom:2rem}
-.acc-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-bottom:2.5rem}
+.acc-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:2.5rem}
 .acc-card{background:var(--b);border-radius:12px;padding:1.5rem}
 .acc-card-label{font-size:11px;color:rgba(255,255,255,.4);letter-spacing:.12em;text-transform:uppercase;margin-bottom:.5rem}
-.acc-card-val{font-family:var(--fd);font-size:2.5rem;font-weight:900;color:var(--w);line-height:1}
+.acc-card-val{font-family:var(--fd);font-size:2.5rem;font-weight:900;color:var(--w);line-height:1;margin-bottom:.3rem}
+.acc-card-sub{font-size:12px;color:rgba(255,255,255,.25)}
+.acc-card-topup{grid-column:1/-1;border:1.5px solid rgba(245,168,0,.25);background:rgba(245,168,0,.04)}
 .acc-section-title{font-family:var(--fd);font-size:1.8rem;font-weight:900;text-transform:uppercase;color:var(--b);margin-bottom:1rem}
 .topup-box{background:var(--b);border-radius:12px;padding:1.5rem;margin-bottom:2rem}
 .topup-label{font-size:11px;color:rgba(255,255,255,.4);letter-spacing:.1em;text-transform:uppercase;margin-bottom:.5rem}
 .topup-amounts{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:1rem}
-.topup-amt{background:rgba(255,255,255,.06);border:.5px solid rgba(255,255,255,.12);color:var(--w);padding:8px 16px;border-radius:6px;font-family:var(--fd);font-size:16px;font-weight:700;cursor:pointer;transition:.15s}
-.topup-amt:hover,.topup-amt.sel{background:var(--y);color:var(--b);border-color:var(--y)}
+.topup-amt,.topup-amount-btn{background:rgba(255,255,255,.06);border:1.5px solid rgba(255,255,255,.12);color:var(--w);padding:11px 18px;border-radius:8px;font-family:var(--fd);font-size:17px;font-weight:800;cursor:pointer;transition:.15s;letter-spacing:.02em}
+.topup-amt:hover,.topup-amt.sel,.topup-amount-btn:hover,.topup-amount-btn.selected{background:var(--y);color:var(--b);border-color:var(--y)}
 .topup-custom{display:flex;gap:10px;margin-bottom:1rem;align-items:center}
-.topup-custom input{flex:1;background:rgba(255,255,255,.06);border:.5px solid rgba(255,255,255,.12);color:var(--w);padding:10px 14px;border-radius:8px;font-family:var(--fb);font-size:15px;outline:none}
+.topup-custom input{flex:1;background:rgba(255,255,255,.06);border:.5px solid rgba(255,255,255,.12);color:var(--w);padding:11px 14px;border-radius:8px;font-family:var(--fb);font-size:15px;outline:none}
 .topup-custom input:focus{border-color:var(--y)}
 .topup-custom input::placeholder{color:rgba(255,255,255,.25)}
+.topup-custom-btn{background:var(--y);color:var(--b);border:none;padding:11px 18px;border-radius:8px;font-family:var(--fd);font-size:15px;font-weight:800;cursor:pointer;white-space:nowrap}
 #paypal-buttons{min-height:50px;margin-top:1rem}
 .paypal-note{font-size:12px;color:rgba(255,255,255,.3);margin-top:.5rem}
 
@@ -555,28 +558,48 @@ footer{background:var(--b);padding:3rem 1.5rem 1.5rem;margin-top:0}
   body{padding-bottom:62px}
 }
 
-/* ── HOW TO ORDER STRIP ── */
-.how-strip{background:var(--b);border-bottom:.5px solid rgba(255,255,255,.07);padding:2rem 1.5rem}
+/* ── HOW TO ORDER ── */
+.how-strip{background:var(--b);border-bottom:.5px solid rgba(255,255,255,.07);padding:0}
 .how-strip-inner{max-width:1280px;margin:0 auto}
-.how-strip-label{font-size:11px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--y);margin-bottom:1rem;display:flex;align-items:center;gap:8px}
-.how-strip-label::after{content:'';flex:1;height:1px;background:rgba(255,255,255,.07)}
-.how-strip-steps{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:rgba(255,255,255,.06);border-radius:12px;overflow:hidden}
-.how-strip-step{background:var(--b2);padding:1.2rem 1rem;display:flex;flex-direction:column;align-items:flex-start;gap:.5rem;position:relative}
-.how-strip-step::after{content:'→';position:absolute;right:-10px;top:50%;transform:translateY(-50%);color:rgba(255,255,255,.15);font-size:18px;z-index:1}
-.how-strip-step:last-child::after{display:none}
-.how-strip-num{width:28px;height:28px;border-radius:50%;background:var(--y);color:var(--b);font-family:var(--fd);font-size:15px;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.how-strip-title{font-family:var(--fd);font-size:15px;font-weight:800;text-transform:uppercase;color:var(--w);line-height:1.1}
-.how-strip-desc{font-size:12px;color:rgba(255,255,255,.4);line-height:1.5}
-.how-strip-cta{margin-top:1.2rem;display:flex;align-items:center;gap:1rem;flex-wrap:wrap}
+.how-strip-header{padding:2.5rem 1.5rem 1.5rem;text-align:center}
+.how-strip-headline{font-family:var(--fd);font-size:clamp(1.6rem,4vw,2.6rem);font-weight:900;text-transform:uppercase;color:var(--w);line-height:1;margin-bottom:.4rem}
+.how-strip-headline span{color:var(--y)}
+.how-strip-subline{font-size:13px;color:rgba(255,255,255,.4);margin-top:.5rem}
+.how-strip-steps{display:grid;grid-template-columns:repeat(4,1fr);gap:0;border-top:.5px solid rgba(255,255,255,.07)}
+.how-strip-step{padding:1.8rem 1.5rem;display:flex;flex-direction:column;gap:.7rem;border-right:.5px solid rgba(255,255,255,.07)}
+.how-strip-step:last-child{border-right:none}
+.how-strip-num{width:36px;height:36px;border-radius:50%;background:var(--y);color:var(--b);font-family:var(--fd);font-size:18px;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.how-strip-icon{font-size:22px;line-height:1}
+.how-strip-title{font-family:var(--fd);font-size:1.05rem;font-weight:900;text-transform:uppercase;color:var(--w);line-height:1.1}
+.how-strip-desc{font-size:12.5px;color:rgba(255,255,255,.45);line-height:1.6}
+.how-strip-cta{padding:1.4rem 1.5rem;border-top:.5px solid rgba(255,255,255,.07);display:flex;align-items:center;gap:1rem;flex-wrap:wrap;justify-content:center}
 .how-strip-cta-note{font-size:13px;color:rgba(255,255,255,.4)}
 .how-strip-cta-note a{color:var(--y);cursor:pointer;text-decoration:underline}
 @media(max-width:768px){
-  .how-strip-steps{grid-template-columns:1fr 1fr;gap:1px}
-  .how-strip-step::after{display:none}
-  .how-strip{padding:1.5rem 1rem}
-}
-@media(max-width:480px){
   .how-strip-steps{grid-template-columns:1fr 1fr}
+  .how-strip-step{border-bottom:.5px solid rgba(255,255,255,.07);padding:1.4rem 1.2rem}
+  .how-strip-step:nth-child(even){border-right:none}
+  .how-strip-step:nth-child(3),.how-strip-step:nth-child(4){border-bottom:none}
+  .how-strip-header{padding:2rem 1.2rem 1.2rem}
+  .how-strip-cta{padding:1.2rem}
+}
+
+/* ── TOP UP VIEW ── */
+.topup-view-wrap{max-width:680px;margin:0 auto;padding:3rem 1.5rem 5rem}
+.topup-view-title{font-family:var(--fd);font-size:clamp(2rem,5vw,3rem);font-weight:900;text-transform:uppercase;color:var(--b);margin-bottom:.3rem}
+.topup-view-sub{font-size:14px;color:rgba(10,10,10,.5);margin-bottom:2rem}
+.topup-view-card{background:var(--b);border-radius:16px;padding:2rem;margin-bottom:1rem}
+.topup-view-card-title{font-family:var(--fd);font-size:1rem;font-weight:800;text-transform:uppercase;color:rgba(255,255,255,.5);margin-bottom:1rem;display:flex;align-items:center;gap:8px}
+.topup-view-card-title svg{color:var(--y)}
+.topup-balance-big{font-family:var(--fd);font-size:3.5rem;font-weight:900;color:var(--y);line-height:1;margin-bottom:.2rem}
+.topup-balance-label{font-size:13px;color:rgba(255,255,255,.35);margin-bottom:1.5rem}
+.topup-how-steps{display:flex;flex-direction:column;gap:.8rem;margin-bottom:1.5rem}
+.topup-how-step{display:flex;align-items:flex-start;gap:12px;font-size:14px;color:rgba(255,255,255,.65);line-height:1.5}
+.topup-how-step-num{width:24px;height:24px;border-radius:50%;background:var(--y);color:var(--b);font-family:var(--fd);font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+@media(max-width:768px){
+  .topup-view-wrap{padding:2rem 1.2rem 6rem}
+  .topup-view-card{padding:1.4rem}
+  .topup-balance-big{font-size:2.8rem}
 }
 
 /* Desktop: show table, hide mobile cards */
@@ -602,6 +625,7 @@ footer{background:var(--b);padding:3rem 1.5rem 1.5rem;margin-top:0}
     <ul class="nav-links">
       <li><a onclick="showView('shop')">Shop</a></li>
       <li><a onclick="filterCategory(null);showView('shop')">All Drops</a></li>
+      <li><a onclick="showView('topup')">Top Up</a></li>
       <li><a onclick="showView('account')">Account</a></li>
     </ul>
     <div class="nav-r">
@@ -664,7 +688,7 @@ footer{background:var(--b);padding:3rem 1.5rem 1.5rem;margin-top:0}
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
       Shop
     </button>
-    <button class="mob-nav-btn" id="mobNavTopup" onclick="showView('account');setTimeout(()=>document.getElementById('topupSection')?.scrollIntoView({behavior:'smooth'}),200);setMobNav('topup')">
+    <button class="mob-nav-btn" id="mobNavTopup" onclick="showView('topup');setMobNav('topup')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
       Top Up
     </button>
@@ -686,32 +710,39 @@ footer{background:var(--b);padding:3rem 1.5rem 1.5rem;margin-top:0}
   <!-- HOW TO ORDER -->
   <div class="how-strip">
     <div class="how-strip-inner">
-      <div class="how-strip-label">How to order</div>
+      <div class="how-strip-header">
+        <div class="how-strip-headline">How to <span>Order</span></div>
+        <div class="how-strip-subline">Simple 4-step process — takes less than 2 minutes</div>
+      </div>
       <div class="how-strip-steps">
         <div class="how-strip-step">
+          <div class="how-strip-icon">👤</div>
           <div class="how-strip-num">1</div>
           <div class="how-strip-title">Create Account</div>
-          <div class="how-strip-desc">Sign up free — takes 30 seconds. No card needed to browse.</div>
+          <div class="how-strip-desc">Sign up free in 30 seconds. Just your email and a password — no card needed.</div>
         </div>
         <div class="how-strip-step">
+          <div class="how-strip-icon">💳</div>
           <div class="how-strip-num">2</div>
           <div class="how-strip-title">Top Up Balance</div>
-          <div class="how-strip-desc">Add credit via PayPal in your local currency. Instant &amp; secure.</div>
+          <div class="how-strip-desc">Add credit to your account via PayPal. Charged in your local currency. Instant and secure.</div>
         </div>
         <div class="how-strip-step">
+          <div class="how-strip-icon">👟</div>
           <div class="how-strip-num">3</div>
-          <div class="how-strip-title">Pick Your Size</div>
-          <div class="how-strip-desc">Browse below, select your size and add to cart. Simple.</div>
+          <div class="how-strip-title">Place Your Order</div>
+          <div class="how-strip-desc">Pick your item, select your size, add to cart and checkout using your balance. Done in seconds.</div>
         </div>
         <div class="how-strip-step">
+          <div class="how-strip-icon">✈️</div>
           <div class="how-strip-num">4</div>
           <div class="how-strip-title">We Ship to You</div>
-          <div class="how-strip-desc">Balance deducted instantly. Dispatched fast, tracked worldwide.</div>
+          <div class="how-strip-desc">Your balance is deducted instantly. We dispatch fast and ship tracked to your door worldwide.</div>
         </div>
       </div>
       <div class="how-strip-cta">
-        <button class="btn-primary" style="padding:11px 22px;font-size:14px" onclick="openAuth('register')">Create Free Account</button>
-        <span class="how-strip-cta-note">Already have one? <a onclick="openAuth('login')">Log in</a></span>
+        <button class="btn-primary" style="padding:13px 28px;font-size:15px" onclick="openAuth('register')">Create Free Account</button>
+        <span class="how-strip-cta-note">Already have one? <a onclick="openAuth('login')">Log in here</a></span>
       </div>
     </div>
   </div>
@@ -779,18 +810,25 @@ footer{background:var(--b);padding:3rem 1.5rem 1.5rem;margin-top:0}
     <!-- Logged in -->
     <div id="accLoggedIn" style="display:none">
       <div class="acc-grid">
-        <div class="acc-card"><div class="acc-card-label">Your Balance</div><div class="acc-card-val" id="balDisplay">£0.00</div></div>
-        <div class="acc-card"><div class="acc-card-label">Total Orders</div><div class="acc-card-val" id="orderCount">0</div></div>
-      </div>
-      <h2 class="acc-section-title">Top Up Balance</h2>
-      <div class="topup-box" id="topupSection">
-        <div class="topup-label">Select amount to add to your balance</div>
-        <div class="topup-amounts" id="topupAmounts"></div>
-        <div class="topup-custom">
-          <input type="number" id="customTopup" placeholder="Custom amount (GBP £)" min="5" max="500" oninput="selectTopup(parseFloat(this.value)||0,true)">
+        <div class="acc-card">
+          <div class="acc-card-label">Your Balance</div>
+          <div class="acc-card-val" id="balDisplay">£0.00</div>
+          <div class="acc-card-sub">Available to spend</div>
         </div>
-        <div id="paypal-buttons"></div>
-        <p class="paypal-note" id="paypalNote"></p>
+        <div class="acc-card">
+          <div class="acc-card-label">Total Orders</div>
+          <div class="acc-card-val" id="orderCount">0</div>
+          <div class="acc-card-sub">Completed orders</div>
+        </div>
+        <div class="acc-card acc-card-topup" id="topupSection">
+          <div class="acc-card-label">Top Up Balance</div>
+          <div class="topup-amounts" id="topupAmounts" style="margin-bottom:1rem"></div>
+          <div class="topup-custom" style="margin-bottom:.8rem">
+            <input type="number" id="customTopup" placeholder="Custom amount..." min="5" max="500" oninput="selectTopup(parseFloat(this.value)||0,true)">
+          </div>
+          <div id="paypal-buttons"></div>
+          <p class="paypal-note" id="paypalNote"></p>
+        </div>
       </div>
       <h2 class="acc-section-title">Order History</h2>
       <div id="ordersContainer"><div class="no-orders">Loading orders...</div></div>
@@ -901,6 +939,84 @@ footer{background:var(--b);padding:3rem 1.5rem 1.5rem;margin-top:0}
             <tbody id="adminUsersTbl"><tr><td colspan="6" style="text-align:center;padding:2rem;color:rgba(255,255,255,.3)">Loading...</td></tr></tbody>
           </table>
         </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TOP UP VIEW -->
+<div class="view" id="topupView">
+  <div class="topup-view-wrap">
+    <button class="policy-back" onclick="showView('shop')">← Back to Shop</button>
+    <div class="topup-view-title">Top Up Balance</div>
+    <div class="topup-view-sub">Add credit to your account and start ordering instantly</div>
+
+    <!-- Not logged in state -->
+    <div id="topupGuest" style="display:none">
+      <div class="topup-view-card" style="text-align:center;padding:2.5rem">
+        <div style="font-size:40px;margin-bottom:1rem">🔐</div>
+        <div style="font-family:var(--fd);font-size:1.3rem;font-weight:900;text-transform:uppercase;color:var(--w);margin-bottom:.5rem">Login Required</div>
+        <div style="font-size:14px;color:rgba(255,255,255,.45);margin-bottom:1.5rem">Create a free account or log in to top up your balance</div>
+        <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+          <button class="btn-primary" onclick="openAuth('register')">Create Free Account</button>
+          <button class="btn-ghost" style="border-color:rgba(255,255,255,.2);color:var(--w)" onclick="openAuth('login')">Log In</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Logged in state -->
+    <div id="topupLoggedIn" style="display:none">
+      <!-- Balance card -->
+      <div class="topup-view-card">
+        <div class="topup-view-card-title">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+          Your Balance
+        </div>
+        <div class="topup-balance-big" id="topupViewBalance">£0.00</div>
+        <div class="topup-balance-label">Available to spend on orders</div>
+        <div style="font-size:13px;color:rgba(255,255,255,.4)">Select an amount below to add more credit to your account via PayPal</div>
+      </div>
+
+      <!-- Top up amounts -->
+      <div class="topup-view-card">
+        <div class="topup-view-card-title">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Add Credit
+        </div>
+        <div class="topup-amounts" id="topupViewAmounts" style="margin-bottom:1.2rem"></div>
+        <div class="topup-custom">
+          <input class="topup-input" id="topupViewCustom" type="number" min="1" placeholder="Custom amount...">
+          <button class="topup-custom-btn" onclick="startCustomTopupView()">Top Up</button>
+        </div>
+        <div id="topupViewPaypal" style="margin-top:1rem"></div>
+        <div id="topupViewStatus" style="margin-top:.8rem;font-size:13px;color:rgba(255,255,255,.4)"></div>
+      </div>
+
+      <!-- How it works -->
+      <div class="topup-view-card">
+        <div class="topup-view-card-title">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          How it works
+        </div>
+        <div class="topup-how-steps">
+          <div class="topup-how-step">
+            <div class="topup-how-step-num">1</div>
+            <span>Select an amount above and pay securely via PayPal in your local currency</span>
+          </div>
+          <div class="topup-how-step">
+            <div class="topup-how-step-num">2</div>
+            <span>Credit is added to your balance instantly after payment</span>
+          </div>
+          <div class="topup-how-step">
+            <div class="topup-how-step-num">3</div>
+            <span>Use your balance to checkout any item — no card needed at checkout</span>
+          </div>
+          <div class="topup-how-step">
+            <div class="topup-how-step-num">4</div>
+            <span>Your balance never expires and can be used across multiple orders</span>
+          </div>
+        </div>
+        <div style="font-size:12px;color:rgba(255,255,255,.25);margin-top:.5rem">Payments processed securely by PayPal. Prices shown in your local currency.</div>
       </div>
     </div>
   </div>
@@ -1143,7 +1259,75 @@ let state = {
   selectedCategoryIds: [],
 };
 
-// ── MOBILE BOTTOM NAV ──
+function renderTopupView() {
+  const guest = document.getElementById('topupGuest');
+  const loggedIn = document.getElementById('topupLoggedIn');
+  if (!state.user) {
+    guest.style.display = 'block';
+    loggedIn.style.display = 'none';
+    return;
+  }
+  guest.style.display = 'none';
+  loggedIn.style.display = 'block';
+  // Balance
+  const bal = state.profile?.balance_gbp || 0;
+  document.getElementById('topupViewBalance').textContent = fmt(parseFloat(bal));
+  // Amounts
+  const amounts = [10,20,30,50,75,100];
+  document.getElementById('topupViewAmounts').innerHTML = amounts.map(a =>
+    `<button class="topup-amount-btn" onclick="selectTopupAmountView(${a},this)">${fmt(a)}</button>`
+  ).join('');
+  // Init PayPal button container
+  document.getElementById('topupViewPaypal').innerHTML = '';
+  document.getElementById('topupViewStatus').textContent = '';
+}
+
+let topupViewAmount = 0;
+function selectTopupAmountView(gbpAmount, el) {
+  topupViewAmount = gbpAmount;
+  document.querySelectorAll('#topupViewAmounts .topup-amount-btn').forEach(b => b.classList.remove('selected'));
+  el.classList.add('selected');
+  document.getElementById('topupViewCustom').value = '';
+  renderTopupViewPaypal(gbpAmount);
+}
+
+function startCustomTopupView() {
+  const val = parseFloat(document.getElementById('topupViewCustom').value);
+  if (!val || val < 1) { showToast('Enter a valid amount'); return; }
+  topupViewAmount = val;
+  document.querySelectorAll('#topupViewAmounts .topup-amount-btn').forEach(b => b.classList.remove('selected'));
+  renderTopupViewPaypal(val);
+}
+
+function renderTopupViewPaypal(gbpAmount) {
+  const container = document.getElementById('topupViewPaypal');
+  container.innerHTML = '<div id="topupViewPaypalBtn"></div>';
+  const localAmount = (gbpAmount * rates[state.currency]).toFixed(2);
+  paypal.Buttons({
+    createOrder: (data, actions) => actions.order.create({
+      purchase_units: [{ amount: { value: localAmount, currency_code: state.currency } }]
+    }),
+    onApprove: async (data, actions) => {
+      const details = await actions.order.capture();
+      document.getElementById('topupViewStatus').textContent = 'Processing...';
+      const res = await restPost('topups', {
+        user_id: state.user.id,
+        amount_gbp: gbpAmount,
+        amount_local: parseFloat(localAmount),
+        currency: state.currency,
+        paypal_order_id: details.id,
+        status: 'completed'
+      });
+      await restPost('rpc/confirm_topup', { p_user_id: state.user.id, p_amount_gbp: gbpAmount });
+      await loadProfile();
+      renderTopupView();
+      showToast(`✓ ${fmt(gbpAmount)} added to your balance!`);
+    },
+    onError: (err) => { document.getElementById('topupViewStatus').textContent = 'Payment failed. Please try again.'; }
+  }).render('#topupViewPaypalBtn');
+}
+
+
 function setMobNav(active) {
   document.querySelectorAll('.mob-nav-btn').forEach(b => b.classList.remove('active'));
   const ids = {shop:'mobNavShop',topup:'mobNavTopup',cart:'mobNavCart',account:'mobNavAccount'};
@@ -1219,8 +1403,9 @@ function showView(v) {
   document.getElementById(v+'View').classList.add('active');
   if (v === 'account') renderAccount();
   if (v === 'admin') renderAdmin();
+  if (v === 'topup') renderTopupView();
   window.scrollTo(0,0);
-  const navMap = {shop:'shop',account:'account'};
+  const navMap = {shop:'shop',account:'account',topup:'topup'};
   setMobNav(navMap[v] || '');
 }
 
