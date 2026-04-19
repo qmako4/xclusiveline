@@ -254,6 +254,8 @@ select.mob-cur option{background:#111}
 .cart-total-amt{font-family:var(--fd);font-size:1.8rem;font-weight:900;color:var(--w)}
 .checkout-btn{width:100%;background:var(--y);color:var(--b);border:none;padding:14px;border-radius:8px;font-family:var(--fd);font-size:18px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;transition:opacity var(--trs)}
 .checkout-btn:hover{opacity:.85}
+.topup-cart-btn{width:100%;margin-top:8px;background:transparent;color:rgba(255,255,255,.5);border:1px solid rgba(255,255,255,.12);padding:11px;border-radius:8px;font-family:var(--fd);font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;transition:.15s}
+.topup-cart-btn:hover{border-color:var(--y);color:var(--y)}
 .empty-cart{text-align:center;padding:3rem 1rem;color:rgba(255,255,255,.25);font-family:var(--fd);font-size:1.5rem;text-transform:uppercase}
 
 /* AUTH MODAL */
@@ -1176,7 +1178,10 @@ footer{background:var(--b);padding:3rem 1.5rem 1.5rem;margin-top:0}
     <button class="modal-close" onclick="closeCheckout()">×</button>
     <div class="checkout-title">Checkout</div>
     <div class="checkout-balance">Balance: <span id="coBalance">£0.00</span></div>
-    <div class="insufficient" id="insufficientMsg">Insufficient balance. Please top up your account.</div>
+    <div class="insufficient" id="insufficientMsg">
+      ⚠️ Insufficient balance. 
+      <span onclick="closeCheckout();showView('topup')" style="color:#fff;font-weight:700;text-decoration:underline;cursor:pointer">Top up now →</span>
+    </div>
     <div class="order-summary" id="coSummary"></div>
     <div class="form-field" style="margin-bottom:1rem"><label>Full Name</label><input id="shipName" placeholder="Shipping name"></div>
     <div class="form-field" style="margin-bottom:1rem"><label>Address</label><input id="shipAddr" placeholder="Street address"></div>
@@ -1196,6 +1201,7 @@ footer{background:var(--b);padding:3rem 1.5rem 1.5rem;margin-top:0}
   <div class="cart-bot">
     <div class="cart-total"><span class="cart-total-label">Total</span><span class="cart-total-amt" id="cartTotal">£0.00</span></div>
     <button class="checkout-btn" onclick="openCheckout()">Checkout with Balance</button>
+    <button class="topup-cart-btn" onclick="closeCart();showView('topup')">+ Top Up Balance</button>
   </div>
 </div>
 
