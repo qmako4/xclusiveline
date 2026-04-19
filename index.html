@@ -25,7 +25,7 @@ body{background:var(--b);color:var(--w);font-family:var(--fb);font-size:15px;lin
 @keyframes tick{from{transform:translateX(0)}to{transform:translateX(-50%)}}
 
 /* NAV */
-nav{position:sticky;top:0;z-index:200;background:var(–y);border-bottom:1.5px solid var(–b)}
+nav{position:sticky;top:0;z-index:100;background:var(–y);border-bottom:1.5px solid var(–b)}
 .nav-i{max-width:1280px;margin:0 auto;padding:0 1.5rem;height:62px;display:flex;align-items:center;justify-content:space-between;gap:1rem}
 .logo{display:flex;align-items:center;gap:0;text-decoration:none;cursor:pointer}
 .logo-bar{width:4px;height:34px;background:var(–b);border-radius:2px;margin-right:9px}
@@ -48,7 +48,7 @@ select.cur option{background:#111;color:var(–y)}
 .burger.open span:nth-child(3){transform:translateY(-7.5px) rotate(-45deg)}
 
 /* MOBILE MENU */
-.mob-menu{position:fixed;inset:0;background:#0A0A0A;z-index:600;transform:translateX(100%);transition:transform .35s cubic-bezier(.16,1,.3,1);display:flex;flex-direction:column;overflow:hidden}
+.mob-menu{position:fixed;inset:0;background:#0A0A0A;z-index:900;transform:translateX(100%);transition:transform .35s cubic-bezier(.16,1,.3,1);display:flex;flex-direction:column;overflow:hidden}
 .mob-menu.open{transform:translateX(0)}
 .mob-head{display:flex;align-items:center;justify-content:space-between;padding:0 1.2rem;height:62px;border-bottom:.5px solid rgba(255,255,255,.08)}
 .mob-logo-txt{font-family:var(–fd);font-size:22px;font-weight:900;color:var(–w);letter-spacing:.06em;text-transform:uppercase}
@@ -193,9 +193,9 @@ select.mob-cur option{background:#111}
 .no-products{text-align:center;padding:4rem;font-family:var(–fd);font-size:2rem;font-weight:900;text-transform:uppercase;color:rgba(10,10,10,.2)}
 
 /* MODAL */
-.overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:400;display:none;align-items:center;justify-content:center;padding:1rem}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:800;display:none;align-items:center;justify-content:center;padding:1rem}
 .overlay.open{display:flex}
-.modal{background:var(–b);border-radius:16px;width:100%;max-width:860px;max-height:90vh;overflow-y:auto;position:relative}
+.modal{background:#0A0A0A;border-radius:16px;width:100%;max-width:860px;max-height:90vh;overflow-y:auto;position:relative}
 .modal-close{position:absolute;top:1rem;right:1rem;background:rgba(255,255,255,.1);border:none;color:var(–w);width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;z-index:10}
 .modal-close:hover{background:rgba(255,255,255,.2)}
 
@@ -234,7 +234,7 @@ select.mob-cur option{background:#111}
 .add-btn:disabled{opacity:.4;cursor:not-allowed}
 
 /* CART DRAWER */
-.cart-drawer{position:fixed;top:0;right:0;bottom:0;width:380px;background:var(–b);z-index:500;transform:translateX(100%);transition:transform .35s cubic-bezier(.16,1,.3,1);display:flex;flex-direction:column}
+.cart-drawer{position:fixed;top:0;right:0;bottom:0;width:380px;background:#0A0A0A;z-index:700;transform:translateX(100%);transition:transform .35s cubic-bezier(.16,1,.3,1);display:flex;flex-direction:column}
 .cart-drawer.open{transform:translateX(0)}
 .cart-head{padding:1.2rem 1.5rem;border-bottom:.5px solid rgba(255,255,255,.08);display:flex;align-items:center;justify-content:space-between}
 .cart-title{font-family:var(–fd);font-size:1.8rem;font-weight:900;text-transform:uppercase;color:var(–w)}
@@ -554,7 +554,7 @@ nav .logo img{height:32px}
 }
 
 /* ── MOBILE BOTTOM NAV ── */
-.mob-bottom-nav{display:none;position:fixed;bottom:0;left:0;right:0;z-index:250;background:var(–b);border-top:.5px solid rgba(255,255,255,.1);padding:0;safe-area-inset-bottom:env(safe-area-inset-bottom)}
+.mob-bottom-nav{display:none;position:fixed;bottom:0;left:0;right:0;z-index:150;background:#0A0A0A;border-top:.5px solid rgba(255,255,255,.1);padding:0}
 .mob-bottom-nav-inner{display:flex;align-items:stretch;height:62px;padding-bottom:env(safe-area-inset-bottom)}
 .mob-nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;background:none;border:none;color:rgba(255,255,255,.45);cursor:pointer;font-size:9px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;font-family:var(–fb);transition:.15s;position:relative}
 .mob-nav-btn.active,.mob-nav-btn:active{color:var(–y)}
