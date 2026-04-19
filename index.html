@@ -16,7 +16,7 @@
   --br:10px;--trs:0.2s ease;
 }
 html{scroll-behavior:smooth;max-width:100vw;overflow-x:hidden}
-body{background:var(--b);color:var(--b);font-family:var(--fb);font-size:15px;line-height:1.6;overflow-x:hidden;max-width:100vw}
+body{background:var(--b);color:var(--w);font-family:var(--fb);font-size:15px;line-height:1.6;overflow-x:hidden;max-width:100vw}
 
 /* TICKER */
 .ticker{background:var(–b);padding:8px 0;overflow:hidden}
@@ -48,13 +48,13 @@ select.cur option{background:#111;color:var(–y)}
 .burger.open span:nth-child(3){transform:translateY(-7.5px) rotate(-45deg)}
 
 /* MOBILE MENU */
-.mob-menu{position:fixed;inset:0;background:var(–b);z-index:300;transform:translateX(100%);transition:transform .35s cubic-bezier(.16,1,.3,1);display:flex;flex-direction:column}
+.mob-menu{position:fixed;inset:0;background:#0A0A0A;z-index:600;transform:translateX(100%);transition:transform .35s cubic-bezier(.16,1,.3,1);display:flex;flex-direction:column;overflow:hidden}
 .mob-menu.open{transform:translateX(0)}
 .mob-head{display:flex;align-items:center;justify-content:space-between;padding:0 1.2rem;height:62px;border-bottom:.5px solid rgba(255,255,255,.08)}
 .mob-logo-txt{font-family:var(–fd);font-size:22px;font-weight:900;color:var(–w);letter-spacing:.06em;text-transform:uppercase}
 .mob-close{background:none;border:none;color:var(–w);cursor:pointer;opacity:.7;font-size:24px;line-height:1}
 .mob-links{flex:1;display:flex;flex-direction:column;padding:2rem 1.5rem;gap:0}
-.mob-links a{font-family:var(–fd);font-size:2.8rem;font-weight:900;letter-spacing:.04em;text-transform:uppercase;color:rgba(255,255,255,.25);text-decoration:none;padding:.5rem 0;border-bottom:.5px solid rgba(255,255,255,.06);transition:color .15s;cursor:pointer}
+.mob-links a{font-family:var(–fd);font-size:2.8rem;font-weight:900;letter-spacing:.04em;text-transform:uppercase;color:rgba(255,255,255,.7);text-decoration:none;padding:.5rem 0;border-bottom:.5px solid rgba(255,255,255,.06);transition:color .15s;cursor:pointer}
 .mob-links a:hover{color:var(–y)}
 .mob-bot{padding:1.2rem 1.5rem;border-top:.5px solid rgba(255,255,255,.08);display:flex;gap:10px}
 .mob-balance{padding:1rem 1.5rem;border-top:.5px solid rgba(255,255,255,.08);display:flex;justify-content:space-between;align-items:center}
@@ -278,6 +278,7 @@ select.mob-cur option{background:#111}
 .auth-err.show{display:block}
 
 /* ACCOUNT VIEW */
+#accountView,#contactView,#returnsView,#topupView{background:var(–y)}
 .acc-wrap{max-width:900px;margin:0 auto;padding:3rem 1.5rem}
 .acc-title{font-family:var(–fd);font-size:3rem;font-weight:900;text-transform:uppercase;color:var(–b);margin-bottom:2rem}
 .acc-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:2.5rem}
@@ -326,6 +327,7 @@ select.mob-cur option{background:#111}
 .insufficient.show{display:block}
 
 /* ADMIN VIEW */
+#adminView{background:var(–b2)}
 .admin-wrap{max-width:1200px;margin:0 auto;padding:2rem 1.5rem}
 .admin-title{font-family:var(–fd);font-size:2.5rem;font-weight:900;text-transform:uppercase;color:var(–b);margin-bottom:1.5rem}
 .admin-tabs{display:flex;gap:8px;margin-bottom:2rem;flex-wrap:wrap}
