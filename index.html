@@ -1530,7 +1530,12 @@ function openProductModal(pOrJson) {
   document.getElementById('pmPrice').innerHTML = p.sale_price_gbp && parseFloat(p.sale_price_gbp) > 0
     ? `<span class="pm-price-sale">${fmt(parseFloat(p.sale_price_gbp))}</span><span class="pm-price-orig">${fmt(parseFloat(p.price_gbp))}</span>`
     : fmt(parseFloat(p.price_gbp));
-  document.getElementById('pmDesc').textContent = p.description || '';
+  document.getElementById('pmDesc').innerHTML = `
+    ${p.description ? `<div style="margin-bottom:.8rem">${p.description}</div>` : ''}
+    <div style="display:flex;align-items:center;gap:7px;font-size:13px;color:rgba(255,255,255,.5);background:rgba(255,255,255,.05);border-radius:7px;padding:9px 12px;border:.5px solid rgba(255,255,255,.08)">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+      <span>Estimated delivery: <strong style="color:var(--w)">9–12 days</strong> worldwide</span>
+    </div>`;
   document.getElementById('pmSizeRegion').textContent = sizeRegion();
   const sizes = p.product_sizes || [];
   document.getElementById('pmSizes').innerHTML = sizes.map(s => {
