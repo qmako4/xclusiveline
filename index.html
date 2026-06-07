@@ -476,9 +476,16 @@ footer{border-top:1px solid var(--line);padding:3rem 0 2rem;margin-top:2rem}
 
 <div class="modal" id="authModal"><div class="modal-card sm"><button class="x modal-x" onclick="closeModal('authModal')">✕</button><div class="modal-pad">
   <div class="auth-tabs"><button id="tabLogin" class="on" onclick="setAuthMode('login')">Login</button><button id="tabReg" onclick="setAuthMode('register')">Register</button></div>
-  <div class="field" id="nameField"><label>Full name</label><input id="auName"></div>
+  <div id="regOnly">
+    <div class="field"><label>Full name</label><input id="auName"></div>
+  </div>
   <div class="field"><label>Email</label><input id="auEmail" type="email"></div>
   <div class="field"><label>Password</label><input id="auPass" type="password"></div>
+  <div id="regAddr">
+    <div class="field"><label>Address</label><input id="auAddr"></div>
+    <div class="row2"><div class="field"><label>City</label><input id="auCity"></div><div class="field"><label>Postcode</label><input id="auPost"></div></div>
+    <div class="field"><label>Country</label><input id="auCountry" value="United Kingdom"></div>
+  </div>
   <div class="form-err" id="authErr"></div>
   <button class="btn block" id="authSubmit" onclick="submitAuth()">Login</button>
 </div></div></div>
@@ -545,7 +552,7 @@ async function currentUser(){
   const {data:{session}}=await sb.auth.getSession();
   if(!session) return null;
   let p={}; try{ p=(await rGet(`profiles?id=eq.${session.user.id}&select=*`))[0]||{}; }catch(e){}
-  return { id:session.user.id, email:session.user.email, full_name:p.full_name, balance_gbp:p.balance_gbp||0, is_admin:!!p.is_admin };
+  return { id:session.user.id, email:session.user.email, full_name:p.full_name, balance_gbp:p.balance_gbp||0, is_admin:!!p.is_admin, address:p.address||'', city:p.city||'', postcode:p.postcode||'', country:p.country||'' };
 }
 async function authResult(){ const {data:{session}}=await sb.auth.getSession(); const u=await currentUser(); return { token:session?.access_token||'', user:u }; }
 const PROD_SELECT='id,name,brand,description,price_gbp,sale_price_gbp,size_type,active,created_at,product_images(id,url,position),product_sizes(id,size,stock),product_categories(category_id)';
@@ -567,7 +574,7 @@ async function adminSaveProduct(id, b){
 async function api(path, {method='GET', body, raw, headers={}} = {}) {
   const seg = path.split('?')[0];
   // auth
-  if(seg==='/api/auth/register'){ const {error}=await sb.auth.signUp({email:body.email,password:body.password,options:{data:{full_name:body.full_name}}}); if(error) throw new Error(error.message); const res=await authResult(); if(!res.user) throw new Error('Account created — check your email to confirm, then log in.'); return res; }
+  if(seg==='/api/auth/register'){ const {error}=await sb.auth.signUp({email:body.email,password:body.password,options:{data:{full_name:body.full_name}}}); if(error) throw new Error(error.message); const res=await authResult(); if(!res.user) throw new Error('Account created — check your email to confirm, then log in.'); try{ await rSend('PATCH',`profiles?id=eq.${res.user.id}`,{full_name:body.full_name||null,address:body.address||null,city:body.city||null,postcode:body.postcode||null,country:body.country||null}); res.user={...res.user,...{address:body.address,city:body.city,postcode:body.postcode,country:body.country}}; }catch(e){} return res; }
   if(seg==='/api/auth/login'){ const {error}=await sb.auth.signInWithPassword({email:body.email,password:body.password}); if(error) throw new Error(error.message); return authResult(); }
   if(seg==='/api/auth/me'){ const u=await currentUser(); if(!u) throw new Error('Not signed in'); return {user:u}; }
   // catalog
@@ -736,17 +743,19 @@ let authMode='login';
 function openAuth(mode){ setAuthMode(mode); el('authErr').classList.remove('show'); openModal('authModal'); }
 function setAuthMode(mode){ authMode=mode;
   el('tabLogin').classList.toggle('on',mode==='login'); el('tabReg').classList.toggle('on',mode==='register');
-  el('nameField').classList.toggle('hidden',mode==='login');
+  el('regOnly').classList.toggle('hidden',mode==='login');
+  el('regAddr').classList.toggle('hidden',mode==='login');
   el('authSubmit').textContent = mode==='login'?'Login':'Create account';
 }
 async function submitAuth(){
   const email=el('auEmail').value.trim(), pass=el('auPass').value, name=el('auName').value.trim();
   const errEl=el('authErr');
   if(!email||!pass){ errEl.textContent='Email and password required'; errEl.classList.add('show'); return; }
+  const address={address:el('auAddr').value.trim(),city:el('auCity').value.trim(),postcode:el('auPost').value.trim(),country:el('auCountry').value.trim()};
   const btn=el('authSubmit'); btn.disabled=true; btn.textContent='Please wait…';
   try{
     const path = authMode==='register'?'/api/auth/register':'/api/auth/login';
-    const {token,user} = await api(path,{method:'POST',body:{email,password:pass,full_name:name}});
+    const {token,user} = await api(path,{method:'POST',body:{email,password:pass,full_name:name,...address}});
     state.token=token; state.user=user; localStorage.setItem('xl-token',token);
     closeModal('authModal'); updateAuthUI(); updateBalance();
     toast(authMode==='register'?'Welcome 🎉':'Welcome back!');
@@ -855,8 +864,17 @@ function openCheckout(){
     + `<div style="display:flex;justify-content:space-between;font-family:var(--fd);font-weight:800;font-size:1.2rem;padding-top:8px;border-top:1px solid var(--line)"><span>Total</span><span class="y" style="color:var(--y)">${money(cartTotal())}</span></div>`;
   el('coBal').textContent=money(state.user.balance_gbp);
   el('coInsuff').classList.toggle('show', state.user.balance_gbp < cartTotal());
+  // prefill from the saved profile address
   el('shName').value = state.user.full_name||'';
+  el('shAddr').value = state.user.address||'';
+  el('shCity').value = state.user.city||'';
+  el('shPost').value = state.user.postcode||'';
+  el('shCountry').value = state.user.country||'United Kingdom';
   openModal('checkoutModal');
+}
+async function saveAddress(s){
+  try{ await rSend('PATCH',`profiles?id=eq.${state.user.id}`,{full_name:s.name,address:s.address,city:s.city,postcode:s.postcode,country:s.country});
+    Object.assign(state.user,{full_name:s.name,address:s.address,city:s.city,postcode:s.postcode,country:s.country}); }catch(e){}
 }
 async function placeOrder(){
   const total=cartTotal();
@@ -868,6 +886,7 @@ async function placeOrder(){
   try{
     const {balance_gbp}=await api('/api/orders',{method:'POST',body:{items,shipping}});
     state.user.balance_gbp=balance_gbp; updateBalance();
+    saveAddress(shipping); // keep saved address up to date for next time
     state.cart=[]; saveCart(); updateCartUI();
     closeModal('checkoutModal'); toast('Order placed! 🎉'); go('account');
   }catch(e){ toast(e.message); }
