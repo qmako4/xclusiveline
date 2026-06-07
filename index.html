@@ -1274,7 +1274,7 @@ const PAYPAL_CLIENT_ID = 'AViPSrHXjYHOGpq30UOuIQB7iPkpRGCz2_SLMkUw3yk8w_X1QA0SJq
 
 // Cloudflare R2 image hosting. Product image files live in R2; uploads go
 // through the Worker (which checks the Supabase admin session). See cloudflare/.
-const R2_UPLOAD_URL = 'https://xclusiveline-images.YOUR-SUBDOMAIN.workers.dev'; // ← Worker URL after `wrangler deploy`
+const R2_UPLOAD_URL = 'https://xclusiveline-images.qmako41212.workers.dev'; // Worker upload endpoint
 const R2_PUBLIC_BASE = 'https://pub-0c603d33592f4c888141122b8c344962.r2.dev'; // R2 public domain
 
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
