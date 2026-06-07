@@ -591,7 +591,8 @@ async function api(path, {method='GET', body, raw, headers={}} = {}) {
 }
 
 /* ════════════ HELPERS ════════════ */
-function money(gbp){ const v = (gbp||0)*rates[state.currency]; return syms[state.currency]+v.toFixed(2); }
+function round99(v){ if(v<=0) return 0; const r=Math.round(v+0.01)-0.01; return r<0.99?0.99:r; } // snap to nearest x.99
+function money(gbp){ let v=(gbp||0)*rates[state.currency]; if(state.currency!=='GBP') v=round99(v); return syms[state.currency]+v.toFixed(2); }
 function priceOf(p){ return p.sale_price_gbp ?? p.price_gbp; }
 function el(id){ return document.getElementById(id); }
 function toast(msg){ const t=el('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),2600); }
