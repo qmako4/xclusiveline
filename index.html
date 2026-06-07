@@ -172,6 +172,13 @@ footer{border-top:1px solid var(--line);padding:3rem 0 2rem;margin-top:2rem}
 .size.on{background:var(--y);color:var(--b);border-color:var(--y);font-weight:600}
 .size.out{opacity:.32;text-decoration:line-through;cursor:not-allowed}
 
+/* PRODUCT PAGE */
+.back-link{display:inline-flex;align-items:center;gap:6px;color:var(--mut);font-size:13px;letter-spacing:.04em;text-transform:uppercase;margin-bottom:1.3rem;cursor:pointer}
+.back-link:hover{color:var(--y)}
+.pd-page{background:var(--b2);border:1px solid var(--line);border-radius:16px;overflow:hidden}
+.pd-page .pd-name{font-size:2.3rem}
+.pd-page .pd-info{padding:2.2rem}
+
 /* FORMS */
 .field{margin-bottom:1rem}
 .field label{display:block;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);margin-bottom:.4rem}
@@ -342,6 +349,9 @@ footer{border-top:1px solid var(--line);padding:3rem 0 2rem;margin-top:2rem}
   </div></footer>
 </main>
 
+<!-- ===== PRODUCT PAGE ===== -->
+<main id="view-product" class="page hidden"></main>
+
 <!-- ===== ACCOUNT VIEW ===== -->
 <main id="view-account" class="page hidden"><div class="wrap">
   <div id="accGuest" class="hidden" style="text-align:center;padding:4rem 0">
@@ -458,7 +468,6 @@ footer{border-top:1px solid var(--line);padding:3rem 0 2rem;margin-top:2rem}
 </aside>
 
 <!-- ===== MODALS ===== -->
-<div class="modal" id="prodModal"><div class="modal-card"><button class="x modal-x" onclick="closeModal('prodModal')">✕</button><div id="prodModalBody"></div></div></div>
 
 <div class="modal" id="authModal"><div class="modal-card sm"><button class="x modal-x" onclick="closeModal('authModal')">✕</button><div class="modal-pad">
   <div class="auth-tabs"><button id="tabLogin" class="on" onclick="setAuthMode('login')">Login</button><button id="tabReg" onclick="setAuthMode('register')">Register</button></div>
@@ -528,9 +537,11 @@ function toast(msg){ const t=el('toast'); t.textContent=msg; t.classList.add('sh
 function escapeHtml(s){ return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
 /* ════════════ NAV / VIEWS ════════════ */
-const VIEWS = ['shop','account','admin','contact','returns','shipping'];
+const VIEWS = ['shop','product','account','admin','contact','returns','shipping'];
 function go(view){
   VIEWS.forEach(v=>el('view-'+v).classList.toggle('hidden', v!==view));
+  document.title='XCLUSIVELINE — Premium UK Streetwear';
+  history.replaceState(null,'', view==='shop' ? location.pathname+location.search : '#'+view);
   window.scrollTo(0,0);
   if (view==='account') renderAccount();
   if (view==='admin') renderAdmin();
@@ -547,10 +558,14 @@ async function init(){
   if (state.token) { try { const {user}=await api('/api/auth/me'); state.user=user; } catch(e){ state.token=null; localStorage.removeItem('xl-token'); } }
   updateAuthUI();
   await loadProducts();
-  // simple hash routing
-  const h=location.hash.replace('#','');
-  if (VIEWS.includes(h)) go(h);
+  routeFromHash();
 }
+function routeFromHash(){
+  const h=location.hash.replace('#','');
+  if(h.startsWith('product/')){ openProduct(h.split('/')[1]); return; }
+  if(VIEWS.includes(h) && h!=='product'){ go(h); } else { go('shop'); }
+}
+window.addEventListener('hashchange', routeFromHash);
 async function loadProducts(){
   el('shopGrid').innerHTML = Array(8).fill('<div class="skl"></div>').join('');
   try { const {products}=await api('/api/products'); state.products=products; }
@@ -570,7 +585,9 @@ function renderShop(){
   if (q) list = list.filter(p=>(p.name+' '+p.brand).toLowerCase().includes(q));
   el('prodCount').textContent = `${list.length} item${list.length!==1?'s':''}`;
   if (!list.length){ el('shopGrid').innerHTML='<div class="empty">No products match.</div>'; return; }
-  el('shopGrid').innerHTML = list.map(p=>{
+  el('shopGrid').innerHTML = list.map(cardHTML).join('');
+}
+function cardHTML(p){
     const img = (p.images||[])[0]?.url || '';
     const onSale = p.sale_price_gbp!=null;
     return `<div class="card" onclick="openProduct('${p.id}')">
@@ -580,31 +597,41 @@ function renderShop(){
         <div class="card-name">${escapeHtml(p.name)}</div>
         <div class="card-price"><span class="now">${money(priceOf(p))}</span>${onSale?`<span class="was">${money(p.price_gbp)}</span>`:''}</div>
       </div></div>`;
-  }).join('');
 }
 
-/* ════════════ PRODUCT MODAL ════════════ */
+/* ════════════ PRODUCT PAGE ════════════ */
 function openProduct(id){
-  const p = state.products.find(x=>x.id===id); if(!p) return;
+  const p = state.products.find(x=>x.id===id);
+  if(!p){ go('shop'); return; }
   state.modalProduct=p; state.modalImg=0; state.modalSize=null;
-  renderProductModal(); openModal('prodModal');
+  if(location.hash!=='#product/'+id) history.replaceState(null,'','#product/'+id);
+  document.title = `${p.name} — XCLUSIVELINE`;
+  VIEWS.forEach(v=>el('view-'+v).classList.toggle('hidden', v!=='product'));
+  renderProductPage();
+  window.scrollTo(0,0);
 }
-function renderProductModal(){
+function renderProductPage(){
   const p=state.modalProduct; const imgs=p.images||[]; const onSale=p.sale_price_gbp!=null;
-  el('prodModalBody').innerHTML = `<div class="pd">
-    <div class="pd-gallery">
-      <div class="pd-main">${imgs.length?`<img id="pdMain" src="${imgs[state.modalImg].url}" alt="${escapeHtml(p.name)}">`:''}</div>
-      ${imgs.length>1?`<div class="pd-thumbs">${imgs.map((im,i)=>`<img src="${im.url}" class="${i===state.modalImg?'on':''}" onclick="state.modalImg=${i};renderProductModal()">`).join('')}</div>`:''}
+  const related = state.products.filter(x=>x.active && x.id!==p.id).slice(0,4);
+  el('view-product').innerHTML = `<div class="wrap">
+    <a class="back-link" onclick="go('shop')">← Back to shop</a>
+    <div class="pd pd-page">
+      <div class="pd-gallery">
+        <div class="pd-main">${imgs.length?`<img src="${imgs[state.modalImg].url}" alt="${escapeHtml(p.name)}">`:''}</div>
+        ${imgs.length>1?`<div class="pd-thumbs">${imgs.map((im,i)=>`<img src="${im.url}" class="${i===state.modalImg?'on':''}" onclick="state.modalImg=${i};renderProductPage()">`).join('')}</div>`:''}
+      </div>
+      <div class="pd-info">
+        <div class="pd-brand">${escapeHtml(p.brand||'')}</div>
+        <div class="pd-name">${escapeHtml(p.name)}</div>
+        <div class="pd-price"><span class="now">${money(priceOf(p))}</span>${onSale?`<span class="was">${money(p.price_gbp)}</span>`:''}</div>
+        ${p.description?`<div class="pd-desc">${escapeHtml(p.description)}</div>`:''}
+        <div class="pd-label">Select size</div>
+        <div class="sizes">${(p.sizes||[]).map(s=>`<button class="size ${s.stock<1?'out':''} ${state.modalSize===s.size?'on':''}" ${s.stock<1?'disabled':`onclick="state.modalSize='${escapeHtml(s.size)}';renderProductPage()"`}>${escapeHtml(s.size)}</button>`).join('')||'<span style="color:var(--mut)">One size</span>'}</div>
+        <button class="btn block" onclick="addToCart()">Add to cart — ${money(priceOf(p))}</button>
+      </div>
     </div>
-    <div class="pd-info">
-      <div class="pd-brand">${escapeHtml(p.brand||'')}</div>
-      <div class="pd-name">${escapeHtml(p.name)}</div>
-      <div class="pd-price"><span class="now">${money(priceOf(p))}</span>${onSale?`<span class="was">${money(p.price_gbp)}</span>`:''}</div>
-      ${p.description?`<div class="pd-desc">${escapeHtml(p.description)}</div>`:''}
-      <div class="pd-label">Select size</div>
-      <div class="sizes">${(p.sizes||[]).map(s=>`<button class="size ${s.stock<1?'out':''} ${state.modalSize===s.size?'on':''}" ${s.stock<1?'disabled':`onclick="state.modalSize='${escapeHtml(s.size)}';renderProductModal()"`}>${escapeHtml(s.size)}</button>`).join('')||'<span style="color:var(--mut)">One size</span>'}</div>
-      <button class="btn block" onclick="addToCart()">Add to cart — ${money(priceOf(p))}</button>
-    </div></div>`;
+    ${related.length?`<div class="sec-title" style="margin:2.6rem 0 1.2rem">You might also <em>like</em></div><div class="grid">${related.map(cardHTML).join('')}</div>`:''}
+  </div>`;
 }
 
 /* ════════════ CART ════════════ */
@@ -616,7 +643,7 @@ function addToCart(){
   const ex = state.cart.find(i=>i.id===p.id && i.size===size);
   if (ex) ex.qty++;
   else state.cart.push({id:p.id, name:p.name, brand:p.brand, price:priceOf(p), size, img:(p.images||[])[0]?.url||'', qty:1});
-  saveCart(); updateCartUI(); closeModal('prodModal'); openCart(); toast('Added to cart 🛒');
+  saveCart(); updateCartUI(); openCart(); toast('Added to cart 🛒');
 }
 function saveCart(){ localStorage.setItem('xl-cart', JSON.stringify(state.cart)); }
 function cartTotal(){ return state.cart.reduce((t,i)=>t+i.price*i.qty,0); }
@@ -640,7 +667,7 @@ function renderCart(){
 }
 
 /* ════════════ CURRENCY ════════════ */
-function setCurrency(c){ state.currency=c; localStorage.setItem('xl-cur',c); renderShop(); if(state.modalProduct)renderProductModal(); renderCart(); if(state.user)renderAccount(); }
+function setCurrency(c){ state.currency=c; localStorage.setItem('xl-cur',c); renderShop(); if(state.modalProduct)renderProductPage(); renderCart(); if(state.user)renderAccount(); }
 
 /* ════════════ AUTH ════════════ */
 let authMode='login';
