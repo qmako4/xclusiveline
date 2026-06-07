@@ -392,7 +392,6 @@ footer{border-top:1px solid var(--line);padding:3rem 0 2rem;margin-top:2rem}
     <button class="tab" data-tab="add" onclick="adminTab('add')">Add / Edit</button>
     <button class="tab" data-tab="orders" onclick="adminTab('orders')">Orders</button>
     <button class="tab" data-tab="users" onclick="adminTab('users')">Users</button>
-    <button class="tab" data-tab="setup" onclick="adminTab('setup')">Migrate</button>
   </div>
 
   <div class="tablo on" id="tab-products"><div class="panel"><div id="adminProducts">Loading…</div></div></div>
@@ -427,13 +426,6 @@ footer{border-top:1px solid var(--line);padding:3rem 0 2rem;margin-top:2rem}
 
   <div class="tablo" id="tab-orders"><div class="panel"><div id="adminOrders">Loading…</div></div></div>
   <div class="tablo" id="tab-users"><div class="panel"><div id="adminUsers">Loading…</div></div></div>
-
-  <div class="tablo" id="tab-setup"><div class="panel">
-    <h3>One-time data migration</h3>
-    <div class="notice">This pulls your 8 old products + images from Supabase Storage into Cloudflare R2 and loads them into the new database. Run it once. Safe to re-run (skips products that already exist).</div>
-    <button class="btn" id="migBtn" onclick="runMigration()">Import old products & images</button>
-    <pre id="migOut" style="margin-top:1rem;font-size:12px;color:var(--mut);white-space:pre-wrap"></pre>
-  </div></div>
 </div></main>
 
 <!-- ===== POLICY VIEWS ===== -->
@@ -492,19 +484,22 @@ footer{border-top:1px solid var(--line);padding:3rem 0 2rem;margin-top:2rem}
 
 <div class="toast" id="toast"></div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script>
 /* ════════════ CONFIG ════════════ */
-const API = 'https://xclusiveline-images.qmako41212.workers.dev';   // Cloudflare Worker API
+const SUPABASE_URL = 'https://ptucjxjqyvirhumzdggo.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB0dWNqeGpxeXZpcmh1bXpkZ2dvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYyMDkzNzEsImV4cCI6MjA5MTc4NTM3MX0.o-kQ-zVRnEVIuPRS1mqFtkY2znkrEgIXh_qPMwIRvm4';
 const PAYPAL_CLIENT_ID = 'AViPSrHXjYHOGpq30UOuIQB7iPkpRGCz2_SLMkUw3yk8w_X1QA0SJq-psuTff3JquBUtCdibI21McjV9';
-// Old Supabase storage base — only used by the one-time migration in the admin panel.
-const SUPABASE_IMG_BASE = 'https://ptucjxjqyvirhumzdggo.supabase.co/storage/v1/object/public/product-images';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth: { persistSession:true, autoRefreshToken:true, detectSessionInUrl:true, storage:window.localStorage, storageKey:'xl-auth' }
+});
 
 const syms = {GBP:'£',USD:'$',EUR:'€'};
 const rates = {GBP:1,USD:1.27,EUR:1.17};
 
 /* ════════════ STATE ════════════ */
 const state = {
-  token: localStorage.getItem('xl-token') || null,
+  token: null,
   user: null,
   products: [],
   cart: JSON.parse(localStorage.getItem('xl-cart') || '[]'),
@@ -518,15 +513,68 @@ const state = {
   form: {sizes:[], images:[]},   // images: {type:'existing'|'new', url, file?}
 };
 
-/* ════════════ API CLIENT ════════════ */
+/* ════════════ SUPABASE DATA LAYER ════════════
+   The UI was written against a small REST-style API. This shim maps those
+   calls onto the existing Supabase backend (auth + Postgres + storage). */
+let catCache = null;
+async function getToken(){ try{ const {data:{session}}=await sb.auth.getSession(); return session?.access_token||SUPABASE_KEY; }catch(e){ return SUPABASE_KEY; } }
+async function rGet(qs){ const t=await getToken(); const r=await fetch(`${SUPABASE_URL}/rest/v1/${qs}`,{headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${t}`}}); const d=await r.json(); if(!r.ok) throw new Error(d.message||'Error'); return d; }
+async function rSend(method,qs,body){ const t=await getToken(); const r=await fetch(`${SUPABASE_URL}/rest/v1/${qs}`,{method,headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${t}`,'Content-Type':'application/json',Prefer:'return=representation'},body:JSON.stringify(body)}); const d=await r.json().catch(()=>({})); if(!r.ok) throw new Error(d.message||JSON.stringify(d)); return d; }
+async function rDel(qs){ const t=await getToken(); const r=await fetch(`${SUPABASE_URL}/rest/v1/${qs}`,{method:'DELETE',headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${t}`}}); if(!r.ok){ const d=await r.json().catch(()=>({})); throw new Error(d.message||'Delete failed'); } }
+async function getCats(){ if(!catCache) catCache=await rGet('categories?select=id,name,slug&order=name'); return catCache; }
+function normProd(p, byId){
+  return { id:p.id,name:p.name,brand:p.brand,description:p.description,price_gbp:p.price_gbp,sale_price_gbp:p.sale_price_gbp,size_type:p.size_type,active:p.active,created_at:p.created_at,
+    images:(p.product_images||[]).slice().sort((a,b)=>a.position-b.position).map(i=>({url:i.url,position:i.position})),
+    sizes:(p.product_sizes||[]).map(s=>({size:s.size,stock:s.stock})),
+    categories:(p.product_categories||[]).map(pc=>byId[pc.category_id]).filter(Boolean) };
+}
+async function currentUser(){
+  const {data:{session}}=await sb.auth.getSession();
+  if(!session) return null;
+  let p={}; try{ p=(await rGet(`profiles?id=eq.${session.user.id}&select=*`))[0]||{}; }catch(e){}
+  return { id:session.user.id, email:session.user.email, full_name:p.full_name, balance_gbp:p.balance_gbp||0, is_admin:!!p.is_admin };
+}
+async function authResult(){ const {data:{session}}=await sb.auth.getSession(); const u=await currentUser(); return { token:session?.access_token||'', user:u }; }
+const PROD_SELECT='id,name,brand,description,price_gbp,sale_price_gbp,size_type,active,created_at,product_images(id,url,position),product_sizes(id,size,stock),product_categories(category_id)';
+
+async function adminSaveProduct(id, b){
+  const cats=await getCats(); const catIds=[];
+  for(const name of (b.categories||[])){ let c=cats.find(x=>x.name.toLowerCase()===name.toLowerCase()); if(!c){ const slug=name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,''); c=(await rSend('POST','categories',{name,slug}))[0]; catCache.push(c); } catIds.push(c.id); }
+  const data={name:b.name,brand:b.brand,price_gbp:b.price_gbp,sale_price_gbp:b.sale_price_gbp,category_id:catIds[0]||null,size_type:b.size_type,active:b.active,description:b.description};
+  let pid=id;
+  if(pid){ await rSend('PATCH',`products?id=eq.${pid}`,data); await rDel(`product_sizes?product_id=eq.${pid}`); await rDel(`product_categories?product_id=eq.${pid}`); await rDel(`product_images?product_id=eq.${pid}`); }
+  else { pid=(await rSend('POST','products',data))[0].id; }
+  if(catIds.length) await rSend('POST','product_categories',catIds.map(cid=>({product_id:pid,category_id:cid})));
+  if((b.sizes||[]).length) await rSend('POST','product_sizes',b.sizes.map(s=>({product_id:pid,size:s.size,stock:parseInt(s.stock)||0})));
+  if((b.images||[]).length) await rSend('POST','product_images',b.images.map((url,i)=>({product_id:pid,url,position:i})));
+  return {id:pid};
+}
+
+/* maps the UI's API calls onto Supabase */
 async function api(path, {method='GET', body, raw, headers={}} = {}) {
-  const h = {...headers};
-  if (state.token) h.Authorization = `Bearer ${state.token}`;
-  if (body && !raw) h['Content-Type'] = 'application/json';
-  const res = await fetch(API + path, {method, headers:h, body: raw ? body : (body ? JSON.stringify(body) : undefined)});
-  const data = await res.json().catch(()=>({}));
-  if (!res.ok) throw new Error(data.error || `Error ${res.status}`);
-  return data;
+  const seg = path.split('?')[0];
+  // auth
+  if(seg==='/api/auth/register'){ const {error}=await sb.auth.signUp({email:body.email,password:body.password,options:{data:{full_name:body.full_name}}}); if(error) throw new Error(error.message); const res=await authResult(); if(!res.user) throw new Error('Account created — check your email to confirm, then log in.'); return res; }
+  if(seg==='/api/auth/login'){ const {error}=await sb.auth.signInWithPassword({email:body.email,password:body.password}); if(error) throw new Error(error.message); return authResult(); }
+  if(seg==='/api/auth/me'){ const u=await currentUser(); if(!u) throw new Error('Not signed in'); return {user:u}; }
+  // catalog
+  if(seg==='/api/products'){ const byId=Object.fromEntries((await getCats()).map(c=>[c.id,c.name])); const rows=await rGet(`products?select=${PROD_SELECT}&active=eq.true&order=created_at.desc`); return {products:rows.map(p=>normProd(p,byId))}; }
+  // orders
+  if(seg==='/api/orders' && method==='GET'){ const u=await currentUser(); const rows=await rGet(`orders?user_id=eq.${u.id}&select=*,order_items(*)&order=created_at.desc`); return {orders:rows.map(o=>({...o,items:o.order_items}))}; }
+  if(seg==='/api/orders' && method==='POST'){ const u=await currentUser(); const items=body.items.map(it=>{ const c=state.cart.find(ci=>ci.id===it.product_id&&ci.size===it.size)||{}; return {product_id:it.product_id,product_name:c.name,product_brand:c.brand,size:it.size,price_gbp:c.price,quantity:it.quantity}; }); const total=state.cart.reduce((t,i)=>t+i.price*i.qty,0); const {error}=await sb.rpc('place_order',{p_user_id:u.id,p_items:items,p_total_gbp:total,p_shipping:body.shipping}); if(error) throw new Error(error.message); return {balance_gbp:(await currentUser()).balance_gbp}; }
+  // admin: products
+  if(seg==='/api/admin/products' && method==='GET'){ const byId=Object.fromEntries((await getCats()).map(c=>[c.id,c.name])); const rows=await rGet(`products?select=${PROD_SELECT}&order=created_at.desc`); return {products:rows.map(p=>normProd(p,byId))}; }
+  if(seg==='/api/admin/products' && method==='POST') return adminSaveProduct(null, body);
+  if(seg.startsWith('/api/admin/products/') && method==='PATCH') return adminSaveProduct(seg.split('/').pop(), body);
+  if(seg.startsWith('/api/admin/products/') && method==='DELETE'){ await rDel(`products?id=eq.${seg.split('/').pop()}`); return {ok:true}; }
+  // admin: upload to Supabase storage
+  if(seg==='/api/admin/upload'){ const fp=headers['x-file-path']; const t=await getToken(); const r=await fetch(`${SUPABASE_URL}/storage/v1/object/product-images/${fp}`,{method:'POST',headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${t}`,'Content-Type':headers['Content-Type']||'image/jpeg','x-upsert':'true'},body}); if(!r.ok){ const d=await r.json().catch(()=>({})); throw new Error(d.message||'Upload failed'); } return {url:`${SUPABASE_URL}/storage/v1/object/public/product-images/${fp}`}; }
+  // admin: orders + users
+  if(seg==='/api/admin/orders' && method==='GET'){ const rows=await rGet('orders?select=*,order_items(*),profiles(email)&order=created_at.desc'); return {orders:rows.map(o=>({...o,user_email:o.profiles?.email,items:o.order_items}))}; }
+  if(seg.startsWith('/api/admin/orders/') && method==='PATCH'){ await rSend('PATCH',`orders?id=eq.${seg.split('/').pop()}`,{status:body.status}); return {ok:true}; }
+  if(seg==='/api/admin/users' && method==='GET') return {users:await rGet('profiles?select=id,email,full_name,balance_gbp,is_admin,created_at&order=created_at.desc')};
+  if(seg.startsWith('/api/admin/users/') && method==='PATCH'){ const patch={}; if(body.balance_gbp!=null)patch.balance_gbp=body.balance_gbp; if(body.is_admin!=null)patch.is_admin=body.is_admin; await rSend('PATCH',`profiles?id=eq.${seg.split('/').pop()}`,patch); return {ok:true}; }
+  throw new Error('Unsupported request: '+path);
 }
 
 /* ════════════ HELPERS ════════════ */
@@ -555,7 +603,7 @@ async function init(){
   el('ticker').innerHTML = ('PREMIUM UK STREETWEAR • AUTHENTICATED DROPS • WALLET TOP-UPS • FAST UK SHIPPING • ').repeat(2).split('•').filter(s=>s.trim()).map(s=>`<span>${s.trim()}</span>`).join('');
   el('curSel').innerHTML = Object.keys(syms).map(c=>`<option value="${c}" ${c===state.currency?'selected':''}>${c}</option>`).join('');
   updateCartUI();
-  if (state.token) { try { const {user}=await api('/api/auth/me'); state.user=user; } catch(e){ state.token=null; localStorage.removeItem('xl-token'); } }
+  try { const u=await currentUser(); if(u) state.user=u; } catch(e){}
   updateAuthUI();
   await loadProducts();
   routeFromHash();
@@ -569,7 +617,7 @@ window.addEventListener('hashchange', routeFromHash);
 async function loadProducts(){
   el('shopGrid').innerHTML = Array(8).fill('<div class="skl"></div>').join('');
   try { const {products}=await api('/api/products'); state.products=products; }
-  catch(e){ el('shopGrid').innerHTML=`<div class="empty">Couldn't load products. Is the API deployed?<br><small>${escapeHtml(e.message)}</small></div>`; return; }
+  catch(e){ el('shopGrid').innerHTML=`<div class="empty">Couldn't load products right now.<br><small>${escapeHtml(e.message)}</small></div>`; return; }
   renderChips(); renderShop();
 }
 
@@ -692,7 +740,7 @@ async function submitAuth(){
   }catch(e){ errEl.textContent=e.message; errEl.classList.add('show'); }
   finally{ btn.disabled=false; setAuthMode(authMode); }
 }
-function logout(){ state.token=null; state.user=null; localStorage.removeItem('xl-token'); updateAuthUI(); go('shop'); toast('Signed out'); }
+async function logout(){ try{ await sb.auth.signOut(); }catch(e){} state.token=null; state.user=null; localStorage.removeItem('xl-token'); updateAuthUI(); go('shop'); toast('Signed out'); }
 function updateAuthUI(){
   const b=el('authBtn');
   if(state.user){ b.textContent='Account'; b.onclick=()=>go('account');
@@ -758,10 +806,15 @@ async function initPayPal(){
     const paypal = window.paypal || await loadPP();
     paypal.Buttons({
       style:{color:'gold',shape:'pill',height:42,label:'paypal'},
-      createOrder: async ()=>{ const {paypal_order_id}=await api('/api/topup/create',{method:'POST',body:{amount_gbp:state.topup}}); return paypal_order_id; },
-      onApprove: async (data)=>{
-        try{ const {balance_gbp}=await api('/api/topup/capture',{method:'POST',body:{paypal_order_id:data.orderID}});
-          state.user.balance_gbp=balance_gbp; updateBalance(); el('balBig').textContent=money(balance_gbp);
+      createOrder: (d,actions)=>actions.order.create({purchase_units:[{amount:{value:state.topup.toFixed(2),currency_code:'GBP'},description:'XCLUSIVELINE wallet top-up'}]}),
+      onApprove: async (data,actions)=>{
+        try{
+          const order=await actions.order.capture();
+          const u=await currentUser();
+          const ins=await rSend('POST','topups',{user_id:u.id,amount_gbp:state.topup,paypal_order_id:order.id,status:'pending'});
+          await sb.rpc('confirm_topup',{p_topup_id:ins[0].id});
+          const fresh=await currentUser(); state.user=fresh;
+          updateBalance(); el('balBig').textContent=money(fresh.balance_gbp);
           state.topup=0; renderTopupAmounts(); el('customTopup').value=''; holder.innerHTML=''; note.textContent='Topped up! 🎉';
           toast('Balance topped up 🎉');
         }catch(e){ toast('Top-up failed: '+e.message); }
@@ -935,17 +988,6 @@ async function loadAdminUsers(){
   }catch(e){ el('adminUsers').innerHTML=`<div class="empty">${escapeHtml(e.message)}</div>`; }
 }
 async function saveBalance(id){ try{ await api('/api/admin/users/'+id,{method:'PATCH',body:{balance_gbp:parseFloat(el('bal-'+id).value)||0}}); toast('Balance updated'); }catch(e){ toast(e.message); } }
-
-async function runMigration(){
-  const btn=el('migBtn'), out=el('migOut'); btn.disabled=true; btn.textContent='Importing… (may take a minute)';
-  try{
-    const seed = await (await fetch('data/products-seed.json')).json();
-    const {report}=await api('/api/admin/migrate',{method:'POST',body:{products:seed.products,source_base:SUPABASE_IMG_BASE}});
-    out.textContent=JSON.stringify(report,null,2);
-    toast('Migration complete ✓'); loadProducts();
-  }catch(e){ out.textContent=e.message; toast('Migration failed'); }
-  finally{ btn.disabled=false; btn.textContent='Import old products & images'; }
-}
 
 /* ════════════ MODAL UTIL ════════════ */
 function openModal(id){ el(id).classList.add('open'); document.body.style.overflow='hidden'; }
