@@ -15,6 +15,6 @@ SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS
 # Public base URL where images are served from.
 # Either the bucket's r2.dev URL (enable "Public access" in the R2 dashboard)
 # or a custom domain you attach to the bucket. NO trailing slash.
-PUBLIC_BASE = "https://REPLACE-WITH-YOUR-R2-PUBLIC-DOMAIN"
+PUBLIC_BASE = "https://pub-0c603d33592f4c888141122b8c344962.r2.dev"
 # CORS: set to your site origin in production, e.g. https://qmako4.github.io
 ALLOWED_ORIGIN = "*"
