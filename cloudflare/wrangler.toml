@@ -2,19 +2,29 @@ name = "xclusiveline-images"
 main = "src/worker.js"
 compatibility_date = "2024-09-23"
 
-# R2 bucket that holds the product images.
+# R2 bucket that holds product images.
 # Create it first:  wrangler r2 bucket create xclusiveline-images
 [[r2_buckets]]
 binding = "BUCKET"
 bucket_name = "xclusiveline-images"
 
+# D1 database (the whole backend: users, products, orders, wallet).
+# Create it first:  wrangler d1 create xclusiveline
+# then paste the returned database_id below.
+[[d1_databases]]
+binding = "DB"
+database_name = "xclusiveline"
+database_id = "REPLACE-WITH-YOUR-D1-DATABASE-ID"
+
 [vars]
-SUPABASE_URL = "https://ptucjxjqyvirhumzdggo.supabase.co"
-# Supabase anon key (public — same key already shipped in index.html).
-SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB0dWNqeGpxeXZpcmh1bXpkZ2dvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYyMDkzNzEsImV4cCI6MjA5MTc4NTM3MX0.o-kQ-zVRnEVIuPRS1mqFtkY2znkrEgIXh_qPMwIRvm4"
-# Public base URL where images are served from.
-# Either the bucket's r2.dev URL (enable "Public access" in the R2 dashboard)
-# or a custom domain you attach to the bucket. NO trailing slash.
+# Public base URL where images are served from (R2 public/custom domain). No trailing slash.
 PUBLIC_BASE = "https://pub-0c603d33592f4c888141122b8c344962.r2.dev"
-# CORS: set to your site origin in production, e.g. https://qmako4.github.io
+# Set to your site origin in production, e.g. https://qmako4.github.io
 ALLOWED_ORIGIN = "*"
+# "sandbox" while testing, "live" when ready to take real payments.
+PAYPAL_ENV = "sandbox"
+
+# Secrets (do NOT put these here — set with `wrangler secret put <NAME>`):
+#   JWT_SECRET          long random string for signing sessions
+#   PAYPAL_CLIENT_ID    from your PayPal developer app
+#   PAYPAL_SECRET       from your PayPal developer app
