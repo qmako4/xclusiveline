@@ -206,6 +206,8 @@ footer{border-top:1px solid var(--line);padding:3rem 0 2rem;margin-top:2rem}
 .topup-amt{padding:12px 0;text-align:center;border-radius:9px;border:1px solid var(--line);background:var(--b3);font-weight:600;transition:var(--trs)}
 .topup-amt:hover{border-color:var(--w)}
 .topup-amt.on{background:var(--y);color:var(--b);border-color:var(--y)}
+.topup-link{display:inline-block;margin-top:10px;background:var(--y);color:var(--b);padding:11px 18px;border-radius:99px;font-family:var(--fd);font-weight:800;letter-spacing:.04em;text-transform:uppercase;font-size:14px;transition:var(--trs)}
+.topup-link:hover{background:var(--w)}
 .order{background:var(--b3);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:12px}
 .order-top{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px}
 .order-id{font-family:var(--fd);font-weight:700;letter-spacing:.04em}
@@ -377,7 +379,7 @@ footer{border-top:1px solid var(--line);padding:3rem 0 2rem;margin-top:2rem}
     <p class="page-sub" id="accEmail"></p>
     <div class="acc-grid">
       <div>
-        <div class="panel" style="margin-bottom:1.2rem">
+        <div class="panel" id="walletPanel" style="margin-bottom:1.2rem">
           <h3>Wallet</h3>
           <div class="bal-big" id="balBig">£0.00</div>
           <div class="bal-cap">Available balance</div>
@@ -494,7 +496,7 @@ footer{border-top:1px solid var(--line);padding:3rem 0 2rem;margin-top:2rem}
   <div class="modal-h">Checkout</div>
   <div id="coSummary" style="margin-bottom:1rem"></div>
   <div style="display:flex;justify-content:space-between;margin-bottom:1rem;color:var(--mut);font-size:14px">Wallet balance<span id="coBal" style="color:var(--y);font-weight:600"></span></div>
-  <div class="form-err" id="coInsuff">Insufficient balance — top up your wallet first.</div>
+  <div class="form-err" id="coInsuff">Insufficient balance — top up your wallet first.<br><button class="topup-link" onclick="goTopup()">Top up wallet →</button></div>
   <div class="field"><label>Full name</label><input id="shName"></div>
   <div class="field"><label>Address</label><input id="shAddr"></div>
   <div class="row2"><div class="field"><label>City</label><input id="shCity"></div><div class="field"><label>Postcode</label><input id="shPost"></div></div>
@@ -872,6 +874,7 @@ function openCheckout(){
   el('shCountry').value = state.user.country||'United Kingdom';
   openModal('checkoutModal');
 }
+function goTopup(){ closeModal('checkoutModal'); go('account'); setTimeout(()=>{ const w=el('walletPanel'); if(w) w.scrollIntoView({behavior:'smooth',block:'start'}); }, 200); }
 async function saveAddress(s){
   try{ await rSend('PATCH',`profiles?id=eq.${state.user.id}`,{full_name:s.name,address:s.address,city:s.city,postcode:s.postcode,country:s.country});
     Object.assign(state.user,{full_name:s.name,address:s.address,city:s.city,postcode:s.postcode,country:s.country}); }catch(e){}
