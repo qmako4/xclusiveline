@@ -281,6 +281,7 @@ footer{border-top:1px solid var(--line);padding:3rem 0 2rem;margin-top:2rem}
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
       <span class="cart-count hidden" id="cartCount">0</span>
     </button>
+    <button class="btn ghost hidden" id="adminBtn" onclick="go('admin')">Admin</button>
     <button class="btn ghost" id="authBtn" onclick="openAuth('login')">Login</button>
     <button class="burger" onclick="toggleMob()"><span></span><span></span><span></span></button>
   </div>
@@ -670,11 +671,12 @@ function updateAuthUI(){
   if(state.user){ b.textContent='Account'; b.onclick=()=>go('account');
     el('mobAuth').textContent='My Account'; el('mobAuth').onclick=()=>{go('account');toggleMob()};
     el('mobAdmin').classList.toggle('hidden',!state.user.is_admin);
+    el('adminBtn').classList.toggle('hidden',!state.user.is_admin);
     updateBalance();
   } else {
     b.textContent='Login'; b.onclick=()=>openAuth('login');
     el('mobAuth').textContent='Login / Register'; el('mobAuth').onclick=()=>{openAuth('login');toggleMob()};
-    el('mobAdmin').classList.add('hidden'); el('balChip').style.display='none';
+    el('mobAdmin').classList.add('hidden'); el('adminBtn').classList.add('hidden'); el('balChip').style.display='none';
   }
 }
 function updateBalance(){
