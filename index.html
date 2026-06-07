@@ -4,7 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>XCLUSIVELINE — Premium UK Streetwear</title>
-<meta name="description" content="XCLUSIVELINE — premium UK streetwear, sneakers & essentials. Curated drops, authenticated pieces.">
+<meta name="description" content="XCLUSIVELINE — premium UK streetwear, sneakers & essentials. Curated drops for the culture.">
+<link rel="icon" type="image/jpeg" href="assets/logo.jpg">
+<link rel="apple-touch-icon" href="assets/logo.jpg">
+<meta property="og:title" content="XCLUSIVELINE — Premium UK Streetwear">
+<meta property="og:image" content="assets/logo.jpg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -34,9 +38,10 @@ input,select,textarea{font-family:inherit}
 /* NAV */
 nav{position:sticky;top:0;z-index:90;background:rgba(10,10,10,.82);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
 .nav-i{display:flex;align-items:center;justify-content:space-between;gap:1rem;height:64px}
-.logo{display:flex;align-items:center;gap:9px;cursor:pointer}
-.logo-bar{width:5px;height:30px;background:var(--y);border-radius:3px}
-.logo-txt{font-family:var(--fd);font-size:25px;font-weight:900;letter-spacing:.04em;text-transform:uppercase}
+.logo{display:flex;align-items:center;gap:10px;cursor:pointer}
+.logo-img{height:42px;width:42px;object-fit:cover;border-radius:9px;display:block}
+.logo-img-lg{height:84px;width:84px;object-fit:cover;border-radius:12px;display:block}
+.logo-txt{font-family:var(--fd);font-size:24px;font-weight:900;letter-spacing:.04em;text-transform:uppercase}
 .nav-links{display:flex;gap:1.7rem;list-style:none}
 .nav-links a{font-size:12px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:var(--mut);transition:color var(--trs)}
 .nav-links a:hover{color:var(--y)}
@@ -269,7 +274,8 @@ footer{border-top:1px solid var(--line);padding:3rem 0 2rem;margin-top:2rem}
   .nav-r .btn{display:none}
   .nav-i{gap:.5rem;padding:0 1rem}
   .nav-r{gap:7px}
-  .logo-txt{font-size:21px}
+  .logo-txt{display:none}
+  .logo-img{height:38px;width:38px}
   .cur{padding:6px 7px;font-size:12px}
   .bal-chip{padding:6px 9px}
   /* two-card product grid on mobile */
@@ -289,7 +295,7 @@ footer{border-top:1px solid var(--line);padding:3rem 0 2rem;margin-top:2rem}
 
 <!-- NAV -->
 <nav><div class="wrap nav-i">
-  <div class="logo" onclick="go('shop')"><div class="logo-bar"></div><div class="logo-txt">XCLUSIVELINE</div></div>
+  <div class="logo" onclick="go('shop')"><img class="logo-img" src="assets/logo.jpg" alt="XCLUSIVELINE logo"><div class="logo-txt">XCLUSIVELINE</div></div>
   <ul class="nav-links">
     <li><a onclick="go('shop')">Shop</a></li>
     <li><a onclick="goShopCat('Footwear')">Footwear</a></li>
@@ -353,7 +359,7 @@ footer{border-top:1px solid var(--line);padding:3rem 0 2rem;margin-top:2rem}
   <footer><div class="wrap">
     <div class="foot-grid">
       <div class="foot-col foot-brand">
-        <div class="logo"><div class="logo-bar"></div><div class="logo-txt">XCLUSIVELINE</div></div>
+        <div class="logo" onclick="go('shop')"><img class="logo-img-lg" src="assets/logo.jpg" alt="XCLUSIVELINE logo"></div>
         <p>Premium UK streetwear & sneakers. Curated drops for the culture.</p>
       </div>
       <div class="foot-col"><h4>Shop</h4><a onclick="go('shop')">All Products</a><a onclick="goShopCat('Footwear')">Footwear</a><a onclick="goShopCat('T-Shirts')">Apparel</a></div>
