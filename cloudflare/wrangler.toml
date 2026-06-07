@@ -1,0 +1,20 @@
+name = "xclusiveline-images"
+main = "src/worker.js"
+compatibility_date = "2024-09-23"
+
+# R2 bucket that holds the product images.
+# Create it first:  wrangler r2 bucket create xclusiveline-images
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "xclusiveline-images"
+
+[vars]
+SUPABASE_URL = "https://ptucjxjqyvirhumzdggo.supabase.co"
+# Supabase anon key (public — same key already shipped in index.html).
+SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB0dWNqeGpxeXZpcmh1bXpkZ2dvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYyMDkzNzEsImV4cCI6MjA5MTc4NTM3MX0.o-kQ-zVRnEVIuPRS1mqFtkY2znkrEgIXh_qPMwIRvm4"
+# Public base URL where images are served from.
+# Either the bucket's r2.dev URL (enable "Public access" in the R2 dashboard)
+# or a custom domain you attach to the bucket. NO trailing slash.
+PUBLIC_BASE = "https://REPLACE-WITH-YOUR-R2-PUBLIC-DOMAIN"
+# CORS: set to your site origin in production, e.g. https://qmako4.github.io
+ALLOWED_ORIGIN = "*"

@@ -1272,6 +1272,11 @@ const SUPABASE_URL = 'https://ptucjxjqyvirhumzdggo.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB0dWNqeGpxeXZpcmh1bXpkZ2dvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYyMDkzNzEsImV4cCI6MjA5MTc4NTM3MX0.o-kQ-zVRnEVIuPRS1mqFtkY2znkrEgIXh_qPMwIRvm4';
 const PAYPAL_CLIENT_ID = 'AViPSrHXjYHOGpq30UOuIQB7iPkpRGCz2_SLMkUw3yk8w_X1QA0SJq-psuTff3JquBUtCdibI21McjV9'; // ← Replace with your PayPal client ID
 
+// Cloudflare R2 image hosting. Product image files live in R2; uploads go
+// through the Worker (which checks the Supabase admin session). See cloudflare/.
+const R2_UPLOAD_URL = 'https://xclusiveline-images.YOUR-SUBDOMAIN.workers.dev'; // ← Worker URL after `wrangler deploy`
+const R2_PUBLIC_BASE = 'https://REPLACE-WITH-YOUR-R2-PUBLIC-DOMAIN'; // ← R2 public/custom domain, no trailing slash
+
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: {
     persistSession: true,
@@ -2342,10 +2347,12 @@ async function restDelete(table, filter) {
 
 async function restUpload(path, blob) {
   const token = await getToken();
-  const res = await fetch(`${SUPABASE_URL}/storage/v1/object/product-images/${path}`,
-    { method:'POST', headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${token}`, 'Content-Type': 'image/jpeg', 'x-upsert': 'true' }, body: blob });
-  if (!res.ok) { const d = await res.json(); throw new Error(d.message || 'Upload failed'); }
-  return `${SUPABASE_URL}/storage/v1/object/public/product-images/${path}`;
+  // Upload to Cloudflare R2 via the Worker, which validates the admin session.
+  const res = await fetch(R2_UPLOAD_URL,
+    { method:'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': blob.type || 'image/jpeg', 'x-file-path': path }, body: blob });
+  if (!res.ok) { let m='Upload failed'; try { m = (await res.json()).error || m; } catch(e) {} throw new Error(m); }
+  const data = await res.json();
+  return data.url; // public R2 URL, stored in product_images.url
 }
 
 async function saveProduct() {
