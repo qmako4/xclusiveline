@@ -713,7 +713,7 @@ async function loadOrders(){
       <div class="order-top"><span class="order-id">#${o.id.slice(0,8).toUpperCase()}</span><span class="badge ${o.status}">${o.status}</span></div>
       <div class="order-items">${(o.items||[]).map(i=>`${i.quantity}× ${escapeHtml(i.product_name)} (${escapeHtml(i.size||'')})`).join(' · ')}</div>
       <div class="order-amt">${money(o.total_gbp)}</div>
-      <div style="font-size:12px;color:var(--mut2);margin-top:4px">${new Date(o.created_at+'Z').toLocaleDateString()}</div>
+      <div style="font-size:12px;color:var(--mut2);margin-top:4px">${new Date((o.created_at||'').replace(' ','T')+'Z').toLocaleDateString()}</div>
     </div>`).join('') : '<div class="empty">No orders yet. Go shop! 🛍</div>';
   }catch(e){ el('ordersBox').innerHTML=`<div class="empty">${escapeHtml(e.message)}</div>`; }
 }
