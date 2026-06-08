@@ -80,34 +80,45 @@ nav{position:sticky;top:0;z-index:90;background:rgba(10,10,10,.82);backdrop-filt
 .sec-title em{font-style:normal;color:var(--y)}
 .sec-sub{color:var(--mut);font-size:.95rem}
 
-/* FILTER BAR */
-.filters{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:1.8rem}
-.search{flex:1;min-width:200px;display:flex;align-items:center;gap:9px;background:var(--b2);border:1px solid var(--line);border-radius:10px;padding:0 13px}
+/* SHOP BAR (editorial) */
+.shopbar{display:flex;align-items:stretch;border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:1.4rem}
+.sb-seg{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;padding:13px 10px;font-family:var(--fd);font-size:13px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--w);border-right:1px solid var(--line);background:none;transition:var(--trs)}
+.sb-seg:last-child{border-right:none}
+.sb-seg.active,.sb-seg:hover{color:var(--y)}
+.sb-sort select{background:none;border:none;color:inherit;font:inherit;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;outline:none;text-align:center}
+.sb-sort select option{background:#111;color:var(--w);letter-spacing:normal}
+.sb-view{flex:0 0 auto;gap:16px;padding:0 18px}
+.vt{color:var(--mut2);padding:4px;display:flex}
+.vt svg{width:16px;height:16px;display:block}
+.vt.on{color:var(--y)}
+.filter-panel{display:none;margin-bottom:1.4rem}
+.filter-panel.open{display:block}
+.search{display:flex;align-items:center;gap:9px;background:var(--b2);border:1px solid var(--line);border-radius:10px;padding:0 13px;margin-bottom:12px}
 .search input{flex:1;background:none;border:none;color:var(--w);padding:11px 0;outline:none;font-size:14px}
 .search svg{width:17px;height:17px;color:var(--mut)}
-.chip{padding:9px 15px;border-radius:99px;border:1px solid var(--line);background:var(--b2);color:var(--mut);font-size:13px;font-weight:500;transition:var(--trs);white-space:nowrap}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{padding:8px 14px;border-radius:99px;border:1px solid var(--line);background:none;color:var(--mut);font-size:12px;letter-spacing:.05em;text-transform:uppercase;transition:var(--trs);white-space:nowrap}
 .chip:hover{color:var(--w)}
 .chip.on{background:var(--y);color:var(--b);border-color:var(--y);font-weight:600}
 
-/* PRODUCT GRID */
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:1.3rem}
-.card{background:var(--b2);border:1px solid var(--line);border-radius:var(--br);overflow:hidden;cursor:pointer;transition:var(--trs);display:flex;flex-direction:column}
-.card:hover{border-color:rgba(245,168,0,.45);transform:translateY(-3px)}
-.card-img{position:relative;aspect-ratio:1;background:var(--b3);overflow:hidden}
-.card-img img{width:100%;height:100%;object-fit:cover;transition:transform .4s ease}
-.card:hover .card-img img{transform:scale(1.05)}
-.card-tag{position:absolute;top:10px;left:10px;background:var(--red);color:#fff;font-family:var(--fd);font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;padding:4px 9px;border-radius:6px}
-.card-tag.soon{background:var(--b4);color:var(--mut)}
-.card-tag.low{background:var(--b);color:var(--y);border:1px solid var(--y)}
+/* PRODUCT GRID (editorial / minimal) */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:1.8rem 1.2rem}
+.grid.view-1{grid-template-columns:1fr;max-width:620px;margin:0 auto}
+.card{background:none;border:none;cursor:pointer;display:flex;flex-direction:column}
+.card-img{position:relative;aspect-ratio:4/5;background:var(--b2);overflow:hidden;border-radius:8px}
+.card-img img{width:100%;height:100%;object-fit:cover;transition:transform .5s ease}
+.card:hover .card-img img{transform:scale(1.04)}
+.card-tag{position:absolute;top:10px;left:10px;background:var(--red);color:#fff;font-family:var(--fd);font-size:10.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;padding:4px 9px;border-radius:5px}
+.card-tag.soon{background:var(--red);color:#fff}
+.card-tag.low{background:rgba(10,10,10,.82);color:var(--y);border:1px solid var(--y)}
 .card-tag.right{left:auto;right:10px}
-.card-body{padding:14px 15px 16px;display:flex;flex-direction:column;gap:3px;flex:1}
-.card-brand{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--mut2)}
-.card-name{font-weight:500;font-size:14.5px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:2.6em}
-.card-price{margin-top:auto;padding-top:8px;display:flex;align-items:baseline;gap:8px}
-.card-price .now{font-family:var(--fd);font-size:20px;font-weight:800;color:var(--y)}
-.card-price .was{font-size:13px;color:var(--mut2);text-decoration:line-through}
+.card-body{padding:11px 2px 4px;display:flex;flex-direction:column;gap:4px}
+.card-name{font-weight:500;font-size:12.5px;letter-spacing:.03em;text-transform:uppercase;line-height:1.35;color:var(--w);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:2.4em}
+.card-price{display:flex;align-items:baseline;gap:8px}
+.card-price .now{font-size:13px;color:var(--mut);font-weight:500}
+.card-price .was{font-size:12px;color:var(--mut2);text-decoration:line-through}
 .empty{text-align:center;color:var(--mut);padding:4rem 1rem;grid-column:1/-1}
-.skl{background:linear-gradient(90deg,var(--b2),var(--b3),var(--b2));background-size:200% 100%;animation:shim 1.3s infinite;border-radius:var(--br);aspect-ratio:.78}
+.skl{background:linear-gradient(90deg,var(--b2),var(--b3),var(--b2));background-size:200% 100%;animation:shim 1.3s infinite;border-radius:8px;aspect-ratio:4/5}
 @keyframes shim{from{background-position:200% 0}to{background-position:-200% 0}}
 
 /* MARQUEE FEATURES */
@@ -294,11 +305,12 @@ footer{border-top:1px solid var(--line);padding:3rem 0 2rem;margin-top:2rem}
   .cur{padding:6px 7px;font-size:12px}
   .bal-chip{padding:6px 9px}
   /* two-card product grid on mobile */
-  .grid{grid-template-columns:repeat(2,1fr);gap:.7rem}
-  .card-body{padding:11px 11px 13px}
-  .card-name{font-size:13px;min-height:2.5em}
-  .card-price .now{font-size:17px}
-  .card-brand{font-size:10px}
+  .grid{grid-template-columns:repeat(2,1fr);gap:1.2rem .8rem}
+  .card-body{padding:9px 1px 4px}
+  .card-name{font-size:11.5px;min-height:2.3em}
+  .card-price .now{font-size:12px}
+  .sb-seg{padding:12px 6px;font-size:12px;letter-spacing:.08em}
+  .sb-view{padding:0 12px;gap:12px}
 }
 @media(min-width:861px){.atable-cards{display:none}}
 </style>
@@ -369,11 +381,24 @@ footer{border-top:1px solid var(--line);padding:3rem 0 2rem;margin-top:2rem}
     <div class="sec-head">
       <div><div class="sec-title">The <em>Drop</em></div><div class="sec-sub" id="prodCount">Loading…</div></div>
     </div>
-    <div class="filters">
-      <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input id="searchInput" placeholder="Search products…" oninput="renderShop()"></div>
-      <div id="catChips"></div>
+    <div class="shopbar">
+      <button class="sb-seg" id="filterBtn" onclick="toggleFilters()">Filter</button>
+      <div class="sb-seg sb-sort"><select id="sortSel" onchange="setSort(this.value)">
+        <option value="new">Sort by</option>
+        <option value="price-asc">Price: Low–High</option>
+        <option value="price-desc">Price: High–Low</option>
+        <option value="name">Name A–Z</option>
+      </select></div>
+      <div class="sb-seg sb-view">
+        <button class="vt" id="view1" onclick="setView(1)" title="1 per row"><svg viewBox="0 0 16 16" fill="currentColor"><rect x="2.5" y="2.5" width="11" height="11" rx="1"/></svg></button>
+        <button class="vt on" id="view2" onclick="setView(2)" title="2 per row"><svg viewBox="0 0 16 16" fill="currentColor"><rect x="2" y="2" width="5" height="5"/><rect x="9" y="2" width="5" height="5"/><rect x="2" y="9" width="5" height="5"/><rect x="9" y="9" width="5" height="5"/></svg></button>
+      </div>
     </div>
-    <div class="grid" id="shopGrid"></div>
+    <div class="filter-panel" id="filterPanel">
+      <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input id="searchInput" placeholder="Search products…" oninput="renderShop()"></div>
+      <div class="chips" id="catChips"></div>
+    </div>
+    <div class="grid view-2" id="shopGrid"></div>
   </div></section>
 
   <footer><div class="wrap">
@@ -553,6 +578,8 @@ const state = {
   cart: JSON.parse(localStorage.getItem('xl-cart') || '[]'),
   currency: localStorage.getItem('xl-cur') || 'GBP',
   cat: 'All',
+  sort: 'new',
+  view: 2,
   modalProduct: null,
   modalImg: 0,
   modalSize: null,
@@ -678,11 +705,17 @@ function renderChips(){
   const cats = ['All', ...new Set(state.products.flatMap(p=>p.categories||[]))];
   el('catChips').innerHTML = cats.map(c=>`<button class="chip ${c===state.cat?'on':''}" onclick="state.cat='${escapeHtml(c)}';renderChips();renderShop()">${escapeHtml(c)}</button>`).join('');
 }
+function toggleFilters(){ el('filterPanel').classList.toggle('open'); el('filterBtn').classList.toggle('active'); }
+function setSort(v){ state.sort=v; renderShop(); }
+function setView(n){ state.view=n; el('shopGrid').classList.toggle('view-1',n===1); el('view1').classList.toggle('on',n===1); el('view2').classList.toggle('on',n===2); }
 function renderShop(){
-  const q = (el('searchInput').value||'').toLowerCase();
+  const q = (el('searchInput')?.value||'').toLowerCase();
   let list = state.products.filter(p=>p.active);
   if (state.cat!=='All') list = list.filter(p=>(p.categories||[]).includes(state.cat));
   if (q) list = list.filter(p=>(p.name+' '+p.brand).toLowerCase().includes(q));
+  if (state.sort==='price-asc') list.sort((a,b)=>priceOf(a)-priceOf(b));
+  else if (state.sort==='price-desc') list.sort((a,b)=>priceOf(b)-priceOf(a));
+  else if (state.sort==='name') list.sort((a,b)=>(a.name||'').localeCompare(b.name||''));
   el('prodCount').textContent = `${list.length} item${list.length!==1?'s':''}`;
   if (!list.length){ el('shopGrid').innerHTML='<div class="empty">No products match.</div>'; return; }
   el('shopGrid').innerHTML = list.map(cardHTML).join('');
@@ -701,7 +734,6 @@ function cardHTML(p){
         ${img?`<img src="${img}" loading="lazy" alt="${escapeHtml(p.name)}">`:''}
       </div>
       <div class="card-body">
-        <div class="card-brand">${escapeHtml(p.brand||'')}</div>
         <div class="card-name">${escapeHtml(p.name)}</div>
         <div class="card-price"><span class="now">${money(priceOf(p))}</span>${onSale?`<span class="was">${money(p.price_gbp)}</span>`:''}</div>
       </div></div>`;
