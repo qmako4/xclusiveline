@@ -70,6 +70,8 @@ nav{position:sticky;top:0;z-index:90;background:rgba(10,10,10,.82);backdrop-filt
 .hero h1 em{font-style:normal;color:var(--y)}
 .hero p{color:var(--mut);max-width:46ch;margin:1.4rem 0 2rem;font-size:1.05rem}
 .hero-cta{display:flex;gap:12px;flex-wrap:wrap}
+.hero-trust{display:flex;flex-wrap:wrap;gap:18px;margin-top:1.6rem;color:var(--mut);font-size:13px;font-weight:500}
+.hero-trust span{white-space:nowrap}
 
 /* SECTION HEAD */
 .sec{padding:4rem 0}
@@ -96,6 +98,8 @@ nav{position:sticky;top:0;z-index:90;background:rgba(10,10,10,.82);backdrop-filt
 .card:hover .card-img img{transform:scale(1.05)}
 .card-tag{position:absolute;top:10px;left:10px;background:var(--red);color:#fff;font-family:var(--fd);font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;padding:4px 9px;border-radius:6px}
 .card-tag.soon{background:var(--b4);color:var(--mut)}
+.card-tag.low{background:var(--b);color:var(--y);border:1px solid var(--y)}
+.card-tag.right{left:auto;right:10px}
 .card-body{padding:14px 15px 16px;display:flex;flex-direction:column;gap:3px;flex:1}
 .card-brand{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--mut2)}
 .card-name{font-weight:500;font-size:14.5px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:2.6em}
@@ -147,6 +151,11 @@ footer{border-top:1px solid var(--line);padding:3rem 0 2rem;margin-top:2rem}
 .qty button:hover{color:var(--y);border-color:var(--y)}
 .ci-rm{color:var(--mut2);font-size:12px;align-self:flex-start}
 .ci-rm:hover{color:var(--red)}
+.ship-msg{font-size:13px;color:var(--mut);margin-bottom:12px}
+.ship-msg.done{color:var(--grn);font-weight:600}
+.ship-msg b{color:var(--y)}
+.ship-bar{height:6px;background:var(--b3);border-radius:99px;margin-top:7px;overflow:hidden}
+.ship-bar i{display:block;height:100%;background:var(--y);border-radius:99px;transition:width .3s}
 .cart-total{display:flex;justify-content:space-between;font-family:var(--fd);font-size:1.3rem;font-weight:800;margin-bottom:1rem}
 .cart-total .y{color:var(--y)}
 
@@ -168,6 +177,9 @@ footer{border-top:1px solid var(--line);padding:3rem 0 2rem;margin-top:2rem}
 .pd-name{font-family:var(--fd);font-size:1.9rem;font-weight:800;line-height:1.05;text-transform:uppercase;margin:.3rem 0 .8rem}
 .pd-price{display:flex;align-items:baseline;gap:10px;margin-bottom:1.2rem}
 .pd-price .now{font-family:var(--fd);font-size:2rem;font-weight:900;color:var(--y)}
+.pd-price .save{align-self:center;background:var(--red);color:#fff;font-size:12px;font-weight:700;padding:3px 8px;border-radius:6px;letter-spacing:.03em}
+.pd-urgency{color:var(--y);font-size:13px;font-weight:600;margin-bottom:1rem}
+.pd-assure{margin-top:14px;color:var(--mut);font-size:12.5px;display:flex;gap:14px;flex-wrap:wrap}
 .pd-price .was{color:var(--mut2);text-decoration:line-through}
 .pd-desc{color:var(--mut);font-size:14px;white-space:pre-line;margin-bottom:1.4rem}
 .pd-label{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--mut2);margin-bottom:.6rem}
@@ -334,10 +346,15 @@ footer{border-top:1px solid var(--line);padding:3rem 0 2rem;margin-top:2rem}
   <section class="hero"><div class="wrap">
     <div class="hero-eyebrow">Premium UK Streetwear</div>
     <h1>Wear the <em>exclusive</em> line.</h1>
-    <p>Curated sneakers, apparel and essentials — authenticated and shipped from the UK. Top up your wallet, cop the drop.</p>
+    <p>Curated sneakers, apparel & essentials — shipped fast from the UK. Top up your wallet and cop the drop before it's gone.</p>
     <div class="hero-cta">
-      <button class="btn" onclick="document.getElementById('shopSec').scrollIntoView({behavior:'smooth'})">Shop the drop</button>
-      <button class="btn ghost" onclick="go('account')">My wallet</button>
+      <button class="btn" onclick="document.getElementById('shopSec').scrollIntoView({behavior:'smooth'})">Shop the drop →</button>
+      <button class="btn ghost" onclick="go('account')">Top up wallet</button>
+    </div>
+    <div class="hero-trust">
+      <span>✓ Free UK shipping over £150</span>
+      <span>✓ 14-day returns</span>
+      <span>✓ Secure checkout</span>
     </div>
   </div></section>
 
@@ -612,6 +629,9 @@ async function api(path, {method='GET', body, raw, headers={}} = {}) {
 function round99(v){ if(v<=0) return 0; const r=Math.round(v+0.01)-0.01; return r<0.99?0.99:r; } // snap to nearest x.99
 function money(gbp){ let v=(gbp||0)*rates[state.currency]; if(state.currency!=='GBP') v=round99(v); return syms[state.currency]+v.toFixed(2); }
 function priceOf(p){ return p.sale_price_gbp ?? p.price_gbp; }
+function totalStock(p){ return (p.sizes||[]).reduce((t,s)=>t+(s.stock||0),0); }
+function discountPct(p){ return p.sale_price_gbp!=null ? Math.round((1-p.sale_price_gbp/p.price_gbp)*100) : 0; }
+const FREE_SHIP_GBP = 150;
 function el(id){ return document.getElementById(id); }
 function toast(msg){ const t=el('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),2600); }
 function escapeHtml(s){ return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
@@ -632,7 +652,7 @@ function toggleMob(){ el('mobMenu').classList.toggle('open'); }
 /* ════════════ INIT ════════════ */
 async function init(){
   el('yr').textContent = new Date().getFullYear();
-  el('ticker').innerHTML = ('PREMIUM UK STREETWEAR • AUTHENTICATED DROPS • WALLET TOP-UPS • FAST UK SHIPPING • ').repeat(2).split('•').filter(s=>s.trim()).map(s=>`<span>${s.trim()}</span>`).join('');
+  el('ticker').innerHTML = ('PREMIUM UK STREETWEAR • FREE SHIPPING OVER £150 • 14-DAY RETURNS • WALLET TOP-UPS • FAST TRACKED DELIVERY • ').repeat(2).split('•').filter(s=>s.trim()).map(s=>`<span>${s.trim()}</span>`).join('');
   el('curSel').innerHTML = Object.keys(syms).map(c=>`<option value="${c}" ${c===state.currency?'selected':''}>${c}</option>`).join('');
   updateCartUI();
   try { const u=await currentUser(); if(u) state.user=u; } catch(e){}
@@ -670,8 +690,16 @@ function renderShop(){
 function cardHTML(p){
     const img = (p.images||[])[0]?.url || '';
     const onSale = p.sale_price_gbp!=null;
+    const stock = totalStock(p);
+    const hasSizes = (p.sizes||[]).length>0;
+    const sold = hasSizes && stock<=0;
+    const low = hasSizes && stock>0 && stock<=6;
     return `<div class="card" onclick="openProduct('${p.id}')">
-      <div class="card-img">${onSale?'<span class="card-tag">Sale</span>':''}${img?`<img src="${img}" loading="lazy" alt="${escapeHtml(p.name)}">`:''}</div>
+      <div class="card-img">
+        ${onSale?`<span class="card-tag">-${discountPct(p)}%</span>`:''}
+        ${sold?'<span class="card-tag soon right">Sold out</span>':low?`<span class="card-tag low right">Only ${stock} left</span>`:''}
+        ${img?`<img src="${img}" loading="lazy" alt="${escapeHtml(p.name)}">`:''}
+      </div>
       <div class="card-body">
         <div class="card-brand">${escapeHtml(p.brand||'')}</div>
         <div class="card-name">${escapeHtml(p.name)}</div>
@@ -703,11 +731,13 @@ function renderProductPage(){
       <div class="pd-info">
         <div class="pd-brand">${escapeHtml(p.brand||'')}</div>
         <div class="pd-name">${escapeHtml(p.name)}</div>
-        <div class="pd-price"><span class="now">${money(priceOf(p))}</span>${onSale?`<span class="was">${money(p.price_gbp)}</span>`:''}</div>
+        <div class="pd-price"><span class="now">${money(priceOf(p))}</span>${onSale?`<span class="was">${money(p.price_gbp)}</span>`:''}${onSale?`<span class="save">Save ${money(p.price_gbp-p.sale_price_gbp)}</span>`:''}</div>
+        ${(()=>{ const st=totalStock(p); return (p.sizes||[]).length&&st>0&&st<=6?`<div class="pd-urgency">⚡ Selling fast — only ${st} left in stock</div>`:''; })()}
         ${p.description?`<div class="pd-desc">${escapeHtml(p.description)}</div>`:''}
         <div class="pd-label">Select size</div>
         <div class="sizes">${(p.sizes||[]).map(s=>`<button class="size ${s.stock<1?'out':''} ${state.modalSize===s.size?'on':''}" ${s.stock<1?'disabled':`onclick="state.modalSize='${escapeHtml(s.size)}';renderProductPage()"`}>${escapeHtml(s.size)}</button>`).join('')||'<span style="color:var(--mut)">One size</span>'}</div>
         <button class="btn block" onclick="addToCart()">Add to cart — ${money(priceOf(p))}</button>
+        <div class="pd-assure"><span>✓ Secure checkout</span><span>✓ Ships from the UK</span><span>✓ 14-day returns</span></div>
       </div>
     </div>
     ${related.length?`<div class="sec-title" style="margin:2.6rem 0 1.2rem">You might also <em>like</em></div><div class="grid">${related.map(cardHTML).join('')}</div>`:''}
@@ -743,7 +773,11 @@ function renderCart(){
       <div class="pr">${money(i.price)}</div>
       <div class="qty"><button onclick="chgQty(${idx},-1)">−</button><span>${i.qty}</span><button onclick="chgQty(${idx},1)">+</button></div>
     </div><button class="ci-rm" onclick="rmItem(${idx})">Remove</button></div>`).join('');
-  el('cartFoot').innerHTML = `<div class="cart-total"><span>Total</span><span class="y">${money(cartTotal())}</span></div><button class="btn block" onclick="openCheckout()">Checkout</button>`;
+  const t=cartTotal();
+  const ship = t>=FREE_SHIP_GBP
+    ? `<div class="ship-msg done">🎉 You've unlocked FREE UK shipping!</div>`
+    : `<div class="ship-msg">You're <b>${money(FREE_SHIP_GBP-t)}</b> away from free UK shipping<div class="ship-bar"><i style="width:${Math.min(100,t/FREE_SHIP_GBP*100)}%"></i></div></div>`;
+  el('cartFoot').innerHTML = ship + `<div class="cart-total"><span>Total</span><span class="y">${money(t)}</span></div><button class="btn block" onclick="openCheckout()">Checkout</button>`;
 }
 
 /* ════════════ CURRENCY ════════════ */
