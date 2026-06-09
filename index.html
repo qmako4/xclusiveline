@@ -273,6 +273,11 @@ footer{border-top:1px solid var(--line);padding:3rem 0 2rem;margin-top:2rem}
 .drop{border:1.5px dashed var(--line);border-radius:10px;padding:1.6rem;text-align:center;color:var(--mut);cursor:pointer;transition:var(--trs)}
 .drop:hover{border-color:var(--y);color:var(--y)}
 .notice{background:rgba(245,168,0,.08);border:1px solid rgba(245,168,0,.25);color:var(--y);padding:13px 15px;border-radius:9px;font-size:13px;margin-bottom:1.4rem;line-height:1.55}
+.gallery-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px}
+.gal-item{cursor:pointer;border-radius:9px;overflow:hidden;border:1px solid var(--line);background:var(--b3);transition:var(--trs)}
+.gal-item:hover{border-color:var(--y)}
+.gal-item img{width:100%;aspect-ratio:1;object-fit:cover;display:block}
+.gal-cap{font-size:10px;color:var(--mut);padding:5px 7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 /* POLICY */
 .prose{max-width:760px}
@@ -457,6 +462,7 @@ footer{border-top:1px solid var(--line);padding:3rem 0 2rem;margin-top:2rem}
     <button class="tab on" data-tab="products" onclick="adminTab('products')">Products</button>
     <button class="tab" data-tab="add" onclick="adminTab('add')">Add / Edit</button>
     <button class="tab" data-tab="orders" onclick="adminTab('orders')">Orders</button>
+    <button class="tab" data-tab="gallery" onclick="adminTab('gallery')">Gallery</button>
     <button class="tab" data-tab="users" onclick="adminTab('users')">Users</button>
   </div>
 
@@ -491,6 +497,11 @@ footer{border-top:1px solid var(--line);padding:3rem 0 2rem;margin-top:2rem}
   </div></div>
 
   <div class="tablo" id="tab-orders"><div class="panel"><div id="adminOrders">Loading…</div></div></div>
+  <div class="tablo" id="tab-gallery"><div class="panel">
+    <h3>Image Library</h3>
+    <p style="color:var(--mut);font-size:13px;margin-bottom:1rem">Every product image in your store. Tap any image to copy its URL.</p>
+    <div id="adminGallery">Loading…</div>
+  </div></div>
   <div class="tablo" id="tab-users"><div class="panel"><div id="adminUsers">Loading…</div></div></div>
 </div></main>
 
@@ -983,8 +994,23 @@ function adminTab(tab){
   if(tab==='products') loadAdminProducts();
   if(tab==='orders') loadAdminOrders();
   if(tab==='users') loadAdminUsers();
+  if(tab==='gallery') loadGallery();
   if(tab==='add' && !state.editId) resetForm();
 }
+async function loadGallery(){
+  const box=el('adminGallery'); box.innerHTML='Loading…';
+  try{
+    const imgs=await rGet('product_images?select=id,url,products(name)');
+    if(!imgs.length){ box.innerHTML='<div class="empty">No images yet — add a product with photos.</div>'; return; }
+    box.innerHTML=`<div class="gallery-grid">${imgs.map(i=>`
+      <div class="gal-item" onclick="copyUrl('${i.url}')" title="Tap to copy URL">
+        <img src="${i.url}" loading="lazy" alt="">
+        <div class="gal-cap">${escapeHtml(i.products?.name||'—')}</div>
+      </div>`).join('')}</div>
+      <div style="color:var(--mut2);font-size:12px;margin-top:12px">${imgs.length} image${imgs.length!==1?'s':''}</div>`;
+  }catch(e){ box.innerHTML=`<div class="empty">${escapeHtml(e.message)}</div>`; }
+}
+function copyUrl(u){ try{ navigator.clipboard.writeText(u); }catch(e){} toast('Image URL copied'); }
 async function loadAdminProducts(){
   try{
     const {products}=await api('/api/admin/products');
