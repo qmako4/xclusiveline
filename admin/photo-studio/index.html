@@ -42,8 +42,10 @@
     .side,.main,.library{padding:16px}
     label.small{display:grid;gap:6px;color:var(--mut);font-size:11px;font-weight:900;text-transform:uppercase;margin-bottom:10px}
     input[type="text"],input[type="password"]{min-height:42px;border:1px solid var(--line);border-radius:9px;background:var(--b3);color:var(--w);padding:0 11px;font-size:13px;text-transform:none}
-    .drop{min-height:180px;border:2px dashed var(--line);border-radius:12px;background:var(--b3);display:grid;place-items:center;text-align:center;padding:20px;transition:.15s}
-    .drop.drag{border-color:var(--y);background:rgba(245,168,0,.1)}
+    .drop,.paste-zone{border:2px dashed var(--line);border-radius:12px;background:var(--b3);display:grid;place-items:center;text-align:center;padding:20px;transition:.15s}
+    .drop{min-height:180px}
+    .paste-zone{min-height:94px;margin-top:10px;outline:0}
+    .drop.drag,.paste-zone:focus,.paste-zone.active{border-color:var(--y);background:rgba(245,168,0,.1)}
     .btn{min-height:42px;border-radius:9px;padding:10px 14px;background:var(--b3);border:1px solid var(--line);color:var(--w);font-family:var(--fd);font-weight:900;text-transform:uppercase;letter-spacing:.05em}
     .btn.y{background:var(--y);border-color:var(--y);color:var(--b)}
     .btn.dark{background:var(--w);border-color:var(--w);color:var(--b)}
@@ -125,7 +127,14 @@
             <input id="productInput" class="hidden" type="file" accept="image/*" multiple>
           </div>
         </div>
+        <div id="pasteZone" class="paste-zone" tabindex="0" role="button" aria-label="Paste product images">
+          <div>
+            <strong>Paste product images</strong>
+            <p class="tiny">Copy a photo, click here, then paste.</p>
+          </div>
+        </div>
         <div class="actions">
+          <button id="pasteBtn" class="btn" type="button">Paste Images</button>
           <button id="generateBtn" class="btn y">Generate Previews</button>
           <button id="clearBtn" class="btn">Clear</button>
         </div>
@@ -177,6 +186,7 @@
       $('saveSettings').onclick = saveSettings;
       $('productInput').onchange = e => addFiles(e.target.files);
       $('bgInput').onchange = e => setBg(e.target.files?.[0]);
+      $('pasteBtn').onclick = pasteFromClipboard;
       $('generateBtn').onclick = generate;
       $('clearBtn').onclick = clearAll;
       $('selectAllBtn').onclick = () => { state.selected = new Set(state.generated.map(x=>x.id)); renderResults(); };
@@ -186,6 +196,15 @@
       ['dragover','dragenter'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('drag')}));
       ['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('drag')}));
       drop.addEventListener('drop', e=>addFiles(e.dataTransfer.files));
+      const pasteZone=$('pasteZone');
+      pasteZone.onclick = () => { pasteZone.focus(); setStatus('Paste copied product images now.'); };
+      pasteZone.addEventListener('paste', e=>{ e.stopPropagation(); handlePaste(e); });
+      document.addEventListener('paste', e=>{
+        if(e.defaultPrevented) return;
+        const target=e.target;
+        if(target && target.closest && target.closest('input,textarea,[contenteditable="true"]')) return;
+        handlePaste(e);
+      });
       renderQueue();
     }
 
@@ -202,6 +221,8 @@
     function toast(msg){ const el=document.createElement('div'); el.textContent=msg; $('toast').appendChild(el); setTimeout(()=>el.remove(),3600); }
     function esc(v){ return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c])); }
     function bytes(n){ return n<1024?n+' B':n<1048576?(n/1024).toFixed(1)+' KB':(n/1048576).toFixed(1)+' MB'; }
+    function imageExt(type){ return ({'image/jpeg':'jpg','image/png':'png','image/webp':'webp','image/gif':'gif','image/avif':'avif'}[type] || 'png'); }
+    function pastedName(type,index){ return `pasted-product-${Date.now()}-${index}.${imageExt(type)}`; }
 
     function addFiles(list){
       const incoming=[...(list||[])].filter(f=>f.type.startsWith('image/'));
@@ -209,6 +230,50 @@
       $('productInput').value='';
       renderQueue();
       if(incoming.length) setStatus(`${incoming.length} image${incoming.length===1?'':'s'} added. Press Generate Previews when ready.`);
+    }
+    function clipboardFiles(data){
+      const files=Array.from(data?.files||[]).filter(f=>f.type.startsWith('image/'));
+      if(files.length) return files;
+      return Array.from(data?.items||[])
+        .filter(item=>item.kind==='file' && item.type.startsWith('image/'))
+        .map((item,index)=>{
+          const file=item.getAsFile();
+          if(!file) return null;
+          return file.name ? file : new File([file], pastedName(file.type,index+1), {type:file.type});
+        })
+        .filter(Boolean);
+    }
+    function handlePaste(event){
+      const files=clipboardFiles(event.clipboardData);
+      if(!files.length){ setStatus('Clipboard does not contain an image.','bad'); return; }
+      event.preventDefault();
+      addFiles(files);
+      $('pasteZone').classList.add('active');
+      setTimeout(()=>$('pasteZone').classList.remove('active'),700);
+      toast(`${files.length} pasted image${files.length===1?'':'s'} added`);
+    }
+    async function pasteFromClipboard(){
+      if(!navigator.clipboard?.read){
+        $('pasteZone').focus();
+        setStatus('Clipboard paste is not available from the button in this browser. Click the paste box and paste there.','bad');
+        return;
+      }
+      try{
+        const items=await navigator.clipboard.read();
+        const files=[];
+        for(const item of items){
+          const type=item.types.find(t=>t.startsWith('image/'));
+          if(!type) continue;
+          const blob=await item.getType(type);
+          files.push(new File([blob], pastedName(type,files.length+1), {type}));
+        }
+        if(!files.length){ setStatus('Clipboard does not contain an image.','bad'); return; }
+        addFiles(files);
+        toast(`${files.length} pasted image${files.length===1?'':'s'} added`);
+      }catch(e){
+        $('pasteZone').focus();
+        setStatus('Clipboard permission was blocked. Click the paste box and paste there.','bad');
+      }
     }
     function setBg(file){
       if(!file || !file.type.startsWith('image/')) return;
