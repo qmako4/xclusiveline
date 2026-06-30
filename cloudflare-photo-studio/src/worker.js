@@ -79,11 +79,6 @@ async function generatePreviews(request, env) {
   const productFiles = form
     .getAll("products")
     .filter((file) => file && typeof file === "object" && file.size > 0);
-  const backgroundOverride = form.get("background");
-  const backgroundFile =
-    backgroundOverride && typeof backgroundOverride === "object" && backgroundOverride.size > 0
-      ? backgroundOverride
-      : await loadDefaultBackgroundFile(request, env);
 
   if (!productFiles.length) {
     throw statusError("Upload at least one product image.", 400);
@@ -92,6 +87,12 @@ async function generatePreviews(request, env) {
   if (productFiles.length > maxBulkImages(env)) {
     throw statusError(`Upload ${maxBulkImages(env)} images or fewer per batch.`, 400);
   }
+
+  const backgroundOverride = form.get("background");
+  const backgroundFile =
+    backgroundOverride && typeof backgroundOverride === "object" && backgroundOverride.size > 0
+      ? backgroundOverride
+      : await loadDefaultBackgroundFile(request, env);
 
   const results = [];
   const errors = [];
@@ -369,8 +370,7 @@ async function getDefaultBackground(request, env) {
 async function loadDefaultBackgroundFile(request, env) {
   const response = await loadDefaultBackgroundResponse(request, env);
   const contentType = response.headers.get("content-type") || "image/jpeg";
-  const blob = await response.blob();
-  return new File([blob], "xclusiveline-background.jpg", { type: contentType });
+  return new Blob([await response.arrayBuffer()], { type: contentType });
 }
 
 async function loadDefaultBackgroundResponse(request, env) {
