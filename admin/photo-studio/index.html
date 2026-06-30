@@ -93,12 +93,12 @@
       </div>
 
       <aside class="panel bg-card">
-        <div class="bg-img"><img id="bgPreview" src="../../assets/xclusiveline-studio-background.jpg" alt="XCLUSIVELINE background"></div>
+        <div class="bg-img"><img id="bgPreview" src="../../assets/xclusiveline-flatlay-background.jpg" alt="XCLUSIVELINE background"></div>
         <div class="bg-copy">
           <div>
             <span class="eyebrow">Default background</span>
-            <h2>Yellow Studio</h2>
-            <p class="muted">Uses your uploaded XCLUSIVELINE background by default. You can override it for a batch.</p>
+            <h2>Yellow Flat-Lay</h2>
+            <p class="muted">Uses a plain yellow fabric studio surface by default. You can override it for a batch.</p>
           </div>
           <label class="btn" for="bgInput">Optional Override</label>
           <input id="bgInput" class="hidden" type="file" accept="image/*">
@@ -169,7 +169,9 @@
 
   <script>
     const DEFAULT_API_BASE = 'https://xclusiveline-photo-studio.qmako41212.workers.dev';
-    const DEFAULT_BACKGROUND_SRC = '../../assets/xclusiveline-studio-background.jpg';
+    const DEFAULT_BACKGROUND_SRC = '../../assets/xclusiveline-flatlay-background.jpg';
+    const BG_REMOVAL_MODULE_URL = 'https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.5.8/+esm';
+    const BG_REMOVAL_PUBLIC_PATH = 'https://staticimgly.com/@imgly/background-removal-data/1.5.8/dist/';
     const OUTPUT_WIDTH = 1200;
     const OUTPUT_HEIGHT = 1600;
     const state = {
@@ -179,7 +181,8 @@
       previews: [],
       bgFile: null,
       generated: [],
-      selected: new Set()
+      selected: new Set(),
+      bgRemovalModule: null
     };
     const $ = id => document.getElementById(id);
 
@@ -259,28 +262,6 @@
       const w=sw*scale, h=sh*scale;
       return {x:(dw-w)/2,y:(dh-h)/2,w,h};
     }
-    async function prepareProductFile(file,index){
-      const src=URL.createObjectURL(file);
-      try{
-        const img=await loadImage(src);
-        const canvas=makeCanvas();
-        const ctx=canvas.getContext('2d');
-        ctx.clearRect(0,0,OUTPUT_WIDTH,OUTPUT_HEIGHT);
-        const rect=fitRect(img.naturalWidth||img.width,img.naturalHeight||img.height,OUTPUT_WIDTH,OUTPUT_HEIGHT,'contain',.04);
-        ctx.imageSmoothingEnabled=true;
-        ctx.imageSmoothingQuality='high';
-        ctx.drawImage(img,rect.x,rect.y,rect.w,rect.h);
-        const blob=await canvasBlob(canvas);
-        return {
-          originalFile:file,
-          file:new File([blob],`${safeClientName(file.name,index)}-cutout-source.png`,{type:'image/png'}),
-          sourceDataUrl:canvas.toDataURL('image/png'),
-          originalName:file.name || `product-${index+1}`
-        };
-      }finally{
-        URL.revokeObjectURL(src);
-      }
-    }
     async function loadBackgroundForComposite(){
       const src=state.bgFile ? URL.createObjectURL(state.bgFile) : DEFAULT_BACKGROUND_SRC;
       try{
@@ -289,57 +270,110 @@
         if(state.bgFile) URL.revokeObjectURL(src);
       }
     }
-    async function compositeExactPreview(result,prepared,backgroundImage){
-      if(!prepared) return result;
-      const sourceImage=await loadImage(prepared.sourceDataUrl);
-      const cutoutImage=await loadImage(result.dataUrl);
+    async function backgroundRemoval(){
+      if(!state.bgRemovalModule){
+        state.bgRemovalModule=import(BG_REMOVAL_MODULE_URL);
+      }
+      const mod=await state.bgRemovalModule;
+      return mod.removeBackground || mod.default;
+    }
+    async function localProductCutout(file){
+      const removeBackground=await backgroundRemoval();
+      if(typeof removeBackground!=='function') throw new Error('Background remover could not load.');
+      return await removeBackground(file,{
+        publicPath:BG_REMOVAL_PUBLIC_PATH,
+        output:{format:'image/png',quality:.98}
+      });
+    }
+    function alphaBounds(image){
+      const w=image.naturalWidth||image.width;
+      const h=image.naturalHeight||image.height;
+      const canvas=document.createElement('canvas');
+      canvas.width=w; canvas.height=h;
+      const ctx=canvas.getContext('2d',{willReadFrequently:true});
+      ctx.drawImage(image,0,0);
+      const data=ctx.getImageData(0,0,w,h).data;
+      let minX=w, minY=h, maxX=0, maxY=0, found=false;
+      for(let y=0;y<h;y+=1){
+        for(let x=0;x<w;x+=1){
+          const a=data[((y*w+x)*4)+3];
+          if(a>18){
+            found=true;
+            if(x<minX) minX=x;
+            if(y<minY) minY=y;
+            if(x>maxX) maxX=x;
+            if(y>maxY) maxY=y;
+          }
+        }
+      }
+      return found ? {x:minX,y:minY,w:maxX-minX+1,h:maxY-minY+1} : {x:0,y:0,w,h};
+    }
+    function productRect(bounds){
+      const maxW=OUTPUT_WIDTH*.78;
+      const maxH=OUTPUT_HEIGHT*.68;
+      const scale=Math.min(maxW/bounds.w,maxH/bounds.h);
+      const w=bounds.w*scale;
+      const h=bounds.h*scale;
+      return {
+        x:(OUTPUT_WIDTH-w)/2,
+        y:Math.max(OUTPUT_HEIGHT*.11,(OUTPUT_HEIGHT-h)/2-(OUTPUT_HEIGHT*.035)),
+        w,
+        h
+      };
+    }
+    function drawContactShadow(ctx,image,bounds,dest){
+      const shadow=makeCanvas();
+      const sctx=shadow.getContext('2d');
+      sctx.clearRect(0,0,OUTPUT_WIDTH,OUTPUT_HEIGHT);
+      sctx.drawImage(image,bounds.x,bounds.y,bounds.w,bounds.h,dest.x,dest.y,dest.w,dest.h);
+      sctx.globalCompositeOperation='source-in';
+      sctx.fillStyle='rgba(0,0,0,.55)';
+      sctx.fillRect(0,0,OUTPUT_WIDTH,OUTPUT_HEIGHT);
+      ctx.save();
+      ctx.globalAlpha=.34;
+      ctx.filter='blur(16px)';
+      ctx.drawImage(shadow,7,18);
+      ctx.restore();
+
+      ctx.save();
+      ctx.globalAlpha=.16;
+      ctx.filter='blur(5px)';
+      ctx.drawImage(shadow,2,5);
+      ctx.restore();
+    }
+    async function compositeFlatlayPreview(file,index,backgroundImage){
+      const cutoutBlob=await localProductCutout(file);
+      const cutoutUrl=URL.createObjectURL(cutoutBlob);
+      let cutoutImage;
+      try{
+        cutoutImage=await loadImage(cutoutUrl);
+      }finally{
+        URL.revokeObjectURL(cutoutUrl);
+      }
+      const bounds=alphaBounds(cutoutImage);
+      const dest=productRect(bounds);
       const output=makeCanvas();
       const outputCtx=output.getContext('2d');
       const bgRect=fitRect(backgroundImage.naturalWidth||backgroundImage.width,backgroundImage.naturalHeight||backgroundImage.height,OUTPUT_WIDTH,OUTPUT_HEIGHT,'cover',0);
       outputCtx.drawImage(backgroundImage,bgRect.x,bgRect.y,bgRect.w,bgRect.h);
-
-      const productCanvas=makeCanvas();
-      const productCtx=productCanvas.getContext('2d');
-      productCtx.clearRect(0,0,OUTPUT_WIDTH,OUTPUT_HEIGHT);
-      productCtx.drawImage(sourceImage,0,0,OUTPUT_WIDTH,OUTPUT_HEIGHT);
-
-      const maskCanvas=makeCanvas();
-      const maskCtx=maskCanvas.getContext('2d');
-      maskCtx.clearRect(0,0,OUTPUT_WIDTH,OUTPUT_HEIGHT);
-      maskCtx.drawImage(cutoutImage,0,0,OUTPUT_WIDTH,OUTPUT_HEIGHT);
-
-      const productData=productCtx.getImageData(0,0,OUTPUT_WIDTH,OUTPUT_HEIGHT);
-      const maskData=maskCtx.getImageData(0,0,OUTPUT_WIDTH,OUTPUT_HEIGHT);
-      let minAlpha=255, maxAlpha=0, transparent=0;
-      for(let i=3;i<maskData.data.length;i+=4){
-        const alpha=maskData.data[i];
-        minAlpha=Math.min(minAlpha,alpha);
-        maxAlpha=Math.max(maxAlpha,alpha);
-        if(alpha<20) transparent++;
-      }
-      const useAlpha=(maxAlpha-minAlpha)>25 && transparent>(OUTPUT_WIDTH*OUTPUT_HEIGHT*.03);
-      for(let i=0;i<productData.data.length;i+=4){
-        let maskAlpha=maskData.data[i+3];
-        if(!useAlpha){
-          const lum=(maskData.data[i]*.2126)+(maskData.data[i+1]*.7152)+(maskData.data[i+2]*.0722);
-          maskAlpha=lum>18 ? 255 : 0;
-        }
-        productData.data[i+3]=Math.min(productData.data[i+3],maskAlpha);
-      }
-      productCtx.putImageData(productData,0,0);
-      outputCtx.drawImage(productCanvas,0,0);
+      drawContactShadow(outputCtx,cutoutImage,bounds,dest);
+      outputCtx.imageSmoothingEnabled=true;
+      outputCtx.imageSmoothingQuality='high';
+      outputCtx.drawImage(cutoutImage,bounds.x,bounds.y,bounds.w,bounds.h,dest.x,dest.y,dest.w,dest.h);
 
       const dataUrl=output.toDataURL('image/png');
+      const id=(window.crypto?.randomUUID?.() || `${Date.now()}-${index}`);
+      const filename=`${safeClientName(file.name,index)}-xclusiveline-bg-${String(id).slice(0,8)}.png`;
       return {
-        ...result,
-        originalName: prepared.originalName,
+        id,
+        originalName:file.name || `product-${index+1}`,
+        filename,
         contentType:'image/png',
         b64:stripDataUrlClient(dataUrl),
         dataUrl,
-        cutoutDataUrl:result.dataUrl,
-        cutoutB64:result.b64,
-        mode:'exact-background-composite',
-        imageSize:`${OUTPUT_WIDTH}x${OUTPUT_HEIGHT}`
+        mode:'local-flatlay-composite',
+        imageSize:`${OUTPUT_WIDTH}x${OUTPUT_HEIGHT}`,
+        saved:false
       };
     }
 
@@ -416,31 +450,24 @@
     async function generate(){
       saveSettings();
       if(!state.files.length){ setStatus('Upload product images first.','bad'); return; }
-      setBusy(true); setStatus('Cutting out products and locking them to the exact XCLUSIVELINE background.');
+      setBusy(true); setStatus('Preparing realistic flat-lay previews. First run may take a moment.');
       try{
-        const prepared=await Promise.all(state.files.map((file,index)=>prepareProductFile(file,index)));
-        const form=new FormData();
-        prepared.forEach(item=>form.append('products',item.file,item.file.name));
-        const r=await fetch(apiUrl('/api/generate'),{method:'POST',headers:auth(),body:form});
-        const d=await r.json();
-        if(!r.ok || !d.ok) throw new Error(d.error||'Generation failed');
         const bg=await loadBackgroundForComposite();
         const composed=[];
-        for(const result of d.results||[]){
-          const sourceIndex=Number.isInteger(result.sourceIndex) ? result.sourceIndex : composed.length;
-          composed.push(await compositeExactPreview(result,prepared[sourceIndex],bg));
+        for(let index=0;index<state.files.length;index+=1){
+          setStatus(`Preparing preview ${index+1} of ${state.files.length}...`);
+          composed.push(await compositeFlatlayPreview(state.files[index],index,bg));
         }
         state.generated=composed;
         state.selected=new Set(state.generated.map(x=>x.id));
         renderResults();
-        const err=(d.errors||[]).map(x=>`${x.originalName}: ${x.error}`).join(' | ');
-        setStatus(`Generated ${state.generated.length} preview${state.generated.length===1?'':'s'}.${err?' '+err:''}`, err?'bad':'ok');
+        setStatus(`Generated ${state.generated.length} realistic flat-lay preview${state.generated.length===1?'':'s'}.`,'ok');
       }catch(e){ setStatus(e.message,'bad'); }
       finally{ setBusy(false); }
     }
     function renderResults(){
       if(!state.generated.length){ $('results').innerHTML='<div class="panel" style="padding:18px"><h3>No previews yet</h3><p class="muted">Upload products and press Generate Previews.</p></div>'; return; }
-      $('results').innerHTML=state.generated.map(x=>`<article class="card"><div class="shot"><img src="${x.dataUrl}" alt=""><label class="check"><input type="checkbox" ${state.selected.has(x.id)?'checked':''} onchange="toggleSel('${x.id}',this.checked)">Select</label></div><div class="body"><strong>${esc(x.originalName)}</strong><p class="tiny">Exact 3:4 XCLUSIVELINE background preview</p><a class="btn" download="${esc(x.filename)}" href="${x.dataUrl}">Download</a></div></article>`).join('');
+      $('results').innerHTML=state.generated.map(x=>`<article class="card"><div class="shot"><img src="${x.dataUrl}" alt=""><label class="check"><input type="checkbox" ${state.selected.has(x.id)?'checked':''} onchange="toggleSel('${x.id}',this.checked)">Select</label></div><div class="body"><strong>${esc(x.originalName)}</strong><p class="tiny">Realistic flat-lay preview</p><a class="btn" download="${esc(x.filename)}" href="${x.dataUrl}">Download</a></div></article>`).join('');
     }
     function toggleSel(id,on){ on?state.selected.add(id):state.selected.delete(id); }
     async function saveSelected(){
