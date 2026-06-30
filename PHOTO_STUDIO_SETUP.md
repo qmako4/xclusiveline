@@ -74,6 +74,7 @@ XCLUSIVELINE_IMAGE_SIZE = "1024x1536"
 XCLUSIVELINE_MAX_BULK_IMAGES = "8"
 XCLUSIVELINE_R2_PREFIX = "photo-studio/"
 XCLUSIVELINE_ALLOWED_ORIGINS = "http://localhost:8787,http://localhost:3000,http://127.0.0.1:3000,http://127.0.0.1:8080,https://qmako4.github.io"
+XCLUSIVELINE_BACKGROUND_URL = "https://qmako4.github.io/xclusiveline/assets/xclusiveline-studio-background.jpg"
 ```
 
 Optional public media URL if you enable a public/custom domain for the R2 bucket:

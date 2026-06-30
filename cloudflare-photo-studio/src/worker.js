@@ -4,6 +4,7 @@ const BRAND = {
   black: "#0A0A0A",
   white: "#FAFAFA",
   defaultBackgroundPath: "/xclusiveline-background.jpg",
+  defaultBackgroundUrl: "https://qmako4.github.io/xclusiveline/assets/xclusiveline-studio-background.jpg",
 };
 
 const JSON_TYPE = "application/json; charset=utf-8";
@@ -373,12 +374,10 @@ async function loadDefaultBackgroundFile(request, env) {
 }
 
 async function loadDefaultBackgroundResponse(request, env) {
-  if (!env.ASSETS) {
-    throw statusError("ASSETS binding is required for the default XCLUSIVELINE background.", 500);
-  }
-
-  const assetUrl = new URL(BRAND.defaultBackgroundPath, request.url);
-  const response = await env.ASSETS.fetch(new Request(assetUrl.toString(), { method: "GET" }));
+  const configuredUrl = env.XCLUSIVELINE_BACKGROUND_URL || BRAND.defaultBackgroundUrl;
+  const response = env.ASSETS
+    ? await env.ASSETS.fetch(new Request(new URL(BRAND.defaultBackgroundPath, request.url).toString(), { method: "GET" }))
+    : await fetch(configuredUrl);
   if (!response.ok) {
     throw statusError("Default XCLUSIVELINE background asset was not found.", 500);
   }

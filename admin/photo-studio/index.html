@@ -159,8 +159,9 @@
   <div id="toast" class="toast"></div>
 
   <script>
+    const DEFAULT_API_BASE = 'https://xclusiveline-photo-studio.qmako41212.workers.dev';
     const state = {
-      apiBase: localStorage.getItem('xl-studio-api') || '',
+      apiBase: localStorage.getItem('xl-studio-api') || DEFAULT_API_BASE,
       token: localStorage.getItem('xl-studio-token') || '',
       files: [],
       previews: [],
