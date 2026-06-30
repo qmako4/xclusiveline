@@ -72,6 +72,15 @@ Done — you're fully off Supabase. 🎉
 
 ---
 
+## Photo Studio
+- Admin panel has a **Photo Studio** link to `admin/photo-studio/`.
+- Live URL after GitHub Pages deploys:
+  `https://qmako4.github.io/xclusiveline/admin/photo-studio/`
+- The photo studio uses its own Worker and R2 bucket so it does not affect the
+  main store Worker. Follow `PHOTO_STUDIO_SETUP.md`.
+
+---
+
 ## Notes
 - **Config in `index.html`** (top of the `<script>`): `API` is your Worker URL,
   `PAYPAL_CLIENT_ID` is your public PayPal client id. Update if they change.

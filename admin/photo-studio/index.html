@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>XCLUSIVELINE Photo Studio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800;900&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root{--y:#F5A800;--b:#0A0A0A;--w:#FAFAFA;--b2:#121212;--b3:#1C1C1C;--line:rgba(250,250,250,.1);--mut:rgba(250,250,250,.58);--red:#E5484D;--green:#3DD68C;--fd:'Barlow Condensed',sans-serif;--fb:'DM Sans',sans-serif}
+    *{box-sizing:border-box;margin:0;padding:0;letter-spacing:0}
+    body{min-height:100vh;background:var(--b);color:var(--w);font-family:var(--fb);line-height:1.55}
+    img{display:block;max-width:100%}
+    button,input{font:inherit}
+    button{cursor:pointer;border:0}
+    button:disabled{opacity:.5;cursor:not-allowed}
+    a{color:inherit;text-decoration:none}
+    .wrap{width:min(1280px,calc(100% - 28px));margin:0 auto;padding:20px 0 64px}
+    .top{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:18px}
+    .brand{display:flex;align-items:center;gap:10px}
+    .bar{width:8px;height:42px;background:var(--y)}
+    .logo{font-family:var(--fd);font-size:clamp(2rem,6vw,4rem);font-weight:900;line-height:.85;text-transform:uppercase}
+    .back{border:1px solid var(--line);border-radius:10px;background:var(--b2);padding:10px 14px;color:var(--mut);font-size:12px;font-weight:900;text-transform:uppercase}
+    .hero{display:grid;grid-template-columns:.82fr 1.18fr;gap:14px;margin-bottom:14px}
+    .panel{border:1px solid var(--line);border-radius:12px;background:var(--b2)}
+    .intro{padding:24px;position:relative;overflow:hidden}
+    .intro:after{content:"";position:absolute;right:-70px;top:-70px;width:220px;height:220px;border-radius:50%;border:45px solid rgba(245,168,0,.12)}
+    .eyebrow{color:var(--y);font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:.14em}
+    h1,h2,h3{font-family:var(--fd);text-transform:uppercase;line-height:.9}
+    h1{font-size:clamp(3.3rem,10vw,6.6rem);margin:16px 0}
+    h2{font-size:2.3rem}
+    h3{font-size:1.5rem}
+    .muted{color:var(--mut)}
+    .rule{display:flex;align-items:center;gap:9px;margin-top:9px;color:rgba(250,250,250,.82);font-weight:700;font-size:14px}
+    .dot{width:8px;height:8px;border-radius:50%;background:var(--y);flex:0 0 auto}
+    .bg-card{display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:14px;padding:14px}
+    .bg-img{min-height:275px;border-radius:10px;background:var(--b3);overflow:hidden}
+    .bg-img img{width:100%;height:100%;object-fit:cover}
+    .bg-copy{display:flex;flex-direction:column;justify-content:space-between;gap:14px;padding:5px}
+    .grid{display:grid;grid-template-columns:360px minmax(0,1fr);gap:14px;align-items:start}
+    .side,.main,.library{padding:16px}
+    label.small{display:grid;gap:6px;color:var(--mut);font-size:11px;font-weight:900;text-transform:uppercase;margin-bottom:10px}
+    input[type="text"],input[type="password"]{min-height:42px;border:1px solid var(--line);border-radius:9px;background:var(--b3);color:var(--w);padding:0 11px;font-size:13px;text-transform:none}
+    .drop{min-height:180px;border:2px dashed var(--line);border-radius:12px;background:var(--b3);display:grid;place-items:center;text-align:center;padding:20px;transition:.15s}
+    .drop.drag{border-color:var(--y);background:rgba(245,168,0,.1)}
+    .btn{min-height:42px;border-radius:9px;padding:10px 14px;background:var(--b3);border:1px solid var(--line);color:var(--w);font-family:var(--fd);font-weight:900;text-transform:uppercase;letter-spacing:.05em}
+    .btn.y{background:var(--y);border-color:var(--y);color:var(--b)}
+    .btn.dark{background:var(--w);border-color:var(--w);color:var(--b)}
+    .btn.red{color:var(--red)}
+    .actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+    .hidden{display:none!important}
+    .status{margin-top:12px;border:1px solid var(--line);border-radius:10px;background:var(--b3);padding:11px;color:var(--mut);font-size:13px}
+    .status.ok{color:var(--green)}.status.bad{color:var(--red)}
+    .queue{display:grid;gap:8px;margin-top:12px}
+    .q{display:grid;grid-template-columns:56px 1fr auto;gap:10px;align-items:center;border:1px solid var(--line);border-radius:10px;background:var(--b3);padding:8px}
+    .q img{width:56px;height:66px;object-fit:cover;border-radius:7px}.q strong{display:block;font-size:13px;line-height:1.2;word-break:break-word}.tiny{font-size:11px;color:var(--mut)}
+    .head{display:flex;justify-content:space-between;align-items:end;gap:12px;margin-bottom:14px}
+    .results{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+    .card{border:1px solid var(--line);border-radius:10px;background:var(--b3);overflow:hidden}
+    .shot{position:relative;aspect-ratio:3/4;background:#222}.shot img{width:100%;height:100%;object-fit:cover}
+    .check{position:absolute;left:8px;top:8px;display:flex;align-items:center;gap:6px;background:rgba(250,250,250,.94);color:var(--b);border-radius:8px;padding:5px 8px;font-size:11px;font-weight:900;text-transform:uppercase}
+    .body{display:grid;gap:8px;padding:10px}.body strong{font-size:13px;line-height:1.2;word-break:break-word}
+    .media{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}
+    .media a{display:block;border:1px solid var(--line);border-radius:10px;background:var(--b3);overflow:hidden}
+    .media img{width:100%;aspect-ratio:3/4;object-fit:cover}.media span{display:block;padding:7px;font-size:11px;color:var(--mut);word-break:break-word}
+    .library{margin-top:14px}
+    .toast{position:fixed;right:16px;bottom:16px;display:grid;gap:8px;z-index:20}
+    .toast div{background:var(--w);color:var(--b);border-radius:10px;padding:11px 13px;font-weight:900;box-shadow:0 16px 45px rgba(0,0,0,.35)}
+    @media(max-width:980px){.hero,.grid,.bg-card{grid-template-columns:1fr}.results{grid-template-columns:repeat(2,minmax(0,1fr))}.media{grid-template-columns:repeat(3,minmax(0,1fr))}}
+    @media(max-width:620px){.wrap{width:min(100% - 20px,1280px);padding-top:12px}.top{align-items:flex-start;flex-direction:column}.intro,.side,.main,.library{padding:14px}.results,.media{grid-template-columns:1fr}.actions .btn{flex:1 1 auto}}
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <header class="top">
+      <div class="brand"><span class="bar"></span><span class="logo">XCLUSIVELINE</span></div>
+      <a class="back" href="../../#admin">Back to Admin</a>
+    </header>
+
+    <section class="hero">
+      <div class="panel intro">
+        <span class="eyebrow">Admin Photo Studio</span>
+        <h1>Bulk Background Swap</h1>
+        <p class="muted">Upload product shots, generate previews on command, then save only approved images to the XCLUSIVELINE media library.</p>
+        <div style="margin-top:20px">
+          <div class="rule"><span class="dot"></span><span>Product details stay unchanged.</span></div>
+          <div class="rule"><span class="dot"></span><span>Default output is 3:4.</span></div>
+          <div class="rule"><span class="dot"></span><span>No generation happens until you press the button.</span></div>
+        </div>
+      </div>
+
+      <aside class="panel bg-card">
+        <div class="bg-img"><img id="bgPreview" src="../../assets/xclusiveline-studio-background.jpg" alt="XCLUSIVELINE background"></div>
+        <div class="bg-copy">
+          <div>
+            <span class="eyebrow">Default background</span>
+            <h2>Yellow Studio</h2>
+            <p class="muted">Uses your uploaded XCLUSIVELINE background by default. You can override it for a batch.</p>
+          </div>
+          <label class="btn" for="bgInput">Optional Override</label>
+          <input id="bgInput" class="hidden" type="file" accept="image/*">
+          <p id="bgStatus" class="tiny">Using default background.</p>
+        </div>
+      </aside>
+    </section>
+
+    <section class="grid">
+      <aside class="panel side">
+        <label class="small">Photo Studio Worker URL
+          <input id="apiBase" type="text" placeholder="https://xclusiveline-photo-studio.your-name.workers.dev">
+        </label>
+        <label class="small">Studio Admin Token
+          <input id="adminToken" type="password" placeholder="XCLUSIVELINE_STUDIO_ADMIN_TOKEN">
+        </label>
+        <div class="actions" style="margin:0 0 14px">
+          <button id="saveSettings" class="btn">Save Settings</button>
+        </div>
+
+        <div id="drop" class="drop">
+          <div>
+            <strong>Drop product images here</strong>
+            <p class="tiny">Or tap to choose multiple files.</p>
+            <label class="btn y" for="productInput" style="display:inline-flex;margin-top:12px">Choose Images</label>
+            <input id="productInput" class="hidden" type="file" accept="image/*" multiple>
+          </div>
+        </div>
+        <div class="actions">
+          <button id="generateBtn" class="btn y">Generate Previews</button>
+          <button id="clearBtn" class="btn">Clear</button>
+        </div>
+        <p id="status" class="status">Add the deployed Worker URL and admin token, then upload product images.</p>
+        <div id="queue" class="queue"></div>
+      </aside>
+
+      <section class="panel main">
+        <div class="head">
+          <div><span class="eyebrow">Preview before saving</span><h2>Generated Results</h2></div>
+          <div class="actions" style="margin:0">
+            <button id="selectAllBtn" class="btn">Select All</button>
+            <button id="saveBtn" class="btn dark">Save Selected</button>
+          </div>
+        </div>
+        <div id="results" class="results">
+          <div class="panel" style="padding:18px"><h3>No previews yet</h3><p class="muted">Upload products and press Generate Previews.</p></div>
+        </div>
+      </section>
+    </section>
+
+    <section class="panel library">
+      <div class="head">
+        <div><span class="eyebrow">R2 media library</span><h2>Saved Images</h2></div>
+        <button id="refreshBtn" class="btn">Refresh Media</button>
+      </div>
+      <div id="media" class="media"><div class="panel" style="padding:14px"><p class="muted">Saved images appear here after Worker/R2 setup.</p></div></div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast"></div>
+
+  <script>
+    const state = {
+      apiBase: localStorage.getItem('xl-studio-api') || '',
+      token: localStorage.getItem('xl-studio-token') || '',
+      files: [],
+      previews: [],
+      bgFile: null,
+      generated: [],
+      selected: new Set()
+    };
+    const $ = id => document.getElementById(id);
+
+    function init(){
+      $('apiBase').value = state.apiBase;
+      $('adminToken').value = state.token;
+      $('saveSettings').onclick = saveSettings;
+      $('productInput').onchange = e => addFiles(e.target.files);
+      $('bgInput').onchange = e => setBg(e.target.files?.[0]);
+      $('generateBtn').onclick = generate;
+      $('clearBtn').onclick = clearAll;
+      $('selectAllBtn').onclick = () => { state.selected = new Set(state.generated.map(x=>x.id)); renderResults(); };
+      $('saveBtn').onclick = saveSelected;
+      $('refreshBtn').onclick = loadMedia;
+      const drop=$('drop');
+      ['dragover','dragenter'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('drag')}));
+      ['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('drag')}));
+      drop.addEventListener('drop', e=>addFiles(e.dataTransfer.files));
+      renderQueue();
+    }
+
+    function saveSettings(){
+      state.apiBase = $('apiBase').value.trim().replace(/\/+$/,'');
+      state.token = $('adminToken').value.trim();
+      localStorage.setItem('xl-studio-api', state.apiBase);
+      localStorage.setItem('xl-studio-token', state.token);
+      toast('Studio settings saved');
+    }
+    function apiUrl(path){ const base=($('apiBase').value.trim()||state.apiBase).replace(/\/+$/,''); if(!base) throw new Error('Add your deployed Photo Studio Worker URL first.'); return base + path; }
+    function auth(){ const t=$('adminToken').value.trim()||state.token; return t ? {Authorization:'Bearer '+t} : {}; }
+    function setStatus(msg, cls=''){ $('status').className='status '+cls; $('status').textContent=msg; }
+    function toast(msg){ const el=document.createElement('div'); el.textContent=msg; $('toast').appendChild(el); setTimeout(()=>el.remove(),3600); }
+    function esc(v){ return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c])); }
+    function bytes(n){ return n<1024?n+' B':n<1048576?(n/1024).toFixed(1)+' KB':(n/1048576).toFixed(1)+' MB'; }
+
+    function addFiles(list){
+      const incoming=[...(list||[])].filter(f=>f.type.startsWith('image/'));
+      incoming.forEach(file=>{ state.files.push(file); state.previews.push(URL.createObjectURL(file)); });
+      $('productInput').value='';
+      renderQueue();
+      if(incoming.length) setStatus(`${incoming.length} image${incoming.length===1?'':'s'} added. Press Generate Previews when ready.`);
+    }
+    function setBg(file){
+      if(!file || !file.type.startsWith('image/')) return;
+      state.bgFile=file;
+      $('bgPreview').src=URL.createObjectURL(file);
+      $('bgStatus').textContent='Using override: '+file.name;
+    }
+    function removeFile(i){
+      URL.revokeObjectURL(state.previews[i]);
+      state.files.splice(i,1); state.previews.splice(i,1); renderQueue();
+    }
+    function renderQueue(){
+      $('queue').innerHTML = state.files.map((f,i)=>`<div class="q"><img src="${state.previews[i]}" alt=""><div><strong>${esc(f.name)}</strong><p class="tiny">${bytes(f.size)}</p></div><button class="btn red" onclick="removeFile(${i})">Remove</button></div>`).join('');
+    }
+    function clearAll(){
+      state.previews.forEach(URL.revokeObjectURL);
+      state.files=[]; state.previews=[]; state.generated=[]; state.selected.clear();
+      renderQueue(); renderResults(); setStatus('Queue cleared.');
+    }
+
+    async function generate(){
+      saveSettings();
+      if(!state.files.length){ setStatus('Upload product images first.','bad'); return; }
+      setBusy(true); setStatus('Generating previews. Nothing is saved until you approve it.');
+      try{
+        const form=new FormData();
+        state.files.forEach(f=>form.append('products',f,f.name));
+        if(state.bgFile) form.append('background',state.bgFile,state.bgFile.name);
+        const r=await fetch(apiUrl('/api/generate'),{method:'POST',headers:auth(),body:form});
+        const d=await r.json();
+        if(!r.ok || !d.ok) throw new Error(d.error||'Generation failed');
+        state.generated=d.results||[];
+        state.selected=new Set(state.generated.map(x=>x.id));
+        renderResults();
+        const err=(d.errors||[]).map(x=>`${x.originalName}: ${x.error}`).join(' | ');
+        setStatus(`Generated ${state.generated.length} preview${state.generated.length===1?'':'s'}.${err?' '+err:''}`, err?'bad':'ok');
+      }catch(e){ setStatus(e.message,'bad'); }
+      finally{ setBusy(false); }
+    }
+    function renderResults(){
+      if(!state.generated.length){ $('results').innerHTML='<div class="panel" style="padding:18px"><h3>No previews yet</h3><p class="muted">Upload products and press Generate Previews.</p></div>'; return; }
+      $('results').innerHTML=state.generated.map(x=>`<article class="card"><div class="shot"><img src="${x.dataUrl}" alt=""><label class="check"><input type="checkbox" ${state.selected.has(x.id)?'checked':''} onchange="toggleSel('${x.id}',this.checked)">Select</label></div><div class="body"><strong>${esc(x.originalName)}</strong><p class="tiny">3:4 XCLUSIVELINE background preview</p><a class="btn" download="${esc(x.filename)}" href="${x.dataUrl}">Download</a></div></article>`).join('');
+    }
+    function toggleSel(id,on){ on?state.selected.add(id):state.selected.delete(id); }
+    async function saveSelected(){
+      saveSettings();
+      const imgs=state.generated.filter(x=>state.selected.has(x.id));
+      if(!imgs.length){ setStatus('Select at least one preview first.','bad'); return; }
+      setBusy(true); setStatus('Saving approved images to R2...');
+      try{
+        const r=await fetch(apiUrl('/api/save'),{method:'POST',headers:{...auth(),'Content-Type':'application/json'},body:JSON.stringify({images:imgs.map(x=>({id:x.id,originalName:x.originalName,filename:x.filename,contentType:x.contentType,b64:x.b64}))})});
+        const d=await r.json();
+        if(!r.ok || !d.ok) throw new Error(d.error||'Save failed');
+        setStatus(`Saved ${d.saved.length} image${d.saved.length===1?'':'s'} to R2.`,'ok');
+        toast('Saved to media library');
+        loadMedia();
+      }catch(e){ setStatus(e.message,'bad'); }
+      finally{ setBusy(false); }
+    }
+    async function loadMedia(){
+      saveSettings();
+      try{
+        const r=await fetch(apiUrl('/api/media?limit=60'),{headers:auth()});
+        const d=await r.json();
+        if(!r.ok || !d.ok) throw new Error(d.error||'Media load failed');
+        const token=encodeURIComponent($('adminToken').value.trim()||state.token);
+        $('media').innerHTML=(d.objects||[]).length ? d.objects.map(o=>{
+          const src=o.publicUrl || (apiUrl(o.rawUrl)+'&token='+token);
+          return `<a href="${src}" target="_blank" rel="noreferrer"><img src="${src}" alt=""><span>${esc(o.key.split('/').pop())}</span></a>`;
+        }).join('') : '<div class="panel" style="padding:14px"><p class="muted">No saved studio images yet.</p></div>';
+        setStatus(`Loaded ${(d.objects||[]).length} saved image${(d.objects||[]).length===1?'':'s'}.`,'ok');
+      }catch(e){ setStatus(e.message,'bad'); }
+    }
+    function setBusy(on){ ['generateBtn','saveBtn','clearBtn'].forEach(id=>$(id).disabled=on); }
+    window.removeFile=removeFile; window.toggleSel=toggleSel;
+    init();
+  </script>
+</body>
+</html>

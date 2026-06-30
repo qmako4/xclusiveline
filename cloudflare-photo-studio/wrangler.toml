@@ -1,0 +1,17 @@
+name = "xclusiveline-photo-studio"
+main = "src/worker.js"
+compatibility_date = "2026-06-01"
+
+assets = { directory = "./public", binding = "ASSETS" }
+
+[[r2_buckets]]
+binding = "XCLUSIVELINE_MEDIA"
+bucket_name = "xclusiveline-media"
+preview_bucket_name = "xclusiveline-media-preview"
+
+[vars]
+XCLUSIVELINE_OPENAI_IMAGE_MODEL = "gpt-image-1"
+XCLUSIVELINE_IMAGE_SIZE = "1024x1536"
+XCLUSIVELINE_MAX_BULK_IMAGES = "8"
+XCLUSIVELINE_R2_PREFIX = "photo-studio/"
+XCLUSIVELINE_ALLOWED_ORIGINS = "http://localhost:8787,http://localhost:3000,http://127.0.0.1:3000,http://127.0.0.1:8080,https://qmako4.github.io"
