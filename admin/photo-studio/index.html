@@ -219,7 +219,16 @@
       toast('Studio settings saved');
     }
     function apiUrl(path){ const base=($('apiBase').value.trim()||state.apiBase).replace(/\/+$/,''); if(!base) throw new Error('Add your deployed Photo Studio Worker URL first.'); return base + path; }
-    function auth(){ const t=$('adminToken').value.trim()||state.token||localStorage.getItem('xl-studio-token')||''; return t ? {Authorization:'Bearer '+t} : {}; }
+    function currentToken(){
+      const t=$('adminToken').value.trim()||state.token||localStorage.getItem('xl-studio-token')||'';
+      if(t){
+        state.token=t;
+        $('adminToken').value=t;
+        localStorage.setItem('xl-studio-token',t);
+      }
+      return t;
+    }
+    function auth(){ const t=currentToken(); return t ? {Authorization:'Bearer '+t,'x-admin-token':t} : {}; }
     function setStatus(msg, cls=''){ $('status').className='status '+cls; $('status').textContent=msg; }
     function toast(msg){ const el=document.createElement('div'); el.textContent=msg; $('toast').appendChild(el); setTimeout(()=>el.remove(),3600); }
     function esc(v){ return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c])); }
