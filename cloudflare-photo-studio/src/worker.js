@@ -40,31 +40,31 @@ export default {
       }
 
       if (pathname === "/api/background" && request.method === "GET") {
-        return getDefaultBackground(request, env);
+        return await getDefaultBackground(request, env);
       }
 
       if (pathname === "/api/generate" && request.method === "POST") {
         await requireAdmin(request, env);
-        return generatePreviews(request, env);
+        return await generatePreviews(request, env);
       }
 
       if (pathname === "/api/save" && request.method === "POST") {
         await requireAdmin(request, env);
-        return saveGeneratedImages(request, env);
+        return await saveGeneratedImages(request, env);
       }
 
       if (pathname === "/api/media" && request.method === "GET") {
         await requireAdmin(request, env);
-        return listMedia(request, env);
+        return await listMedia(request, env);
       }
 
       if (pathname === "/api/media/raw" && request.method === "GET") {
         await requireAdmin(request, env);
-        return getMediaObject(request, env);
+        return await getMediaObject(request, env);
       }
 
       if (env.ASSETS) {
-        return env.ASSETS.fetch(request);
+        return await env.ASSETS.fetch(request);
       }
 
       return json({ ok: false, error: "Not found" }, request, env, 404);
