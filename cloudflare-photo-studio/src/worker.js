@@ -29,7 +29,7 @@ export default {
           {
             ok: true,
             brand: BRAND,
-            imageSize: env.XCLUSIVELINE_IMAGE_SIZE || "1024x1536",
+            imageSize: env.XCLUSIVELINE_IMAGE_SIZE || "auto",
             maxBulkImages: maxBulkImages(env),
             saveEnabled: Boolean(env.XCLUSIVELINE_MEDIA),
             publicMediaBaseUrl: env.XCLUSIVELINE_R2_PUBLIC_URL || null,
@@ -88,12 +88,6 @@ async function generatePreviews(request, env) {
     throw statusError(`Upload ${maxBulkImages(env)} images or fewer per batch.`, 400);
   }
 
-  const backgroundOverride = form.get("background");
-  const backgroundFile =
-    backgroundOverride && typeof backgroundOverride === "object" && backgroundOverride.size > 0
-      ? backgroundOverride
-      : await loadDefaultBackgroundFile(request, env);
-
   const results = [];
   const errors = [];
 
@@ -101,25 +95,25 @@ async function generatePreviews(request, env) {
     const productFile = productFiles[index];
     try {
       validateImageFile(productFile, `Product ${index + 1}`);
-      validateImageFile(backgroundFile, "Background");
 
-      const generated = await generateBackgroundSwap({
+      const generated = await generateProductCutout({
         env,
         productFile,
-        backgroundFile,
       });
 
       const id = crypto.randomUUID();
       const filename = outputFilename(productFile.name, id);
       results.push({
         id,
+        sourceIndex: index,
         originalName: productFile.name || `product-${index + 1}`,
         filename,
         contentType: generated.contentType,
         b64: generated.b64,
         dataUrl: `data:${generated.contentType};base64,${generated.b64}`,
+        mode: "transparent-cutout",
         prompt: generated.prompt,
-        imageSize: env.XCLUSIVELINE_IMAGE_SIZE || "1024x1536",
+        imageSize: env.XCLUSIVELINE_IMAGE_SIZE || "auto",
         saved: false,
       });
     } catch (error) {
@@ -234,40 +228,22 @@ async function getMediaObject(request, env) {
   return new Response(object.body, { headers });
 }
 
-async function generateBackgroundSwap({ env, productFile, backgroundFile }) {
+async function generateProductCutout({ env, productFile }) {
   const apiKey = env.OPENAI_API_KEY || env.XCLUSIVELINE_OPENAI_API_KEY;
   if (!apiKey) {
     throw statusError("Missing OPENAI_API_KEY or XCLUSIVELINE_OPENAI_API_KEY.", 500);
   }
 
-  const prompt = buildBackgroundSwapPrompt(productFile.name);
+  const prompt = buildCutoutPrompt(productFile.name);
   const model = env.XCLUSIVELINE_OPENAI_IMAGE_MODEL || env.OPENAI_IMAGE_MODEL || "gpt-image-1";
-  const size = env.XCLUSIVELINE_IMAGE_SIZE || "1024x1536";
+  const size = env.XCLUSIVELINE_IMAGE_SIZE || "auto";
   const firstAttempt = await callOpenAiImagesEdit({
     apiKey,
     model,
     size,
     prompt,
     productFile,
-    backgroundFile,
-    fieldMode: "array",
   });
-
-  if (!firstAttempt.ok && shouldRetryWithRepeatedImageField(firstAttempt.errorText)) {
-    const retry = await callOpenAiImagesEdit({
-      apiKey,
-      model,
-      size,
-      prompt,
-      productFile,
-      backgroundFile,
-      fieldMode: "repeated",
-    });
-    if (retry.ok) {
-      return { ...retry.image, prompt };
-    }
-    throw statusError(`OpenAI image edit failed: ${retry.errorText}`, 502);
-  }
 
   if (!firstAttempt.ok) {
     throw statusError(`OpenAI image edit failed: ${firstAttempt.errorText}`, 502);
@@ -276,19 +252,15 @@ async function generateBackgroundSwap({ env, productFile, backgroundFile }) {
   return { ...firstAttempt.image, prompt };
 }
 
-async function callOpenAiImagesEdit({ apiKey, model, size, prompt, productFile, backgroundFile, fieldMode }) {
+async function callOpenAiImagesEdit({ apiKey, model, size, prompt, productFile }) {
   const form = new FormData();
   form.append("model", model);
   form.append("prompt", prompt);
   form.append("size", size);
-
-  if (fieldMode === "array") {
-    form.append("image[]", productFile, productFile.name || "product.png");
-    form.append("image[]", backgroundFile, backgroundFile.name || "xclusiveline-background.jpg");
-  } else {
-    form.append("image", productFile, productFile.name || "product.png");
-    form.append("image", backgroundFile, backgroundFile.name || "xclusiveline-background.jpg");
-  }
+  form.append("background", "transparent");
+  form.append("output_format", "png");
+  form.append("quality", "high");
+  form.append("image", productFile, productFile.name || "product.png");
 
   const response = await fetch("https://api.openai.com/v1/images/edits", {
     method: "POST",
@@ -342,17 +314,15 @@ async function callOpenAiImagesEdit({ apiKey, model, size, prompt, productFile, 
   return { ok: false, errorText: "OpenAI response did not include b64_json or url." };
 }
 
-function buildBackgroundSwapPrompt(productName) {
+function buildCutoutPrompt(productName) {
   return [
-    "Use case: precise-object-edit",
-    "Asset type: XCLUSIVELINE product photo studio background replacement",
-    `Input image 1: product image${productName ? ` named ${productName}` : ""}. This is the edit target. Preserve the product exactly.`,
-    "Input image 2: XCLUSIVELINE yellow and black branded background. Use it as the background reference.",
-    "Primary request: replace only the original background behind the product with the XCLUSIVELINE background. Keep the product, product shape, product colour, logos, texture, hand, clothing, shoe, watch, item details, edges, and perspective unchanged.",
-    "Composition/framing: final output must be vertical 3:4 ecommerce format. Keep realistic product scale and perspective. Center the product with comfortable margin. If the source crop is not 3:4, extend or crop only the background area as needed.",
-    "Lighting/mood: simple realistic product photo lighting. Keep natural contact and edge shadows only when they already make sense. No dramatic, fake, or unrealistic shadows.",
-    "Generative fill rule: use generative fill only for missing background canvas or tiny edge cleanup needed to fit 3:4. Never regenerate, redraw, restyle, recolour, resize, or invent product details.",
-    "Constraints: no extra products, no new hands, no new logos, no watermark, no text except background text that already exists in the supplied XCLUSIVELINE background, no changed product details, no fashion editorial scene, no unrealistic shadows.",
+    "Use case: product cutout alpha matte only.",
+    `Input image: product photo${productName ? ` named ${productName}` : ""}.`,
+    "Return a PNG with transparent background. Keep the product in the exact same position, scale, perspective, and crop as the input image.",
+    "Only remove the background around the product. Do not create, paint, extend, regenerate, smooth, sharpen, relight, recolour, retouch, or restyle the product.",
+    "Preserve all product pixels, shape, colour, logos, printed text, texture, stitching, fabric grain, tags, hands, clothing, shoes, watches, defects, marks, and edge detail as closely as possible.",
+    "Do not add any background, floor, shadows, watermarks, brand text, XCLUSIVELINE text, logo, labels, props, new hands, or new objects.",
+    "All non-product pixels must be transparent. If uncertain at fine edges, prefer a slightly conservative cutout over inventing new product detail.",
   ].join("\n");
 }
 
@@ -415,10 +385,6 @@ function validateImageFile(file, label) {
   if (file.size > maxMb * 1024 * 1024) {
     throw statusError(`${label} is larger than ${maxMb}MB.`, 400);
   }
-}
-
-function shouldRetryWithRepeatedImageField(message = "") {
-  return /image\[\]|invalid.*image|unknown.*parameter|array/i.test(message);
 }
 
 function json(data, request, env, status = 200) {

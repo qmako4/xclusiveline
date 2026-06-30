@@ -169,6 +169,9 @@
 
   <script>
     const DEFAULT_API_BASE = 'https://xclusiveline-photo-studio.qmako41212.workers.dev';
+    const DEFAULT_BACKGROUND_SRC = '../../assets/xclusiveline-studio-background.jpg';
+    const OUTPUT_WIDTH = 1200;
+    const OUTPUT_HEIGHT = 1600;
     const state = {
       apiBase: localStorage.getItem('xl-studio-api') || DEFAULT_API_BASE,
       token: localStorage.getItem('xl-studio-token') || '',
@@ -235,6 +238,110 @@
     function bytes(n){ return n<1024?n+' B':n<1048576?(n/1024).toFixed(1)+' KB':(n/1048576).toFixed(1)+' MB'; }
     function imageExt(type){ return ({'image/jpeg':'jpg','image/png':'png','image/webp':'webp','image/gif':'gif','image/avif':'avif'}[type] || 'png'); }
     function pastedName(type,index){ return `pasted-product-${Date.now()}-${index}.${imageExt(type)}`; }
+    function stripDataUrlClient(value){ const marker=';base64,'; const text=String(value||''); const i=text.indexOf(marker); return i>=0 ? text.slice(i+marker.length) : text; }
+    function safeClientName(value,index){ return String(value||`product-${index+1}.png`).toLowerCase().replace(/\.[a-z0-9]+$/i,'').replace(/[^a-z0-9._-]+/g,'-').replace(/^-+|-+$/g,'').slice(0,80) || `product-${index+1}`; }
+    function makeCanvas(width=OUTPUT_WIDTH,height=OUTPUT_HEIGHT){ const canvas=document.createElement('canvas'); canvas.width=width; canvas.height=height; return canvas; }
+    function canvasBlob(canvas,type='image/png',quality=.94){
+      return new Promise((resolve,reject)=>canvas.toBlob(blob=>blob?resolve(blob):reject(new Error('Could not prepare image canvas.')),type,quality));
+    }
+    function loadImage(src){
+      return new Promise((resolve,reject)=>{
+        const img=new Image();
+        img.onload=()=>resolve(img);
+        img.onerror=()=>reject(new Error('Could not load image.'));
+        if(!String(src).startsWith('blob:') && !String(src).startsWith('data:')) img.crossOrigin='anonymous';
+        img.src=src;
+      });
+    }
+    function fitRect(sw,sh,dw,dh,mode='contain',pad=0){
+      const maxW=dw*(1-pad*2), maxH=dh*(1-pad*2);
+      const scale=mode==='cover' ? Math.max(dw/sw,dh/sh) : Math.min(maxW/sw,maxH/sh);
+      const w=sw*scale, h=sh*scale;
+      return {x:(dw-w)/2,y:(dh-h)/2,w,h};
+    }
+    async function prepareProductFile(file,index){
+      const src=URL.createObjectURL(file);
+      try{
+        const img=await loadImage(src);
+        const canvas=makeCanvas();
+        const ctx=canvas.getContext('2d');
+        ctx.clearRect(0,0,OUTPUT_WIDTH,OUTPUT_HEIGHT);
+        const rect=fitRect(img.naturalWidth||img.width,img.naturalHeight||img.height,OUTPUT_WIDTH,OUTPUT_HEIGHT,'contain',.04);
+        ctx.imageSmoothingEnabled=true;
+        ctx.imageSmoothingQuality='high';
+        ctx.drawImage(img,rect.x,rect.y,rect.w,rect.h);
+        const blob=await canvasBlob(canvas);
+        return {
+          originalFile:file,
+          file:new File([blob],`${safeClientName(file.name,index)}-cutout-source.png`,{type:'image/png'}),
+          sourceDataUrl:canvas.toDataURL('image/png'),
+          originalName:file.name || `product-${index+1}`
+        };
+      }finally{
+        URL.revokeObjectURL(src);
+      }
+    }
+    async function loadBackgroundForComposite(){
+      const src=state.bgFile ? URL.createObjectURL(state.bgFile) : DEFAULT_BACKGROUND_SRC;
+      try{
+        return await loadImage(src);
+      }finally{
+        if(state.bgFile) URL.revokeObjectURL(src);
+      }
+    }
+    async function compositeExactPreview(result,prepared,backgroundImage){
+      if(!prepared) return result;
+      const sourceImage=await loadImage(prepared.sourceDataUrl);
+      const cutoutImage=await loadImage(result.dataUrl);
+      const output=makeCanvas();
+      const outputCtx=output.getContext('2d');
+      const bgRect=fitRect(backgroundImage.naturalWidth||backgroundImage.width,backgroundImage.naturalHeight||backgroundImage.height,OUTPUT_WIDTH,OUTPUT_HEIGHT,'cover',0);
+      outputCtx.drawImage(backgroundImage,bgRect.x,bgRect.y,bgRect.w,bgRect.h);
+
+      const productCanvas=makeCanvas();
+      const productCtx=productCanvas.getContext('2d');
+      productCtx.clearRect(0,0,OUTPUT_WIDTH,OUTPUT_HEIGHT);
+      productCtx.drawImage(sourceImage,0,0,OUTPUT_WIDTH,OUTPUT_HEIGHT);
+
+      const maskCanvas=makeCanvas();
+      const maskCtx=maskCanvas.getContext('2d');
+      maskCtx.clearRect(0,0,OUTPUT_WIDTH,OUTPUT_HEIGHT);
+      maskCtx.drawImage(cutoutImage,0,0,OUTPUT_WIDTH,OUTPUT_HEIGHT);
+
+      const productData=productCtx.getImageData(0,0,OUTPUT_WIDTH,OUTPUT_HEIGHT);
+      const maskData=maskCtx.getImageData(0,0,OUTPUT_WIDTH,OUTPUT_HEIGHT);
+      let minAlpha=255, maxAlpha=0, transparent=0;
+      for(let i=3;i<maskData.data.length;i+=4){
+        const alpha=maskData.data[i];
+        minAlpha=Math.min(minAlpha,alpha);
+        maxAlpha=Math.max(maxAlpha,alpha);
+        if(alpha<20) transparent++;
+      }
+      const useAlpha=(maxAlpha-minAlpha)>25 && transparent>(OUTPUT_WIDTH*OUTPUT_HEIGHT*.03);
+      for(let i=0;i<productData.data.length;i+=4){
+        let maskAlpha=maskData.data[i+3];
+        if(!useAlpha){
+          const lum=(maskData.data[i]*.2126)+(maskData.data[i+1]*.7152)+(maskData.data[i+2]*.0722);
+          maskAlpha=lum>18 ? 255 : 0;
+        }
+        productData.data[i+3]=Math.min(productData.data[i+3],maskAlpha);
+      }
+      productCtx.putImageData(productData,0,0);
+      outputCtx.drawImage(productCanvas,0,0);
+
+      const dataUrl=output.toDataURL('image/png');
+      return {
+        ...result,
+        originalName: prepared.originalName,
+        contentType:'image/png',
+        b64:stripDataUrlClient(dataUrl),
+        dataUrl,
+        cutoutDataUrl:result.dataUrl,
+        cutoutB64:result.b64,
+        mode:'exact-background-composite',
+        imageSize:`${OUTPUT_WIDTH}x${OUTPUT_HEIGHT}`
+      };
+    }
 
     function addFiles(list){
       const incoming=[...(list||[])].filter(f=>f.type.startsWith('image/'));
@@ -309,15 +416,21 @@
     async function generate(){
       saveSettings();
       if(!state.files.length){ setStatus('Upload product images first.','bad'); return; }
-      setBusy(true); setStatus('Generating previews. Nothing is saved until you approve it.');
+      setBusy(true); setStatus('Cutting out products and locking them to the exact XCLUSIVELINE background.');
       try{
+        const prepared=await Promise.all(state.files.map((file,index)=>prepareProductFile(file,index)));
         const form=new FormData();
-        state.files.forEach(f=>form.append('products',f,f.name));
-        if(state.bgFile) form.append('background',state.bgFile,state.bgFile.name);
+        prepared.forEach(item=>form.append('products',item.file,item.file.name));
         const r=await fetch(apiUrl('/api/generate'),{method:'POST',headers:auth(),body:form});
         const d=await r.json();
         if(!r.ok || !d.ok) throw new Error(d.error||'Generation failed');
-        state.generated=d.results||[];
+        const bg=await loadBackgroundForComposite();
+        const composed=[];
+        for(const result of d.results||[]){
+          const sourceIndex=Number.isInteger(result.sourceIndex) ? result.sourceIndex : composed.length;
+          composed.push(await compositeExactPreview(result,prepared[sourceIndex],bg));
+        }
+        state.generated=composed;
         state.selected=new Set(state.generated.map(x=>x.id));
         renderResults();
         const err=(d.errors||[]).map(x=>`${x.originalName}: ${x.error}`).join(' | ');
@@ -327,7 +440,7 @@
     }
     function renderResults(){
       if(!state.generated.length){ $('results').innerHTML='<div class="panel" style="padding:18px"><h3>No previews yet</h3><p class="muted">Upload products and press Generate Previews.</p></div>'; return; }
-      $('results').innerHTML=state.generated.map(x=>`<article class="card"><div class="shot"><img src="${x.dataUrl}" alt=""><label class="check"><input type="checkbox" ${state.selected.has(x.id)?'checked':''} onchange="toggleSel('${x.id}',this.checked)">Select</label></div><div class="body"><strong>${esc(x.originalName)}</strong><p class="tiny">3:4 XCLUSIVELINE background preview</p><a class="btn" download="${esc(x.filename)}" href="${x.dataUrl}">Download</a></div></article>`).join('');
+      $('results').innerHTML=state.generated.map(x=>`<article class="card"><div class="shot"><img src="${x.dataUrl}" alt=""><label class="check"><input type="checkbox" ${state.selected.has(x.id)?'checked':''} onchange="toggleSel('${x.id}',this.checked)">Select</label></div><div class="body"><strong>${esc(x.originalName)}</strong><p class="tiny">Exact 3:4 XCLUSIVELINE background preview</p><a class="btn" download="${esc(x.filename)}" href="${x.dataUrl}">Download</a></div></article>`).join('');
     }
     function toggleSel(id,on){ on?state.selected.add(id):state.selected.delete(id); }
     async function saveSelected(){
