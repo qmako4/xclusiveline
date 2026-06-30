@@ -210,13 +210,16 @@
 
     function saveSettings(){
       state.apiBase = $('apiBase').value.trim().replace(/\/+$/,'');
-      state.token = $('adminToken').value.trim();
+      state.token = $('adminToken').value.trim() || state.token || localStorage.getItem('xl-studio-token') || '';
       localStorage.setItem('xl-studio-api', state.apiBase);
-      localStorage.setItem('xl-studio-token', state.token);
+      if(state.token){
+        localStorage.setItem('xl-studio-token', state.token);
+        $('adminToken').value = state.token;
+      }
       toast('Studio settings saved');
     }
     function apiUrl(path){ const base=($('apiBase').value.trim()||state.apiBase).replace(/\/+$/,''); if(!base) throw new Error('Add your deployed Photo Studio Worker URL first.'); return base + path; }
-    function auth(){ const t=$('adminToken').value.trim()||state.token; return t ? {Authorization:'Bearer '+t} : {}; }
+    function auth(){ const t=$('adminToken').value.trim()||state.token||localStorage.getItem('xl-studio-token')||''; return t ? {Authorization:'Bearer '+t} : {}; }
     function setStatus(msg, cls=''){ $('status').className='status '+cls; $('status').textContent=msg; }
     function toast(msg){ const el=document.createElement('div'); el.textContent=msg; $('toast').appendChild(el); setTimeout(()=>el.remove(),3600); }
     function esc(v){ return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c])); }
