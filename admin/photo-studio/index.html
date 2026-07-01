@@ -190,7 +190,7 @@
     const DEFAULT_API_BASE = 'https://xclusiveline-photo-studio.qmako41212.workers.dev';
     const DEFAULT_BACKGROUND_SRC = '../../assets/xclusiveline-studio-background.png';
     const state = {
-      apiBase: localStorage.getItem('xl-studio-api') || DEFAULT_API_BASE,
+      apiBase: normalizeApiBase(localStorage.getItem('xl-studio-api')),
       token: localStorage.getItem('xl-studio-token') || '',
       files: [],
       previews: [],
@@ -203,6 +203,7 @@
     const $ = id => document.getElementById(id);
 
     function init(){
+      state.apiBase = normalizeApiBase(state.apiBase, true);
       $('apiBase').value = state.apiBase;
       $('adminToken').value = state.token;
       $('apiBase').addEventListener('change',()=>saveSettings());
@@ -232,8 +233,42 @@
       if(state.token) loadMedia({quiet:true});
     }
 
+    function isLiveAdminPage(){
+      return location.protocol === 'https:' && location.hostname === 'qmako4.github.io';
+    }
+    function isLocalWorkerUrl(url){
+      return ['localhost','127.0.0.1','0.0.0.0','::1'].includes(url.hostname);
+    }
+    function normalizeApiBase(value, persist=false){
+      const raw = String(value || '').trim().replace(/\/+$/,'');
+      let finalValue = raw || DEFAULT_API_BASE;
+      try{
+        const url = new URL(finalValue);
+        if(isLiveAdminPage() && (url.protocol !== 'https:' || isLocalWorkerUrl(url))){
+          finalValue = DEFAULT_API_BASE;
+        }
+      }catch{
+        finalValue = DEFAULT_API_BASE;
+      }
+      if(persist || finalValue !== raw) localStorage.setItem('xl-studio-api', finalValue);
+      return finalValue;
+    }
+    function resetApiBase(){
+      state.apiBase = DEFAULT_API_BASE;
+      localStorage.setItem('xl-studio-api', DEFAULT_API_BASE);
+      $('apiBase').value = DEFAULT_API_BASE;
+      return DEFAULT_API_BASE;
+    }
+    function friendlyFetchError(error){
+      if(/failed to fetch|networkerror|load failed/i.test(error?.message || '')){
+        resetApiBase();
+        return 'Could not reach the Photo Studio Worker. I reset the Worker URL to the deployed one, so press the button again.';
+      }
+      return error?.message || 'Request failed.';
+    }
     function saveSettings(){
-      state.apiBase = $('apiBase').value.trim().replace(/\/+$/,'');
+      state.apiBase = normalizeApiBase($('apiBase').value, true);
+      $('apiBase').value = state.apiBase;
       state.token = $('adminToken').value.trim() || state.token || localStorage.getItem('xl-studio-token') || '';
       localStorage.setItem('xl-studio-api', state.apiBase);
       if(state.token){
@@ -241,7 +276,7 @@
         $('adminToken').value = state.token;
       }
     }
-    function apiUrl(path){ const base=($('apiBase').value.trim()||state.apiBase).replace(/\/+$/,''); if(!base) throw new Error('Add your deployed Photo Studio Worker URL first.'); return base + path; }
+    function apiUrl(path){ const base=normalizeApiBase($('apiBase').value || state.apiBase, true); $('apiBase').value=base; return base + path; }
     function currentToken(){
       const t=$('adminToken').value.trim()||state.token||localStorage.getItem('xl-studio-token')||'';
       if(t){
@@ -326,7 +361,7 @@
         toast(`Yupoo import added ${files.length} image${files.length===1?'':'s'}`);
       }catch(e){
         if(/unauthorized|admin token|worker url/i.test(e.message||'')) $('setupDetails').open=true;
-        setStatus(e.message,'bad');
+        setStatus(friendlyFetchError(e),'bad');
       }
       finally{ setBusy(false); }
     }
@@ -392,7 +427,7 @@
         setStatus(`Generated ${state.generated.length} realistic XCLUSIVELINE image${state.generated.length===1?'':'s'}.${errorNote}`,'ok');
       }catch(e){
         if(/unauthorized|admin token|worker url/i.test(e.message||'')) $('setupDetails').open=true;
-        setStatus(e.message,'bad');
+        setStatus(friendlyFetchError(e),'bad');
       }
       finally{ setBusy(false); }
     }
@@ -418,7 +453,7 @@
         setStatus(`Saved ${d.saved.length} image${d.saved.length===1?'':'s'} to R2.`,'ok');
         toast('Saved to media library');
         loadMedia({quiet:true});
-      }catch(e){ setStatus(e.message,'bad'); }
+      }catch(e){ setStatus(friendlyFetchError(e),'bad'); }
       finally{ setBusy(false); }
     }
     async function loadMedia({quiet=false}={}){
@@ -433,7 +468,7 @@
           return `<a href="${src}" target="_blank" rel="noreferrer"><img src="${src}" alt=""><span>${esc(o.key.split('/').pop())}</span></a>`;
         }).join('') : '<div class="panel" style="padding:14px"><p class="muted">No saved studio images yet.</p></div>';
         if(!quiet) setStatus(`Loaded ${(d.objects||[]).length} saved image${(d.objects||[]).length===1?'':'s'}.`,'ok');
-      }catch(e){ if(!quiet) setStatus(e.message,'bad'); }
+      }catch(e){ if(!quiet) setStatus(friendlyFetchError(e),'bad'); }
     }
     function setBusy(on){ ['generateBtn','saveBtn','importYupooBtn'].forEach(id=>$(id).disabled=on); if(!on) updateSaveButton(); }
     window.removeFile=removeFile; window.toggleSel=toggleSel;
