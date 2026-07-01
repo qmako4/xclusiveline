@@ -283,7 +283,6 @@ async function callOpenAiImagesEdit({ apiKey, model, size, prompt, productFile, 
   form.append("prompt", prompt);
   form.append("size", size);
   form.append("background", "opaque");
-  form.append("input_fidelity", "high");
   form.append("output_format", "png");
   form.append("quality", "high");
   form.append(imageField, productFile, productFile.name || "product.png");

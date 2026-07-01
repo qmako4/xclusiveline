@@ -18,7 +18,7 @@ cloudflare-photo-studio/             Separate Worker, R2 binding, env example
 ```
 
 The studio does not auto-generate when files are uploaded. It only generates
-after you press **Generate Previews**, then saves only selected previews to R2.
+after you press **Generate Images**, then saves only selected generated images to R2.
 
 ## Required Cloudflare Resources
 
@@ -54,7 +54,7 @@ wrangler secret put XCLUSIVELINE_STUDIO_ADMIN_TOKEN
 ```
 
 Use any long private random value for `XCLUSIVELINE_STUDIO_ADMIN_TOKEN`. Paste
-that same token into the Studio Admin Token field on the admin page.
+that same token into the collapsed Studio setup section on the admin page.
 
 You can use `XCLUSIVELINE_OPENAI_API_KEY` instead of `OPENAI_API_KEY` if you
 prefer business-specific naming:
@@ -83,7 +83,7 @@ Optional public media URL if you enable a public/custom domain for the R2 bucket
 XCLUSIVELINE_R2_PUBLIC_URL = "https://your-public-r2-domain.example.com"
 ```
 
-If you do not set `XCLUSIVELINE_R2_PUBLIC_URL`, the admin page still previews
+If you do not set `XCLUSIVELINE_R2_PUBLIC_URL`, the admin page still loads
 saved images through the Worker using your admin token.
 
 ## Deploy
@@ -99,8 +99,8 @@ After deploy, copy the Worker URL, for example:
 https://xclusiveline-photo-studio.<your-account>.workers.dev
 ```
 
-Open the admin page, paste the Worker URL and admin token, then press
-**Save Settings**.
+Open the admin page, expand **Studio setup**, then paste the Worker URL and
+admin token. The page saves those settings automatically.
 
 ## Local Test
 

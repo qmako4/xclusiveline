@@ -39,6 +39,8 @@
     .bg-img img{width:100%;height:100%;object-fit:cover}
     .bg-copy{display:flex;flex-direction:column;justify-content:space-between;gap:14px;padding:5px}
     details.advanced{border-top:1px solid var(--line);padding-top:12px}
+    details.setup{margin-top:12px}
+    details.setup label.small:first-of-type{margin-top:10px}
     details.advanced summary{cursor:pointer;color:var(--mut);font-size:11px;font-weight:900;text-transform:uppercase}
     .file-link,.link-btn{min-height:auto;border:0;background:transparent;color:var(--y);padding:0;font:inherit;font-size:12px;font-weight:900;text-transform:uppercase}
     .file-link{display:inline-flex;margin-top:10px;cursor:pointer}
@@ -92,7 +94,7 @@
       <div class="panel intro">
         <span class="eyebrow">Admin Photo Studio</span>
         <h1>Bulk Background Swap</h1>
-        <p class="muted">Upload product shots, generate previews on command, then save only approved images to the XCLUSIVELINE media library.</p>
+        <p class="muted">Upload product shots, generate finished images on command, then save only approved images to the XCLUSIVELINE media library.</p>
         <div style="margin-top:20px">
           <div class="rule"><span class="dot"></span><span>Product details stay unchanged.</span></div>
           <div class="rule"><span class="dot"></span><span>Default output is 3:4.</span></div>
@@ -120,12 +122,6 @@
 
     <section class="grid">
       <aside class="panel side">
-        <label class="small">Photo Studio Worker URL
-          <input id="apiBase" type="text" placeholder="https://xclusiveline-photo-studio.your-name.workers.dev">
-        </label>
-        <label class="small">Studio Admin Token
-          <input id="adminToken" type="password" placeholder="XCLUSIVELINE_STUDIO_ADMIN_TOKEN">
-        </label>
         <div id="drop" class="drop">
           <div>
             <strong>Drop product images here</strong>
@@ -141,21 +137,30 @@
           </div>
         </div>
         <div class="primary-actions">
-          <button id="generateBtn" class="btn y">Generate Previews</button>
+          <button id="generateBtn" class="btn y">Generate Images</button>
         </div>
-        <p id="status" class="status">Add the deployed Worker URL and admin token, then upload product images.</p>
+        <p id="status" class="status">Upload product images, then generate finished XCLUSIVELINE images.</p>
+        <details id="setupDetails" class="advanced setup">
+          <summary>Studio setup</summary>
+          <label class="small">Photo Studio Worker URL
+            <input id="apiBase" type="text" placeholder="https://xclusiveline-photo-studio.your-name.workers.dev">
+          </label>
+          <label class="small">Studio Admin Token
+            <input id="adminToken" type="password" placeholder="XCLUSIVELINE_STUDIO_ADMIN_TOKEN">
+          </label>
+        </details>
         <div id="queue" class="queue"></div>
       </aside>
 
       <section class="panel main">
         <div class="head">
-          <div><span class="eyebrow">Preview before saving</span><h2>Generated Results</h2></div>
+          <div><span class="eyebrow">Ready to save</span><h2>Generated Images</h2></div>
           <div class="actions" style="margin:0">
             <button id="saveBtn" class="btn dark hidden" disabled>Save Selected</button>
           </div>
         </div>
         <div id="results" class="results">
-          <div class="panel" style="padding:18px"><h3>No previews yet</h3><p class="muted">Upload products and press Generate Previews.</p></div>
+          <div class="panel" style="padding:18px"><h3>No images yet</h3><p class="muted">Upload products and press Generate Images.</p></div>
         </div>
       </section>
     </section>
@@ -249,7 +254,7 @@
       incoming.forEach(file=>{ state.files.push(file); state.previews.push(URL.createObjectURL(file)); });
       $('productInput').value='';
       renderQueue();
-      if(incoming.length) setStatus(`${incoming.length} image${incoming.length===1?'':'s'} ready. Generate previews when you are happy with the queue.`);
+      if(incoming.length) setStatus(`${incoming.length} image${incoming.length===1?'':'s'} ready. Generate images when you are happy with the queue.`);
     }
     function clipboardFiles(data){
       const files=Array.from(data?.files||[]).filter(f=>f.type.startsWith('image/'));
@@ -291,7 +296,7 @@
     async function generate(){
       saveSettings();
       if(!state.files.length){ setStatus('Upload product images first.','bad'); return; }
-      setBusy(true); setStatus('Generating realistic previews on the original XCLUSIVELINE background. First run may take a moment.');
+      setBusy(true); setStatus('Generating realistic XCLUSIVELINE images. First run may take a moment.');
       try{
         const form=new FormData();
         state.files.forEach(file=>form.append('products',file,file.name||'product.png'));
@@ -303,18 +308,21 @@
         state.generated=(d.results||[]).filter(x=>x && x.dataUrl);
         if(!state.generated.length){
           const firstError=(d.errors||[])[0]?.error;
-          throw new Error(firstError || 'No preview image was returned. Try one product photo first.');
+          throw new Error(firstError || 'No image was returned. Try one product photo first.');
         }
         state.selected=new Set(state.generated.map(x=>x.id));
         renderResults();
         const errorNote=(d.errors||[]).length ? ` ${d.errors.length} image${d.errors.length===1?'':'s'} failed.` : '';
-        setStatus(`Generated ${state.generated.length} realistic XCLUSIVELINE preview${state.generated.length===1?'':'s'}.${errorNote}`,'ok');
-      }catch(e){ setStatus(e.message,'bad'); }
+        setStatus(`Generated ${state.generated.length} realistic XCLUSIVELINE image${state.generated.length===1?'':'s'}.${errorNote}`,'ok');
+      }catch(e){
+        if(/unauthorized|admin token|worker url/i.test(e.message||'')) $('setupDetails').open=true;
+        setStatus(e.message,'bad');
+      }
       finally{ setBusy(false); }
     }
     function renderResults(){
-      if(!state.generated.length){ $('results').innerHTML='<div class="panel" style="padding:18px"><h3>No previews yet</h3><p class="muted">Upload products and press Generate Previews.</p></div>'; updateSaveButton(); return; }
-      $('results').innerHTML=state.generated.map(x=>`<article class="card"><div class="shot"><img src="${x.dataUrl}" alt=""><label class="check"><input type="checkbox" ${state.selected.has(x.id)?'checked':''} onchange="toggleSel('${x.id}',this.checked)">Select</label></div><div class="body"><strong>${esc(x.originalName)}</strong><p class="tiny">Realistic flat-lay preview</p><a class="link-btn" download="${esc(x.filename)}" href="${x.dataUrl}">Download</a></div></article>`).join('');
+      if(!state.generated.length){ $('results').innerHTML='<div class="panel" style="padding:18px"><h3>No images yet</h3><p class="muted">Upload products and press Generate Images.</p></div>'; updateSaveButton(); return; }
+      $('results').innerHTML=state.generated.map(x=>`<article class="card"><div class="shot"><img src="${x.dataUrl}" alt=""><label class="check"><input type="checkbox" ${state.selected.has(x.id)?'checked':''} onchange="toggleSel('${x.id}',this.checked)">Select</label></div><div class="body"><strong>${esc(x.originalName)}</strong><p class="tiny">Realistic flat-lay image</p><a class="link-btn" download="${esc(x.filename)}" href="${x.dataUrl}">Download</a></div></article>`).join('');
       updateSaveButton();
     }
     function toggleSel(id,on){ on?state.selected.add(id):state.selected.delete(id); updateSaveButton(); }
@@ -325,7 +333,7 @@
     async function saveSelected(){
       saveSettings();
       const imgs=state.generated.filter(x=>state.selected.has(x.id));
-      if(!imgs.length){ setStatus('Select at least one preview first.','bad'); return; }
+      if(!imgs.length){ setStatus('Select at least one image first.','bad'); return; }
       setBusy(true); setStatus('Saving approved images to R2...');
       try{
         const r=await fetch(apiUrl('/api/save'),{method:'POST',headers:{...auth(),'Content-Type':'application/json'},body:JSON.stringify({images:imgs.map(x=>({id:x.id,originalName:x.originalName,filename:x.filename,contentType:x.contentType,b64:x.b64}))})});
