@@ -38,6 +38,10 @@
     .bg-img{min-height:275px;border-radius:10px;background:var(--b3);overflow:hidden}
     .bg-img img{width:100%;height:100%;object-fit:cover}
     .bg-copy{display:flex;flex-direction:column;justify-content:space-between;gap:14px;padding:5px}
+    details.advanced{border-top:1px solid var(--line);padding-top:12px}
+    details.advanced summary{cursor:pointer;color:var(--mut);font-size:11px;font-weight:900;text-transform:uppercase}
+    .file-link,.link-btn{min-height:auto;border:0;background:transparent;color:var(--y);padding:0;font:inherit;font-size:12px;font-weight:900;text-transform:uppercase}
+    .file-link{display:inline-flex;margin-top:10px;cursor:pointer}
     .grid{display:grid;grid-template-columns:360px minmax(0,1fr);gap:14px;align-items:start}
     .side,.main,.library{padding:16px}
     label.small{display:grid;gap:6px;color:var(--mut);font-size:11px;font-weight:900;text-transform:uppercase;margin-bottom:10px}
@@ -50,11 +54,14 @@
     .btn.y{background:var(--y);border-color:var(--y);color:var(--b)}
     .btn.dark{background:var(--w);border-color:var(--w);color:var(--b)}
     .btn.red{color:var(--red)}
+    .icon-btn{width:32px;height:32px;border-radius:50%;background:rgba(250,250,250,.06);border:1px solid var(--line);color:var(--mut);font-size:16px;line-height:1}
     .actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+    .primary-actions{display:grid;grid-template-columns:1fr;gap:8px;margin-top:12px}
     .hidden{display:none!important}
     .status{margin-top:12px;border:1px solid var(--line);border-radius:10px;background:var(--b3);padding:11px;color:var(--mut);font-size:13px}
     .status.ok{color:var(--green)}.status.bad{color:var(--red)}
     .queue{display:grid;gap:8px;margin-top:12px}
+    .queue-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:2px}
     .q{display:grid;grid-template-columns:56px 1fr auto;gap:10px;align-items:center;border:1px solid var(--line);border-radius:10px;background:var(--b3);padding:8px}
     .q img{width:56px;height:66px;object-fit:cover;border-radius:7px}.q strong{display:block;font-size:13px;line-height:1.2;word-break:break-word}.tiny{font-size:11px;color:var(--mut)}
     .head{display:flex;justify-content:space-between;align-items:end;gap:12px;margin-bottom:14px}
@@ -63,6 +70,7 @@
     .shot{position:relative;aspect-ratio:3/4;background:#222}.shot img{width:100%;height:100%;object-fit:cover}
     .check{position:absolute;left:8px;top:8px;display:flex;align-items:center;gap:6px;background:rgba(250,250,250,.94);color:var(--b);border-radius:8px;padding:5px 8px;font-size:11px;font-weight:900;text-transform:uppercase}
     .body{display:grid;gap:8px;padding:10px}.body strong{font-size:13px;line-height:1.2;word-break:break-word}
+    .body .link-btn{justify-self:start}
     .media{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}
     .media a{display:block;border:1px solid var(--line);border-radius:10px;background:var(--b3);overflow:hidden}
     .media img{width:100%;aspect-ratio:3/4;object-fit:cover}.media span{display:block;padding:7px;font-size:11px;color:var(--mut);word-break:break-word}
@@ -100,9 +108,12 @@
             <h2>Original Studio</h2>
             <p class="muted">Uses your original yellow XCLUSIVELINE fabric background by default. You can override it for a batch.</p>
           </div>
-          <label class="btn" for="bgInput">Optional Override</label>
-          <input id="bgInput" class="hidden" type="file" accept="image/*">
-          <p id="bgStatus" class="tiny">Using default background.</p>
+          <details class="advanced">
+            <summary>Change background</summary>
+            <label class="file-link" for="bgInput">Choose override image</label>
+            <input id="bgInput" class="hidden" type="file" accept="image/*">
+            <p id="bgStatus" class="tiny">Using default background.</p>
+          </details>
         </div>
       </aside>
     </section>
@@ -115,10 +126,6 @@
         <label class="small">Studio Admin Token
           <input id="adminToken" type="password" placeholder="XCLUSIVELINE_STUDIO_ADMIN_TOKEN">
         </label>
-        <div class="actions" style="margin:0 0 14px">
-          <button id="saveSettings" class="btn">Save Settings</button>
-        </div>
-
         <div id="drop" class="drop">
           <div>
             <strong>Drop product images here</strong>
@@ -133,10 +140,8 @@
             <p class="tiny">Copy a photo, click here, then paste.</p>
           </div>
         </div>
-        <div class="actions">
-          <button id="pasteBtn" class="btn" type="button">Paste Images</button>
+        <div class="primary-actions">
           <button id="generateBtn" class="btn y">Generate Previews</button>
-          <button id="clearBtn" class="btn">Clear</button>
         </div>
         <p id="status" class="status">Add the deployed Worker URL and admin token, then upload product images.</p>
         <div id="queue" class="queue"></div>
@@ -146,8 +151,7 @@
         <div class="head">
           <div><span class="eyebrow">Preview before saving</span><h2>Generated Results</h2></div>
           <div class="actions" style="margin:0">
-            <button id="selectAllBtn" class="btn">Select All</button>
-            <button id="saveBtn" class="btn dark">Save Selected</button>
+            <button id="saveBtn" class="btn dark hidden" disabled>Save Selected</button>
           </div>
         </div>
         <div id="results" class="results">
@@ -159,7 +163,6 @@
     <section class="panel library">
       <div class="head">
         <div><span class="eyebrow">R2 media library</span><h2>Saved Images</h2></div>
-        <button id="refreshBtn" class="btn">Refresh Media</button>
       </div>
       <div id="media" class="media"><div class="panel" style="padding:14px"><p class="muted">Saved images appear here after Worker/R2 setup.</p></div></div>
     </section>
@@ -184,15 +187,12 @@
     function init(){
       $('apiBase').value = state.apiBase;
       $('adminToken').value = state.token;
-      $('saveSettings').onclick = saveSettings;
+      $('apiBase').addEventListener('change',()=>saveSettings());
+      $('adminToken').addEventListener('change',()=>saveSettings());
       $('productInput').onchange = e => addFiles(e.target.files);
       $('bgInput').onchange = e => setBg(e.target.files?.[0]);
-      $('pasteBtn').onclick = pasteFromClipboard;
       $('generateBtn').onclick = generate;
-      $('clearBtn').onclick = clearAll;
-      $('selectAllBtn').onclick = () => { state.selected = new Set(state.generated.map(x=>x.id)); renderResults(); };
       $('saveBtn').onclick = saveSelected;
-      $('refreshBtn').onclick = loadMedia;
       const drop=$('drop');
       ['dragover','dragenter'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('drag')}));
       ['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('drag')}));
@@ -207,6 +207,8 @@
         handlePaste(e);
       });
       renderQueue();
+      updateSaveButton();
+      if(state.token) loadMedia({quiet:true});
     }
 
     function saveSettings(){
@@ -217,7 +219,6 @@
         localStorage.setItem('xl-studio-token', state.token);
         $('adminToken').value = state.token;
       }
-      toast('Studio settings saved');
     }
     function apiUrl(path){ const base=($('apiBase').value.trim()||state.apiBase).replace(/\/+$/,''); if(!base) throw new Error('Add your deployed Photo Studio Worker URL first.'); return base + path; }
     function currentToken(){
@@ -240,7 +241,7 @@
       const response=await fetch(DEFAULT_BACKGROUND_SRC,{cache:'reload'});
       if(!response.ok) throw new Error('Default XCLUSIVELINE background could not load.');
       const blob=await response.blob();
-      return new File([blob],'xclusiveline-original-background.jpg',{type:blob.type||'image/jpeg'});
+      return new File([blob],'xclusiveline-original-background.png',{type:blob.type||'image/png'});
     }
 
     function addFiles(list){
@@ -248,7 +249,7 @@
       incoming.forEach(file=>{ state.files.push(file); state.previews.push(URL.createObjectURL(file)); });
       $('productInput').value='';
       renderQueue();
-      if(incoming.length) setStatus(`${incoming.length} image${incoming.length===1?'':'s'} added. Press Generate Previews when ready.`);
+      if(incoming.length) setStatus(`${incoming.length} image${incoming.length===1?'':'s'} ready. Generate previews when you are happy with the queue.`);
     }
     function clipboardFiles(data){
       const files=Array.from(data?.files||[]).filter(f=>f.type.startsWith('image/'));
@@ -271,29 +272,6 @@
       setTimeout(()=>$('pasteZone').classList.remove('active'),700);
       toast(`${files.length} pasted image${files.length===1?'':'s'} added`);
     }
-    async function pasteFromClipboard(){
-      if(!navigator.clipboard?.read){
-        $('pasteZone').focus();
-        setStatus('Clipboard paste is not available from the button in this browser. Click the paste box and paste there.','bad');
-        return;
-      }
-      try{
-        const items=await navigator.clipboard.read();
-        const files=[];
-        for(const item of items){
-          const type=item.types.find(t=>t.startsWith('image/'));
-          if(!type) continue;
-          const blob=await item.getType(type);
-          files.push(new File([blob], pastedName(type,files.length+1), {type}));
-        }
-        if(!files.length){ setStatus('Clipboard does not contain an image.','bad'); return; }
-        addFiles(files);
-        toast(`${files.length} pasted image${files.length===1?'':'s'} added`);
-      }catch(e){
-        $('pasteZone').focus();
-        setStatus('Clipboard permission was blocked. Click the paste box and paste there.','bad');
-      }
-    }
     function setBg(file){
       if(!file || !file.type.startsWith('image/')) return;
       state.bgFile=file;
@@ -305,12 +283,9 @@
       state.files.splice(i,1); state.previews.splice(i,1); renderQueue();
     }
     function renderQueue(){
-      $('queue').innerHTML = state.files.map((f,i)=>`<div class="q"><img src="${state.previews[i]}" alt=""><div><strong>${esc(f.name)}</strong><p class="tiny">${bytes(f.size)}</p></div><button class="btn red" onclick="removeFile(${i})">Remove</button></div>`).join('');
-    }
-    function clearAll(){
-      state.previews.forEach(URL.revokeObjectURL);
-      state.files=[]; state.previews=[]; state.generated=[]; state.selected.clear();
-      renderQueue(); renderResults(); setStatus('Queue cleared.');
+      $('queue').innerHTML = state.files.length
+        ? `<div class="queue-head"><span class="tiny">${state.files.length} queued</span></div>` + state.files.map((f,i)=>`<div class="q"><img src="${state.previews[i]}" alt=""><div><strong>${esc(f.name)}</strong><p class="tiny">${bytes(f.size)}</p></div><button class="icon-btn" onclick="removeFile(${i})" aria-label="Remove ${esc(f.name)}">&times;</button></div>`).join('')
+        : '';
     }
 
     async function generate(){
@@ -321,11 +296,15 @@
         const form=new FormData();
         state.files.forEach(file=>form.append('products',file,file.name||'product.png'));
         const background=state.bgFile || await defaultBackgroundFile();
-        form.append('background',background,background.name||'xclusiveline-original-background.jpg');
+        form.append('background',background,background.name||'xclusiveline-original-background.png');
         const r=await fetch(apiUrl('/api/generate'),{method:'POST',headers:auth(),body:form});
         const d=await r.json().catch(()=>({ok:false,error:'Generation failed.'}));
         if(!r.ok || !d.ok) throw new Error(d.error||'Generation failed');
-        state.generated=d.results||[];
+        state.generated=(d.results||[]).filter(x=>x && x.dataUrl);
+        if(!state.generated.length){
+          const firstError=(d.errors||[])[0]?.error;
+          throw new Error(firstError || 'No preview image was returned. Try one product photo first.');
+        }
         state.selected=new Set(state.generated.map(x=>x.id));
         renderResults();
         const errorNote=(d.errors||[]).length ? ` ${d.errors.length} image${d.errors.length===1?'':'s'} failed.` : '';
@@ -334,10 +313,15 @@
       finally{ setBusy(false); }
     }
     function renderResults(){
-      if(!state.generated.length){ $('results').innerHTML='<div class="panel" style="padding:18px"><h3>No previews yet</h3><p class="muted">Upload products and press Generate Previews.</p></div>'; return; }
-      $('results').innerHTML=state.generated.map(x=>`<article class="card"><div class="shot"><img src="${x.dataUrl}" alt=""><label class="check"><input type="checkbox" ${state.selected.has(x.id)?'checked':''} onchange="toggleSel('${x.id}',this.checked)">Select</label></div><div class="body"><strong>${esc(x.originalName)}</strong><p class="tiny">Realistic flat-lay preview</p><a class="btn" download="${esc(x.filename)}" href="${x.dataUrl}">Download</a></div></article>`).join('');
+      if(!state.generated.length){ $('results').innerHTML='<div class="panel" style="padding:18px"><h3>No previews yet</h3><p class="muted">Upload products and press Generate Previews.</p></div>'; updateSaveButton(); return; }
+      $('results').innerHTML=state.generated.map(x=>`<article class="card"><div class="shot"><img src="${x.dataUrl}" alt=""><label class="check"><input type="checkbox" ${state.selected.has(x.id)?'checked':''} onchange="toggleSel('${x.id}',this.checked)">Select</label></div><div class="body"><strong>${esc(x.originalName)}</strong><p class="tiny">Realistic flat-lay preview</p><a class="link-btn" download="${esc(x.filename)}" href="${x.dataUrl}">Download</a></div></article>`).join('');
+      updateSaveButton();
     }
-    function toggleSel(id,on){ on?state.selected.add(id):state.selected.delete(id); }
+    function toggleSel(id,on){ on?state.selected.add(id):state.selected.delete(id); updateSaveButton(); }
+    function updateSaveButton(){
+      $('saveBtn').classList.toggle('hidden',!state.generated.length);
+      $('saveBtn').disabled = !state.generated.length || !state.selected.size;
+    }
     async function saveSelected(){
       saveSettings();
       const imgs=state.generated.filter(x=>state.selected.has(x.id));
@@ -349,11 +333,11 @@
         if(!r.ok || !d.ok) throw new Error(d.error||'Save failed');
         setStatus(`Saved ${d.saved.length} image${d.saved.length===1?'':'s'} to R2.`,'ok');
         toast('Saved to media library');
-        loadMedia();
+        loadMedia({quiet:true});
       }catch(e){ setStatus(e.message,'bad'); }
       finally{ setBusy(false); }
     }
-    async function loadMedia(){
+    async function loadMedia({quiet=false}={}){
       saveSettings();
       try{
         const r=await fetch(apiUrl('/api/media?limit=60'),{headers:auth()});
@@ -364,10 +348,10 @@
           const src=o.publicUrl || (apiUrl(o.rawUrl)+'&token='+token);
           return `<a href="${src}" target="_blank" rel="noreferrer"><img src="${src}" alt=""><span>${esc(o.key.split('/').pop())}</span></a>`;
         }).join('') : '<div class="panel" style="padding:14px"><p class="muted">No saved studio images yet.</p></div>';
-        setStatus(`Loaded ${(d.objects||[]).length} saved image${(d.objects||[]).length===1?'':'s'}.`,'ok');
-      }catch(e){ setStatus(e.message,'bad'); }
+        if(!quiet) setStatus(`Loaded ${(d.objects||[]).length} saved image${(d.objects||[]).length===1?'':'s'}.`,'ok');
+      }catch(e){ if(!quiet) setStatus(e.message,'bad'); }
     }
-    function setBusy(on){ ['generateBtn','saveBtn','clearBtn'].forEach(id=>$(id).disabled=on); }
+    function setBusy(on){ ['generateBtn','saveBtn'].forEach(id=>$(id).disabled=on); if(!on) updateSaveButton(); }
     window.removeFile=removeFile; window.toggleSel=toggleSel;
     init();
   </script>
