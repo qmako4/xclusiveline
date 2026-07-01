@@ -33,6 +33,7 @@ export default {
             imageModel,
             imageSize: outputSizeForModel(env, imageModel),
             maxBulkImages: maxBulkImages(env),
+            yupooImportLimit: yupooImportLimit(env),
             saveEnabled: Boolean(env.XCLUSIVELINE_MEDIA),
             publicMediaBaseUrl: env.XCLUSIVELINE_R2_PUBLIC_URL || null,
           },
@@ -43,6 +44,11 @@ export default {
 
       if (pathname === "/api/background" && request.method === "GET") {
         return await getDefaultBackground(request, env);
+      }
+
+      if (pathname === "/api/yupoo-images" && request.method === "POST") {
+        await requireAdmin(request, env);
+        return await importYupooImages(request, env);
       }
 
       if (pathname === "/api/generate" && request.method === "POST") {
@@ -75,6 +81,87 @@ export default {
     }
   },
 };
+
+async function importYupooImages(request, env) {
+  const body = await request.json().catch(() => ({}));
+  const sourceUrl = parseYupooPageUrl(body.url);
+  const limit = yupooImportLimit(env, body.limit);
+  const candidates = [];
+  const visitedPages = new Set();
+  let pagesScanned = 0;
+
+  if (isLikelyImageUrl(sourceUrl)) {
+    candidates.push({ url: sourceUrl.toString(), pageUrl: sourceUrl.toString(), score: 120, order: 0 });
+  } else {
+    const firstHtml = await fetchYupooHtml(sourceUrl);
+    pagesScanned += 1;
+    visitedPages.add(sourceUrl.toString());
+    candidates.push(...extractYupooImageCandidates(firstHtml, sourceUrl));
+
+    const isAlbumPage = /\/albums\/\d+/i.test(sourceUrl.pathname);
+    const albumLinks = isAlbumPage ? [] : extractYupooAlbumLinks(firstHtml, sourceUrl);
+    for (const albumUrl of albumLinks.slice(0, 12)) {
+      if (visitedPages.has(albumUrl)) continue;
+      if (chooseBestYupooImages(candidates).length >= limit) break;
+      try {
+        const html = await fetchYupooHtml(new URL(albumUrl));
+        visitedPages.add(albumUrl);
+        pagesScanned += 1;
+        candidates.push(...extractYupooImageCandidates(html, new URL(albumUrl)));
+      } catch {
+        // Some Yupoo albums block scraping or require a password; keep any images already found.
+      }
+    }
+  }
+
+  const allImages = chooseBestYupooImages(candidates);
+  if (!allImages.length) {
+    throw statusError("No Yupoo product images were found on that link.", 404);
+  }
+
+  const selected = allImages.slice(0, limit);
+  const images = [];
+  const errors = [];
+
+  for (let index = 0; index < selected.length; index += 1) {
+    const candidate = selected[index];
+    try {
+      const downloaded = await fetchYupooImage(candidate.url, candidate.pageUrl || sourceUrl.toString());
+      const filename = yupooFilename(candidate.url, index + 1, downloaded.contentType);
+      images.push({
+        url: candidate.url,
+        filename,
+        contentType: downloaded.contentType,
+        size: downloaded.size,
+        b64: downloaded.b64,
+        dataUrl: `data:${downloaded.contentType};base64,${downloaded.b64}`,
+      });
+    } catch (error) {
+      errors.push({ url: candidate.url, error: error.message || "Image download failed." });
+    }
+  }
+
+  if (!images.length) {
+    throw statusError(errors[0]?.error || "Yupoo images were found, but none could be downloaded.", 502);
+  }
+
+  return json(
+    {
+      ok: true,
+      sourceUrl: sourceUrl.toString(),
+      images,
+      totalFound: allImages.length,
+      imported: images.length,
+      failed: errors.length,
+      truncated: allImages.length > selected.length,
+      limit,
+      pagesScanned,
+      errors,
+    },
+    request,
+    env,
+  );
+}
 
 async function generatePreviews(request, env) {
   const form = await request.formData();
@@ -362,6 +449,248 @@ function shouldRetryWithRepeatedImageField(errorText) {
   );
 }
 
+function parseYupooPageUrl(value) {
+  let url;
+  try {
+    url = new URL(String(value || "").trim());
+  } catch {
+    throw statusError("Paste a valid Yupoo link.", 400);
+  }
+
+  if (!["http:", "https:"].includes(url.protocol) || !isYupooHost(url.hostname)) {
+    throw statusError("Paste a valid Yupoo link.", 400);
+  }
+
+  url.protocol = "https:";
+  return url;
+}
+
+async function fetchYupooHtml(url) {
+  const response = await fetch(url.toString(), {
+    headers: {
+      accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      "accept-language": "en-GB,en;q=0.9",
+      referer: `${url.origin}/`,
+      "user-agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36",
+    },
+  });
+
+  if (!response.ok) {
+    throw statusError(`Yupoo link could not be loaded (${response.status}).`, 502);
+  }
+
+  return await response.text();
+}
+
+function extractYupooImageCandidates(html, pageUrl) {
+  const candidates = [];
+  let order = 0;
+  const attrRegex = /\b(data-origin-src|data-src|src|href)=["']([^"']+)["']/gi;
+  let match;
+
+  while ((match = attrRegex.exec(html))) {
+    const url = normalizeYupooImageUrl(match[2], pageUrl);
+    if (!url) continue;
+    candidates.push({
+      url,
+      pageUrl: pageUrl.toString(),
+      score: yupooImageScore(url, match[1]),
+      order: order++,
+    });
+  }
+
+  const escapedRegex = /(?:https?:)?(?:\\\/\\\/|\/\/)photo\.yupoo\.com(?:\\\/|\/)[^"'<>\s)]+?(?:jpe?g|png|webp|gif|avif)/gi;
+  while ((match = escapedRegex.exec(html))) {
+    const url = normalizeYupooImageUrl(match[0], pageUrl);
+    if (!url) continue;
+    candidates.push({
+      url,
+      pageUrl: pageUrl.toString(),
+      score: yupooImageScore(url, "embedded"),
+      order: order++,
+    });
+  }
+
+  return candidates;
+}
+
+function extractYupooAlbumLinks(html, pageUrl) {
+  const links = [];
+  const seen = new Set();
+  const hrefRegex = /\bhref=["']([^"']+)["']/gi;
+  let match;
+
+  while ((match = hrefRegex.exec(html))) {
+    const value = cleanEmbeddedUrl(match[1]);
+    let url;
+    try {
+      url = new URL(value, pageUrl);
+    } catch {
+      continue;
+    }
+    if (!isYupooHost(url.hostname) || !/\/albums\/\d+/i.test(url.pathname)) continue;
+    url.protocol = "https:";
+    const key = url.toString();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    links.push(key);
+  }
+
+  return links;
+}
+
+function chooseBestYupooImages(candidates) {
+  const bestByImage = new Map();
+
+  for (const candidate of candidates) {
+    const key = yupooImageFamilyKey(candidate.url);
+    const existing = bestByImage.get(key);
+    if (!existing) {
+      bestByImage.set(key, candidate);
+    } else if (candidate.score > existing.score) {
+      bestByImage.set(key, { ...candidate, order: existing.order });
+    }
+  }
+
+  return [...bestByImage.values()].sort((a, b) => a.order - b.order);
+}
+
+function normalizeYupooImageUrl(value, pageUrl) {
+  let cleaned = cleanEmbeddedUrl(value);
+  if (!cleaned || cleaned.startsWith("data:")) return null;
+  if (cleaned.startsWith("//")) cleaned = `https:${cleaned}`;
+
+  let url;
+  try {
+    url = new URL(cleaned, pageUrl);
+  } catch {
+    return null;
+  }
+
+  if (!isYupooHost(url.hostname) || !isLikelyImageUrl(url)) return null;
+  url.protocol = "https:";
+  url.hash = "";
+  return url.toString();
+}
+
+function cleanEmbeddedUrl(value) {
+  return decodeHtmlEntities(String(value || "").trim())
+    .replace(/\\u002f/gi, "/")
+    .replace(/\\\//g, "/")
+    .replace(/^["']|["']$/g, "");
+}
+
+function decodeHtmlEntities(value) {
+  return String(value || "")
+    .replace(/&amp;/gi, "&")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#x2f;/gi, "/")
+    .replace(/&#47;/g, "/")
+    .replace(/&#39;/g, "'");
+}
+
+function isYupooHost(hostname) {
+  const host = String(hostname || "").toLowerCase();
+  return host === "yupoo.com" || host.endsWith(".yupoo.com");
+}
+
+function isLikelyImageUrl(url) {
+  const path = String(url.pathname || "").toLowerCase();
+  return /\.(?:jpe?g|png|webp|gif|avif)$/.test(path) || /\/(?:big|small)\.jpe?g$/.test(path);
+}
+
+function yupooImageScore(url, source) {
+  const path = new URL(url).pathname.toLowerCase();
+  let score = source === "data-origin-src" ? 100 : source === "data-src" ? 80 : source === "src" ? 50 : 35;
+  if (/\/(?:big)\.jpe?g$/.test(path)) score += 12;
+  if (/\/(?:small)\.jpe?g$/.test(path)) score -= 18;
+  if (/\/[a-f0-9]{6,}\.(?:jpe?g|png|webp|gif|avif)$/i.test(path)) score += 20;
+  return score;
+}
+
+function yupooImageFamilyKey(value) {
+  const url = new URL(value);
+  const parts = url.pathname.split("/").filter(Boolean);
+  if (url.hostname === "photo.yupoo.com" && parts.length >= 2) {
+    return `${url.hostname}/${parts[0]}/${parts[1]}`;
+  }
+  return `${url.hostname}${url.pathname.replace(/\/(?:big|small)\.(jpe?g)$/i, "/$1")}`;
+}
+
+async function fetchYupooImage(imageUrl, referer) {
+  const response = await fetch(imageUrl, {
+    headers: {
+      accept: "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+      referer,
+      "user-agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36",
+    },
+  });
+
+  if (!response.ok) {
+    throw statusError(`Yupoo image could not be downloaded (${response.status}).`, 502);
+  }
+
+  const fallbackType = contentTypeFromImageUrl(imageUrl) || "image/jpeg";
+  const contentType = normalizeImageContentType(response.headers.get("content-type")) || fallbackType;
+  if (!contentType.startsWith("image/")) {
+    throw statusError("Yupoo returned a non-image response.", 502);
+  }
+
+  const buffer = await response.arrayBuffer();
+  const maxMb = 20;
+  if (buffer.byteLength > maxMb * 1024 * 1024) {
+    throw statusError("Yupoo image is larger than 20MB.", 400);
+  }
+
+  return {
+    contentType,
+    size: buffer.byteLength,
+    b64: arrayBufferToBase64(buffer),
+  };
+}
+
+function normalizeImageContentType(value) {
+  const type = String(value || "").split(";")[0].trim().toLowerCase();
+  return type.startsWith("image/") ? type : "";
+}
+
+function contentTypeFromImageUrl(value) {
+  const path = new URL(value).pathname.toLowerCase();
+  if (path.endsWith(".png")) return "image/png";
+  if (path.endsWith(".webp")) return "image/webp";
+  if (path.endsWith(".gif")) return "image/gif";
+  if (path.endsWith(".avif")) return "image/avif";
+  if (path.endsWith(".jpg") || path.endsWith(".jpeg")) return "image/jpeg";
+  return "";
+}
+
+function yupooFilename(value, index, contentType) {
+  const url = new URL(value);
+  const parts = url.pathname.split("/").filter(Boolean);
+  let name = decodeURIComponent(parts.at(-1) || "");
+  if (/^(?:big|small)\.jpe?g$/i.test(name) && parts.length >= 2) {
+    name = `${parts.at(-2)}.${extensionForContentType(contentType)}`;
+  }
+  if (!/\.[a-z0-9]+$/i.test(name)) {
+    name = `${name || "image"}.${extensionForContentType(contentType)}`;
+  }
+  return safeFilename(`yupoo-${String(index).padStart(2, "0")}-${name}`);
+}
+
+function extensionForContentType(contentType) {
+  return (
+    {
+      "image/jpeg": "jpg",
+      "image/png": "png",
+      "image/webp": "webp",
+      "image/gif": "gif",
+      "image/avif": "avif",
+    }[contentType] || "jpg"
+  );
+}
+
 function outputSizeForModel(env, model) {
   const configured = env.XCLUSIVELINE_IMAGE_SIZE || env.OPENAI_IMAGE_SIZE;
   if (configured) return configured;
@@ -464,6 +793,10 @@ function statusError(message, status) {
 
 function maxBulkImages(env) {
   return Math.max(1, Math.min(Number(env.XCLUSIVELINE_MAX_BULK_IMAGES || 8), 20));
+}
+
+function yupooImportLimit(env, requested) {
+  return Math.max(1, Math.min(Number(requested || env.XCLUSIVELINE_YUPOO_IMPORT_LIMIT || 24), 60));
 }
 
 function outputFilename(originalName, id) {

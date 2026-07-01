@@ -48,6 +48,9 @@
     .side,.main,.library{padding:16px}
     label.small{display:grid;gap:6px;color:var(--mut);font-size:11px;font-weight:900;text-transform:uppercase;margin-bottom:10px}
     input[type="text"],input[type="password"]{min-height:42px;border:1px solid var(--line);border-radius:9px;background:var(--b3);color:var(--w);padding:0 11px;font-size:13px;text-transform:none}
+    .import-block{margin-top:10px;border:1px solid var(--line);border-radius:12px;background:var(--b3);padding:12px}
+    .link-row{display:grid;grid-template-columns:minmax(0,1fr) 92px;gap:8px;align-items:center}
+    .link-row .btn{min-height:42px;padding:10px 12px}
     .drop,.paste-zone{border:2px dashed var(--line);border-radius:12px;background:var(--b3);display:grid;place-items:center;text-align:center;padding:20px;transition:.15s}
     .drop{min-height:180px}
     .paste-zone{min-height:94px;margin-top:10px;outline:0}
@@ -80,7 +83,7 @@
     .toast{position:fixed;right:16px;bottom:16px;display:grid;gap:8px;z-index:20}
     .toast div{background:var(--w);color:var(--b);border-radius:10px;padding:11px 13px;font-weight:900;box-shadow:0 16px 45px rgba(0,0,0,.35)}
     @media(max-width:980px){.hero,.grid,.bg-card{grid-template-columns:1fr}.results{grid-template-columns:repeat(2,minmax(0,1fr))}.media{grid-template-columns:repeat(3,minmax(0,1fr))}}
-    @media(max-width:620px){.wrap{width:min(100% - 20px,1280px);padding-top:12px}.top{align-items:flex-start;flex-direction:column}.intro,.side,.main,.library{padding:14px}.results,.media{grid-template-columns:1fr}.actions .btn{flex:1 1 auto}}
+    @media(max-width:620px){.wrap{width:min(100% - 20px,1280px);padding-top:12px}.top{align-items:flex-start;flex-direction:column}.intro,.side,.main,.library{padding:14px}.results,.media{grid-template-columns:1fr}.actions .btn{flex:1 1 auto}.link-row{grid-template-columns:1fr}}
   </style>
 </head>
 <body>
@@ -136,6 +139,14 @@
             <p class="tiny">Copy a photo, click here, then paste.</p>
           </div>
         </div>
+        <div class="import-block">
+          <label class="small" for="yupooUrl" style="margin-bottom:7px">Yupoo link</label>
+          <div class="link-row">
+            <input id="yupooUrl" type="text" placeholder="https://seller.x.yupoo.com/albums/...">
+            <button id="importYupooBtn" class="btn">Import</button>
+          </div>
+          <p class="tiny" style="margin-top:7px">Imports accessible Yupoo product photos into the queue.</p>
+        </div>
         <div class="primary-actions">
           <button id="generateBtn" class="btn y">Generate Images</button>
         </div>
@@ -185,7 +196,9 @@
       previews: [],
       bgFile: null,
       generated: [],
-      selected: new Set()
+      selected: new Set(),
+      maxBulkImages: 8,
+      yupooImportLimit: 24
     };
     const $ = id => document.getElementById(id);
 
@@ -196,6 +209,8 @@
       $('adminToken').addEventListener('change',()=>saveSettings());
       $('productInput').onchange = e => addFiles(e.target.files);
       $('bgInput').onchange = e => setBg(e.target.files?.[0]);
+      $('importYupooBtn').onclick = importYupoo;
+      $('yupooUrl').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); importYupoo(); } });
       $('generateBtn').onclick = generate;
       $('saveBtn').onclick = saveSelected;
       const drop=$('drop');
@@ -213,6 +228,7 @@
       });
       renderQueue();
       updateSaveButton();
+      loadConfig();
       if(state.token) loadMedia({quiet:true});
     }
 
@@ -242,11 +258,22 @@
     function bytes(n){ return n<1024?n+' B':n<1048576?(n/1024).toFixed(1)+' KB':(n/1048576).toFixed(1)+' MB'; }
     function imageExt(type){ return ({'image/jpeg':'jpg','image/png':'png','image/webp':'webp','image/gif':'gif','image/avif':'avif'}[type] || 'png'); }
     function pastedName(type,index){ return `pasted-product-${Date.now()}-${index}.${imageExt(type)}`; }
+    function chunkSize(){ return Math.max(1, Math.min(Number(state.maxBulkImages||8), 20)); }
     async function defaultBackgroundFile(){
       const response=await fetch(DEFAULT_BACKGROUND_SRC,{cache:'reload'});
       if(!response.ok) throw new Error('Default XCLUSIVELINE background could not load.');
       const blob=await response.blob();
       return new File([blob],'xclusiveline-original-background.png',{type:blob.type||'image/png'});
+    }
+    async function loadConfig(){
+      try{
+        const r=await fetch(apiUrl('/api/config'));
+        const d=await r.json();
+        if(r.ok && d.ok){
+          state.maxBulkImages=Number(d.maxBulkImages||state.maxBulkImages||8);
+          state.yupooImportLimit=Number(d.yupooImportLimit||state.yupooImportLimit||24);
+        }
+      }catch{}
     }
 
     function addFiles(list){
@@ -277,6 +304,42 @@
       setTimeout(()=>$('pasteZone').classList.remove('active'),700);
       toast(`${files.length} pasted image${files.length===1?'':'s'} added`);
     }
+    async function importYupoo(){
+      saveSettings();
+      const url=$('yupooUrl').value.trim();
+      if(!url){ setStatus('Paste a Yupoo link first.','bad'); return; }
+      setBusy(true); setStatus('Importing product photos from Yupoo...');
+      try{
+        const r=await fetch(apiUrl('/api/yupoo-images'),{
+          method:'POST',
+          headers:{...auth(),'Content-Type':'application/json'},
+          body:JSON.stringify({url,limit:state.yupooImportLimit})
+        });
+        const d=await r.json().catch(()=>({ok:false,error:'Yupoo import failed.'}));
+        if(!r.ok || !d.ok) throw new Error(d.error||'Yupoo import failed');
+        const files=(d.images||[]).map((image,index)=>dataUrlToFile(image.dataUrl,image.filename||`yupoo-product-${index+1}.${imageExt(image.contentType)}`,image.contentType));
+        if(!files.length) throw new Error('No downloadable Yupoo images were returned.');
+        addFiles(files);
+        const limitNote=d.truncated ? ` Imported first ${files.length} of ${d.totalFound} found images.` : ` Imported ${files.length} image${files.length===1?'':'s'}.`;
+        const failNote=d.failed ? ` ${d.failed} image${d.failed===1?'':'s'} could not download.` : '';
+        setStatus(`${limitNote}${failNote} Press Generate Images when ready.`,'ok');
+        toast(`Yupoo import added ${files.length} image${files.length===1?'':'s'}`);
+      }catch(e){
+        if(/unauthorized|admin token|worker url/i.test(e.message||'')) $('setupDetails').open=true;
+        setStatus(e.message,'bad');
+      }
+      finally{ setBusy(false); }
+    }
+    function dataUrlToFile(dataUrl, filename, contentType){
+      const text=String(dataUrl||'');
+      const match=text.match(/^data:([^;]+);base64,(.+)$/);
+      if(!match) throw new Error('Imported Yupoo image data was invalid.');
+      const type=contentType||match[1]||'image/jpeg';
+      const binary=atob(match[2]);
+      const bytes=new Uint8Array(binary.length);
+      for(let i=0;i<binary.length;i+=1) bytes[i]=binary.charCodeAt(i);
+      return new File([bytes],filename,{type});
+    }
     function setBg(file){
       if(!file || !file.type.startsWith('image/')) return;
       state.bgFile=file;
@@ -298,21 +361,34 @@
       if(!state.files.length){ setStatus('Upload product images first.','bad'); return; }
       setBusy(true); setStatus('Generating realistic XCLUSIVELINE images. First run may take a moment.');
       try{
-        const form=new FormData();
-        state.files.forEach(file=>form.append('products',file,file.name||'product.png'));
+        state.generated=[];
+        state.selected=new Set();
+        renderResults();
+        const size=chunkSize();
+        const totalBatches=Math.ceil(state.files.length/size);
+        const allResults=[];
+        const allErrors=[];
         const background=state.bgFile || await defaultBackgroundFile();
-        form.append('background',background,background.name||'xclusiveline-original-background.png');
-        const r=await fetch(apiUrl('/api/generate'),{method:'POST',headers:auth(),body:form});
-        const d=await r.json().catch(()=>({ok:false,error:'Generation failed.'}));
-        if(!r.ok || !d.ok) throw new Error(d.error||'Generation failed');
-        state.generated=(d.results||[]).filter(x=>x && x.dataUrl);
+        for(let batchIndex=0; batchIndex<totalBatches; batchIndex+=1){
+          const batch=state.files.slice(batchIndex*size,(batchIndex+1)*size);
+          setStatus(`Generating batch ${batchIndex+1} of ${totalBatches} (${batch.length} image${batch.length===1?'':'s'}).`);
+          const form=new FormData();
+          batch.forEach(file=>form.append('products',file,file.name||'product.png'));
+          form.append('background',background,background.name||'xclusiveline-original-background.png');
+          const r=await fetch(apiUrl('/api/generate'),{method:'POST',headers:auth(),body:form});
+          const d=await r.json().catch(()=>({ok:false,error:'Generation failed.'}));
+          if(!r.ok || !d.ok) throw new Error(d.error||'Generation failed');
+          allResults.push(...(d.results||[]).filter(x=>x && x.dataUrl));
+          allErrors.push(...(d.errors||[]));
+        }
+        state.generated=allResults;
         if(!state.generated.length){
-          const firstError=(d.errors||[])[0]?.error;
+          const firstError=allErrors[0]?.error;
           throw new Error(firstError || 'No image was returned. Try one product photo first.');
         }
         state.selected=new Set(state.generated.map(x=>x.id));
         renderResults();
-        const errorNote=(d.errors||[]).length ? ` ${d.errors.length} image${d.errors.length===1?'':'s'} failed.` : '';
+        const errorNote=allErrors.length ? ` ${allErrors.length} image${allErrors.length===1?'':'s'} failed.` : '';
         setStatus(`Generated ${state.generated.length} realistic XCLUSIVELINE image${state.generated.length===1?'':'s'}.${errorNote}`,'ok');
       }catch(e){
         if(/unauthorized|admin token|worker url/i.test(e.message||'')) $('setupDetails').open=true;
@@ -359,7 +435,7 @@
         if(!quiet) setStatus(`Loaded ${(d.objects||[]).length} saved image${(d.objects||[]).length===1?'':'s'}.`,'ok');
       }catch(e){ if(!quiet) setStatus(e.message,'bad'); }
     }
-    function setBusy(on){ ['generateBtn','saveBtn'].forEach(id=>$(id).disabled=on); if(!on) updateSaveButton(); }
+    function setBusy(on){ ['generateBtn','saveBtn','importYupooBtn'].forEach(id=>$(id).disabled=on); if(!on) updateSaveButton(); }
     window.removeFile=removeFile; window.toggleSel=toggleSel;
     init();
   </script>

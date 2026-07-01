@@ -19,6 +19,8 @@ cloudflare-photo-studio/             Separate Worker, R2 binding, env example
 
 The studio does not auto-generate when files are uploaded. It only generates
 after you press **Generate Images**, then saves only selected generated images to R2.
+You can also paste a Yupoo album/page link in the admin page to import accessible
+product photos into the same queue before generating.
 
 ## Required Cloudflare Resources
 
@@ -72,10 +74,15 @@ These are already in `cloudflare-photo-studio/wrangler.toml`:
 XCLUSIVELINE_OPENAI_IMAGE_MODEL = "gpt-image-2"
 XCLUSIVELINE_IMAGE_SIZE = "1200x1600"
 XCLUSIVELINE_MAX_BULK_IMAGES = "8"
+XCLUSIVELINE_YUPOO_IMPORT_LIMIT = "24"
 XCLUSIVELINE_R2_PREFIX = "photo-studio/"
 XCLUSIVELINE_ALLOWED_ORIGINS = "http://localhost:8787,http://localhost:3000,http://127.0.0.1:3000,http://127.0.0.1:8080,https://qmako4.github.io"
 XCLUSIVELINE_BACKGROUND_URL = "https://qmako4.github.io/xclusiveline/assets/xclusiveline-studio-background.png"
 ```
+
+`XCLUSIVELINE_MAX_BULK_IMAGES` is the per-request generation batch size. The
+admin page automatically splits bigger queues into batches. `XCLUSIVELINE_YUPOO_IMPORT_LIMIT`
+controls how many downloadable Yupoo images one link import can add.
 
 Optional public media URL if you enable a public/custom domain for the R2 bucket:
 
