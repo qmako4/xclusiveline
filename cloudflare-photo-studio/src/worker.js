@@ -25,11 +25,13 @@ export default {
       }
 
       if (pathname === "/api/config" && request.method === "GET") {
+        const imageModel = env.XCLUSIVELINE_OPENAI_IMAGE_MODEL || env.OPENAI_IMAGE_MODEL || "gpt-image-2";
         return json(
           {
             ok: true,
             brand: BRAND,
-            imageSize: env.XCLUSIVELINE_IMAGE_SIZE || "auto",
+            imageModel,
+            imageSize: outputSizeForModel(env, imageModel),
             maxBulkImages: maxBulkImages(env),
             saveEnabled: Boolean(env.XCLUSIVELINE_MEDIA),
             publicMediaBaseUrl: env.XCLUSIVELINE_R2_PUBLIC_URL || null,
@@ -88,6 +90,13 @@ async function generatePreviews(request, env) {
     throw statusError(`Upload ${maxBulkImages(env)} images or fewer per batch.`, 400);
   }
 
+  const submittedBackground = form.get("background");
+  const backgroundFile =
+    submittedBackground && typeof submittedBackground === "object" && submittedBackground.size > 0
+      ? submittedBackground
+      : await loadDefaultBackgroundFile(request, env);
+  validateImageFile(backgroundFile, "XCLUSIVELINE background");
+
   const results = [];
   const errors = [];
 
@@ -96,9 +105,10 @@ async function generatePreviews(request, env) {
     try {
       validateImageFile(productFile, `Product ${index + 1}`);
 
-      const generated = await generateProductCutout({
+      const generated = await generateFlatlayComposite({
         env,
         productFile,
+        backgroundFile,
       });
 
       const id = crypto.randomUUID();
@@ -111,9 +121,9 @@ async function generatePreviews(request, env) {
         contentType: generated.contentType,
         b64: generated.b64,
         dataUrl: `data:${generated.contentType};base64,${generated.b64}`,
-        mode: "transparent-cutout",
+        mode: "realistic-xclusiveline-flatlay",
         prompt: generated.prompt,
-        imageSize: env.XCLUSIVELINE_IMAGE_SIZE || "auto",
+        imageSize: generated.imageSize,
         saved: false,
       });
     } catch (error) {
@@ -228,39 +238,56 @@ async function getMediaObject(request, env) {
   return new Response(object.body, { headers });
 }
 
-async function generateProductCutout({ env, productFile }) {
+async function generateFlatlayComposite({ env, productFile, backgroundFile }) {
   const apiKey = env.OPENAI_API_KEY || env.XCLUSIVELINE_OPENAI_API_KEY;
   if (!apiKey) {
     throw statusError("Missing OPENAI_API_KEY or XCLUSIVELINE_OPENAI_API_KEY.", 500);
   }
 
-  const prompt = buildCutoutPrompt(productFile.name);
-  const model = env.XCLUSIVELINE_OPENAI_IMAGE_MODEL || env.OPENAI_IMAGE_MODEL || "gpt-image-1";
-  const size = env.XCLUSIVELINE_IMAGE_SIZE || "auto";
+  const prompt = buildFlatlayPrompt(productFile.name);
+  const model = env.XCLUSIVELINE_OPENAI_IMAGE_MODEL || env.OPENAI_IMAGE_MODEL || "gpt-image-2";
+  const size = outputSizeForModel(env, model);
   const firstAttempt = await callOpenAiImagesEdit({
     apiKey,
     model,
     size,
     prompt,
     productFile,
+    backgroundFile,
+    imageField: "image[]",
   });
 
-  if (!firstAttempt.ok) {
-    throw statusError(`OpenAI image edit failed: ${firstAttempt.errorText}`, 502);
+  let finalAttempt = firstAttempt;
+  if (!firstAttempt.ok && shouldRetryWithRepeatedImageField(firstAttempt.errorText)) {
+    finalAttempt = await callOpenAiImagesEdit({
+      apiKey,
+      model,
+      size,
+      prompt,
+      productFile,
+      backgroundFile,
+      imageField: "image",
+    });
   }
 
-  return { ...firstAttempt.image, prompt };
+  if (!finalAttempt.ok) {
+    throw statusError(`OpenAI image edit failed: ${finalAttempt.errorText}`, 502);
+  }
+
+  return { ...finalAttempt.image, prompt, imageSize: size };
 }
 
-async function callOpenAiImagesEdit({ apiKey, model, size, prompt, productFile }) {
+async function callOpenAiImagesEdit({ apiKey, model, size, prompt, productFile, backgroundFile, imageField }) {
   const form = new FormData();
   form.append("model", model);
   form.append("prompt", prompt);
   form.append("size", size);
-  form.append("background", "transparent");
+  form.append("background", "opaque");
+  form.append("input_fidelity", "high");
   form.append("output_format", "png");
   form.append("quality", "high");
-  form.append("image", productFile, productFile.name || "product.png");
+  form.append(imageField, productFile, productFile.name || "product.png");
+  form.append(imageField, backgroundFile, backgroundFile.name || "xclusiveline-background.jpg");
 
   const response = await fetch("https://api.openai.com/v1/images/edits", {
     method: "POST",
@@ -314,16 +341,32 @@ async function callOpenAiImagesEdit({ apiKey, model, size, prompt, productFile }
   return { ok: false, errorText: "OpenAI response did not include b64_json or url." };
 }
 
-function buildCutoutPrompt(productName) {
+function buildFlatlayPrompt(productName) {
   return [
-    "Use case: product cutout alpha matte only.",
-    `Input image: product photo${productName ? ` named ${productName}` : ""}.`,
-    "Return a PNG with transparent background. Keep the product in the exact same position, scale, perspective, and crop as the input image.",
-    "Only remove the background around the product. Do not create, paint, extend, regenerate, smooth, sharpen, relight, recolour, retouch, or restyle the product.",
-    "Preserve all product pixels, shape, colour, logos, printed text, texture, stitching, fabric grain, tags, hands, clothing, shoes, watches, defects, marks, and edge detail as closely as possible.",
-    "Do not add any background, floor, shadows, watermarks, brand text, XCLUSIVELINE text, logo, labels, props, new hands, or new objects.",
-    "All non-product pixels must be transparent. If uncertain at fine edges, prefer a slightly conservative cutout over inventing new product detail.",
+    "Use case: realistic ecommerce flat-lay background replacement for XCLUSIVELINE.",
+    `Input image 1 is the product photo${productName ? ` named ${productName}` : ""}.`,
+    "Input image 2 is the original XCLUSIVELINE yellow fabric background. Use it as the physical ground/surface that the product is lying on.",
+    "Create a 3:4 flat-lay product photo where the product appears naturally placed on top of that exact supplied background.",
+    "Preserve the product identity and details: shape, colour, logos, printed text, texture, stitching, fabric grain, tags, hands, clothing, shoes, watches, defects, marks, and edge detail.",
+    "Do not smooth, repaint, recolour, relight, retouch, redesign, or restyle the product. Avoid AI smoothing and keep fabric/product texture real.",
+    "Preserve the supplied XCLUSIVELINE background's yellow fabric texture and existing black lettering. Do not invent, duplicate, extend, or add any extra XCLUSIVELINE text, bottom text, watermarks, labels, props, hands, hangers, floor, or wall.",
+    "Only add subtle realism where the product touches the background: a soft natural contact shadow, tiny fabric compression, and very slight local creases under or immediately around the product.",
+    "Shadows must be soft and believable, not dramatic, floating, glossy, harsh, or unrealistic.",
+    "Keep realistic scale and perspective. Center the product like a clean online store flat-lay; the product may naturally cover parts of the background lettering.",
+    "If anything is uncertain, prioritize preserving the uploaded product and supplied background over making new details.",
   ].join("\n");
+}
+
+function shouldRetryWithRepeatedImageField(errorText) {
+  return /image\[\]|unknown parameter|invalid parameter|missing required parameter|expected.*image|array/i.test(
+    String(errorText || ""),
+  );
+}
+
+function outputSizeForModel(env, model) {
+  const configured = env.XCLUSIVELINE_IMAGE_SIZE || env.OPENAI_IMAGE_SIZE;
+  if (configured) return configured;
+  return String(model || "").startsWith("gpt-image-2") ? "1200x1600" : "auto";
 }
 
 async function getDefaultBackground(request, env) {
