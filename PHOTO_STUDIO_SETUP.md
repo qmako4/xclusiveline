@@ -13,7 +13,7 @@ Cloudflare Worker in `cloudflare-photo-studio/`.
 
 ```text
 admin/photo-studio/index.html        Static admin photo studio page
-assets/xclusiveline-studio-background.jpg
+assets/xclusiveline-studio-background.png
 cloudflare-photo-studio/             Separate Worker, R2 binding, env example
 ```
 
@@ -69,12 +69,12 @@ These are already in `cloudflare-photo-studio/wrangler.toml`:
 
 ```toml
 [vars]
-XCLUSIVELINE_OPENAI_IMAGE_MODEL = "gpt-image-1"
-XCLUSIVELINE_IMAGE_SIZE = "1024x1536"
+XCLUSIVELINE_OPENAI_IMAGE_MODEL = "gpt-image-2"
+XCLUSIVELINE_IMAGE_SIZE = "1200x1600"
 XCLUSIVELINE_MAX_BULK_IMAGES = "8"
 XCLUSIVELINE_R2_PREFIX = "photo-studio/"
 XCLUSIVELINE_ALLOWED_ORIGINS = "http://localhost:8787,http://localhost:3000,http://127.0.0.1:3000,http://127.0.0.1:8080,https://qmako4.github.io"
-XCLUSIVELINE_BACKGROUND_URL = "https://qmako4.github.io/xclusiveline/assets/xclusiveline-studio-background.jpg"
+XCLUSIVELINE_BACKGROUND_URL = "https://qmako4.github.io/xclusiveline/assets/xclusiveline-studio-background.png"
 ```
 
 Optional public media URL if you enable a public/custom domain for the R2 bucket:

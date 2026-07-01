@@ -3,8 +3,8 @@ const BRAND = {
   yellow: "#F5A800",
   black: "#0A0A0A",
   white: "#FAFAFA",
-  defaultBackgroundPath: "/xclusiveline-background.jpg",
-  defaultBackgroundUrl: "https://qmako4.github.io/xclusiveline/assets/xclusiveline-studio-background.jpg",
+  defaultBackgroundPath: "/xclusiveline-background.png",
+  defaultBackgroundUrl: "https://qmako4.github.io/xclusiveline/assets/xclusiveline-studio-background.png",
 };
 
 const JSON_TYPE = "application/json; charset=utf-8";
@@ -287,7 +287,7 @@ async function callOpenAiImagesEdit({ apiKey, model, size, prompt, productFile, 
   form.append("output_format", "png");
   form.append("quality", "high");
   form.append(imageField, productFile, productFile.name || "product.png");
-  form.append(imageField, backgroundFile, backgroundFile.name || "xclusiveline-background.jpg");
+  form.append(imageField, backgroundFile, backgroundFile.name || "xclusiveline-background.png");
 
   const response = await fetch("https://api.openai.com/v1/images/edits", {
     method: "POST",
@@ -373,7 +373,7 @@ async function getDefaultBackground(request, env) {
   const background = await loadDefaultBackgroundResponse(request, env);
   return new Response(background.body, {
     headers: {
-      "content-type": background.headers.get("content-type") || "image/jpeg",
+      "content-type": background.headers.get("content-type") || "image/png",
       "cache-control": "public, max-age=3600",
       ...corsHeaders(request, env),
     },
@@ -382,7 +382,7 @@ async function getDefaultBackground(request, env) {
 
 async function loadDefaultBackgroundFile(request, env) {
   const response = await loadDefaultBackgroundResponse(request, env);
-  const contentType = response.headers.get("content-type") || "image/jpeg";
+  const contentType = response.headers.get("content-type") || "image/png";
   return new Blob([await response.arrayBuffer()], { type: contentType });
 }
 
