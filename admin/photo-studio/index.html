@@ -318,6 +318,22 @@
       renderQueue();
       if(incoming.length) setStatus(`${incoming.length} image${incoming.length===1?'':'s'} ready. Generate images when you are happy with the queue.`);
     }
+    function addRemoteImages(images){
+      const incoming=(images||[]).filter(image=>image && image.url);
+      incoming.forEach((image,index)=>{
+        state.files.push({
+          isRemote:true,
+          url:image.url,
+          pageUrl:image.pageUrl || image.url,
+          name:image.filename || `yupoo-product-${Date.now()}-${index+1}.jpg`,
+          type:image.contentType || 'image/jpeg',
+          size:0
+        });
+        state.previews.push(image.previewUrl || image.url);
+      });
+      renderQueue();
+      return incoming.length;
+    }
     function clipboardFiles(data){
       const files=Array.from(data?.files||[]).filter(f=>f.type.startsWith('image/'));
       if(files.length) return files;
@@ -352,13 +368,12 @@
         });
         const d=await r.json().catch(()=>({ok:false,error:'Yupoo import failed.'}));
         if(!r.ok || !d.ok) throw new Error(d.error||'Yupoo import failed');
-        const files=(d.images||[]).map((image,index)=>dataUrlToFile(image.dataUrl,image.filename||`yupoo-product-${index+1}.${imageExt(image.contentType)}`,image.contentType));
-        if(!files.length) throw new Error('No downloadable Yupoo images were returned.');
-        addFiles(files);
-        const limitNote=d.truncated ? ` Imported first ${files.length} of ${d.totalFound} found images.` : ` Imported ${files.length} image${files.length===1?'':'s'}.`;
+        const imported=addRemoteImages(d.images||[]);
+        if(!imported) throw new Error('No Yupoo images were returned.');
+        const limitNote=d.truncated ? ` Imported first ${imported} of ${d.totalFound} found images.` : ` Imported ${imported} image${imported===1?'':'s'}.`;
         const failNote=d.failed ? ` ${d.failed} image${d.failed===1?'':'s'} could not download.` : '';
         setStatus(`${limitNote}${failNote} Press Generate Images when ready.`,'ok');
-        toast(`Yupoo import added ${files.length} image${files.length===1?'':'s'}`);
+        toast(`Yupoo import added ${imported} image${imported===1?'':'s'}`);
       }catch(e){
         if(/unauthorized|admin token|worker url/i.test(e.message||'')) $('setupDetails').open=true;
         setStatus(friendlyFetchError(e),'bad');
@@ -382,12 +397,12 @@
       $('bgStatus').textContent='Using override: '+file.name;
     }
     function removeFile(i){
-      URL.revokeObjectURL(state.previews[i]);
+      if(!state.files[i]?.isRemote) URL.revokeObjectURL(state.previews[i]);
       state.files.splice(i,1); state.previews.splice(i,1); renderQueue();
     }
     function renderQueue(){
       $('queue').innerHTML = state.files.length
-        ? `<div class="queue-head"><span class="tiny">${state.files.length} queued</span></div>` + state.files.map((f,i)=>`<div class="q"><img src="${state.previews[i]}" alt=""><div><strong>${esc(f.name)}</strong><p class="tiny">${bytes(f.size)}</p></div><button class="icon-btn" onclick="removeFile(${i})" aria-label="Remove ${esc(f.name)}">&times;</button></div>`).join('')
+        ? `<div class="queue-head"><span class="tiny">${state.files.length} queued</span></div>` + state.files.map((f,i)=>`<div class="q"><img src="${state.previews[i]}" alt=""><div><strong>${esc(f.name)}</strong><p class="tiny">${f.isRemote?'Yupoo link':bytes(f.size)}</p></div><button class="icon-btn" onclick="removeFile(${i})" aria-label="Remove ${esc(f.name)}">&times;</button></div>`).join('')
         : '';
     }
 
@@ -408,7 +423,15 @@
           const batch=state.files.slice(batchIndex*size,(batchIndex+1)*size);
           setStatus(`Generating batch ${batchIndex+1} of ${totalBatches} (${batch.length} image${batch.length===1?'':'s'}).`);
           const form=new FormData();
-          batch.forEach(file=>form.append('products',file,file.name||'product.png'));
+          const remote=[];
+          batch.forEach(file=>{
+            if(file.isRemote){
+              remote.push({url:file.url,pageUrl:file.pageUrl,filename:file.name});
+            }else{
+              form.append('products',file,file.name||'product.png');
+            }
+          });
+          if(remote.length) form.append('productUrls',JSON.stringify(remote));
           form.append('background',background,background.name||'xclusiveline-original-background.png');
           const r=await fetch(apiUrl('/api/generate'),{method:'POST',headers:auth(),body:form});
           const d=await r.json().catch(()=>({ok:false,error:'Generation failed.'}));

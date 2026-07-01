@@ -120,30 +120,16 @@ async function importYupooImages(request, env) {
   }
 
   const selected = allImages.slice(0, limit);
-  const images = [];
-  const errors = [];
-
-  for (let index = 0; index < selected.length; index += 1) {
-    const candidate = selected[index];
-    try {
-      const downloaded = await fetchYupooImage(candidate.url, candidate.pageUrl || sourceUrl.toString());
-      const filename = yupooFilename(candidate.url, index + 1, downloaded.contentType);
-      images.push({
-        url: candidate.url,
-        filename,
-        contentType: downloaded.contentType,
-        size: downloaded.size,
-        b64: downloaded.b64,
-        dataUrl: `data:${downloaded.contentType};base64,${downloaded.b64}`,
-      });
-    } catch (error) {
-      errors.push({ url: candidate.url, error: error.message || "Image download failed." });
-    }
-  }
-
-  if (!images.length) {
-    throw statusError(errors[0]?.error || "Yupoo images were found, but none could be downloaded.", 502);
-  }
+  const images = selected.map((candidate, index) => {
+    const contentType = contentTypeFromImageUrl(candidate.url) || "image/jpeg";
+    return {
+      url: candidate.url,
+      previewUrl: candidate.url,
+      pageUrl: candidate.pageUrl || sourceUrl.toString(),
+      filename: yupooFilename(candidate.url, index + 1, contentType),
+      contentType,
+    };
+  });
 
   return json(
     {
@@ -152,11 +138,11 @@ async function importYupooImages(request, env) {
       images,
       totalFound: allImages.length,
       imported: images.length,
-      failed: errors.length,
+      failed: 0,
       truncated: allImages.length > selected.length,
       limit,
       pagesScanned,
-      errors,
+      errors: [],
     },
     request,
     env,
@@ -165,16 +151,22 @@ async function importYupooImages(request, env) {
 
 async function generatePreviews(request, env) {
   const form = await request.formData();
-  const productFiles = form
+  const uploadedFiles = form
     .getAll("products")
     .filter((file) => file && typeof file === "object" && file.size > 0);
+  const productUrlItems = parseProductUrlItems(form.get("productUrls"));
+  const productFiles = [...uploadedFiles];
 
-  if (!productFiles.length) {
+  if (!uploadedFiles.length && !productUrlItems.length) {
     throw statusError("Upload at least one product image.", 400);
   }
 
-  if (productFiles.length > maxBulkImages(env)) {
+  if (uploadedFiles.length + productUrlItems.length > maxBulkImages(env)) {
     throw statusError(`Upload ${maxBulkImages(env)} images or fewer per batch.`, 400);
+  }
+
+  for (const item of productUrlItems) {
+    productFiles.push(await fetchRemoteProductFile(item));
   }
 
   const submittedBackground = form.get("background");
@@ -447,6 +439,82 @@ function shouldRetryWithRepeatedImageField(errorText) {
   return /image\[\]|unknown parameter|invalid parameter|missing required parameter|expected.*image|array/i.test(
     String(errorText || ""),
   );
+}
+
+function parseProductUrlItems(value) {
+  if (!value) return [];
+
+  let parsed;
+  try {
+    parsed = JSON.parse(String(value));
+  } catch {
+    throw statusError("Remote product image URLs were invalid.", 400);
+  }
+
+  const values = Array.isArray(parsed) ? parsed : [parsed];
+  return values.map((item, index) => {
+    const raw = typeof item === "string" ? { url: item } : item || {};
+    const url = parseYupooImageUrl(raw.url);
+    return {
+      url: url.toString(),
+      pageUrl: raw.pageUrl || `${url.origin}/`,
+      filename: safeFilename(raw.filename || yupooFilename(url.toString(), index + 1, contentTypeFromImageUrl(url.toString()) || "image/jpeg")),
+    };
+  });
+}
+
+function parseYupooImageUrl(value) {
+  let url;
+  try {
+    url = new URL(String(value || "").trim());
+  } catch {
+    throw statusError("Remote product image URL was invalid.", 400);
+  }
+
+  if (!["http:", "https:"].includes(url.protocol) || !isYupooHost(url.hostname) || !isLikelyImageUrl(url)) {
+    throw statusError("Remote product image URL must be a Yupoo image.", 400);
+  }
+
+  url.protocol = "https:";
+  url.hash = "";
+  return url;
+}
+
+async function fetchRemoteProductFile(item) {
+  const url = parseYupooImageUrl(item.url);
+  const response = await fetch(url.toString(), {
+    headers: {
+      accept: "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+      referer: item.pageUrl || `${url.origin}/`,
+      "user-agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36",
+    },
+  });
+
+  if (!response.ok) {
+    throw statusError(`Yupoo image could not be downloaded (${response.status}).`, 502);
+  }
+
+  const fallbackType = contentTypeFromImageUrl(url.toString()) || "image/jpeg";
+  const contentType = normalizeImageContentType(response.headers.get("content-type")) || fallbackType;
+  if (!contentType.startsWith("image/")) {
+    throw statusError("Yupoo returned a non-image response.", 502);
+  }
+
+  const buffer = await response.arrayBuffer();
+  const maxMb = 20;
+  if (buffer.byteLength > maxMb * 1024 * 1024) {
+    throw statusError("Yupoo image is larger than 20MB.", 400);
+  }
+
+  const filename = safeFilename(item.filename || yupooFilename(url.toString(), 1, contentType));
+  if (typeof File === "function") {
+    return new File([buffer], filename, { type: contentType });
+  }
+
+  const blob = new Blob([buffer], { type: contentType });
+  blob.name = filename;
+  return blob;
 }
 
 function parseYupooPageUrl(value) {
