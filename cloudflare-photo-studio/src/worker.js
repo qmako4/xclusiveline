@@ -75,6 +75,11 @@ export default {
         return await listMedia(request, env);
       }
 
+      if (pathname === "/api/media" && request.method === "DELETE") {
+        await requireAdmin(request, env);
+        return await deleteMediaObject(request, env);
+      }
+
       if (pathname === "/api/media/raw" && request.method === "GET") {
         await requireAdmin(request, env);
         return await getMediaObject(request, env);
@@ -361,6 +366,31 @@ async function getMediaObject(request, env) {
   headers.set("etag", object.httpEtag);
   headers.set("cache-control", headers.get("cache-control") || "private, max-age=60");
   return new Response(object.body, { headers });
+}
+
+async function deleteMediaObject(request, env) {
+  if (!env.XCLUSIVELINE_MEDIA) {
+    throw statusError("XCLUSIVELINE_MEDIA R2 binding is not configured.", 500);
+  }
+
+  const url = new URL(request.url);
+  let key = url.searchParams.get("key");
+  if (!key && (request.headers.get("content-type") || "").includes("application/json")) {
+    const body = await request.json().catch(() => ({}));
+    key = body.key;
+  }
+
+  if (!key) {
+    throw statusError("Missing media key.", 400);
+  }
+
+  const allowedPrefix = `${cleanPrefix(env.XCLUSIVELINE_R2_PREFIX || "photo-studio/")}generated/`;
+  if (!key.startsWith(allowedPrefix)) {
+    throw statusError("Media key is outside the generated image library.", 400);
+  }
+
+  await env.XCLUSIVELINE_MEDIA.delete(key);
+  return json({ ok: true, deleted: { key } }, request, env);
 }
 
 async function generateFlatlayComposite({ env, productFile, backgroundFile }) {

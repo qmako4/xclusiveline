@@ -67,8 +67,9 @@
     .status.ok{color:var(--green)}.status.bad{color:var(--red)}
     .queue{display:grid;gap:8px;margin-top:12px}
     .queue-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:2px}
+    .queue-tools{display:flex;gap:6px;align-items:center}
     .q{display:grid;grid-template-columns:56px 1fr auto;gap:10px;align-items:center;border:1px solid var(--line);border-radius:10px;background:var(--b3);padding:8px}
-    .q img{width:56px;height:66px;object-fit:cover;border-radius:7px}.q strong{display:block;font-size:13px;line-height:1.2;word-break:break-word}.tiny{font-size:11px;color:var(--mut)}
+    .q-preview{position:relative;width:56px;height:66px}.q img{width:56px;height:66px;object-fit:cover;border-radius:7px}.queue-check{position:absolute;left:4px;top:4px;display:grid;place-items:center;width:22px;height:22px;border-radius:6px;background:rgba(250,250,250,.94);border:1px solid rgba(0,0,0,.08)}.queue-check input{width:14px;height:14px;accent-color:var(--y)}.q strong{display:block;font-size:13px;line-height:1.2;word-break:break-word}.tiny{font-size:11px;color:var(--mut)}
     .head{display:flex;justify-content:space-between;align-items:end;gap:12px;margin-bottom:14px}
     .results{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
     .card{border:1px solid var(--line);border-radius:10px;background:var(--b3);overflow:hidden}
@@ -76,9 +77,14 @@
     .check{position:absolute;left:8px;top:8px;display:flex;align-items:center;gap:6px;background:rgba(250,250,250,.94);color:var(--b);border-radius:8px;padding:5px 8px;font-size:11px;font-weight:900;text-transform:uppercase}
     .body{display:grid;gap:8px;padding:10px}.body strong{font-size:13px;line-height:1.2;word-break:break-word}
     .body .link-btn{justify-self:start}
+    .card-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+    .mini-btn{min-height:28px;border-radius:7px;border:1px solid var(--line);background:rgba(250,250,250,.06);color:var(--w);padding:6px 8px;font-size:11px;font-weight:900;text-transform:uppercase}
+    .mini-btn.danger{color:var(--red)}
     .media{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}
-    .media a{display:block;border:1px solid var(--line);border-radius:10px;background:var(--b3);overflow:hidden}
+    .media-card{border:1px solid var(--line);border-radius:10px;background:var(--b3);overflow:hidden}
+    .media-card a{display:block}
     .media img{width:100%;aspect-ratio:3/4;object-fit:cover}.media span{display:block;padding:7px;font-size:11px;color:var(--mut);word-break:break-word}
+    .media-actions{display:flex;justify-content:flex-end;padding:0 7px 8px}
     .library{margin-top:14px}
     .toast{position:fixed;right:16px;bottom:16px;display:grid;gap:8px;z-index:20}
     .toast div{background:var(--w);color:var(--b);border-radius:10px;padding:11px 13px;font-weight:900;box-shadow:0 16px 45px rgba(0,0,0,.35)}
@@ -167,6 +173,8 @@
         <div class="head">
           <div><span class="eyebrow">Ready to save</span><h2>Generated Images</h2></div>
           <div class="actions" style="margin:0">
+            <button id="regenerateBtn" class="btn hidden" disabled>Regenerate Selected</button>
+            <button id="removeGeneratedBtn" class="btn red hidden" disabled>Remove Selected</button>
             <button id="saveBtn" class="btn dark hidden" disabled>Save Selected</button>
           </div>
         </div>
@@ -193,10 +201,14 @@
       apiBase: normalizeApiBase(localStorage.getItem('xl-studio-api')),
       token: localStorage.getItem('xl-studio-token') || '',
       files: [],
+      fileIds: [],
       previews: [],
+      queueSelected: new Set(),
       bgFile: null,
       generated: [],
       selected: new Set(),
+      media: [],
+      busy: false,
       maxBulkImages: 8,
       yupooImportLimit: 24
     };
@@ -213,6 +225,8 @@
       $('importYupooBtn').onclick = importYupoo;
       $('yupooUrl').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); importYupoo(); } });
       $('generateBtn').onclick = generate;
+      $('regenerateBtn').onclick = regenerateSelected;
+      $('removeGeneratedBtn').onclick = removeSelectedGenerated;
       $('saveBtn').onclick = saveSelected;
       const drop=$('drop');
       ['dragover','dragenter'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('drag')}));
@@ -228,7 +242,7 @@
         handlePaste(e);
       });
       renderQueue();
-      updateSaveButton();
+      updateActionButtons();
       loadConfig();
       if(state.token) loadMedia({quiet:true});
     }
@@ -293,6 +307,7 @@
     function setStatus(msg, cls=''){ $('status').className='status '+cls; $('status').textContent=msg; }
     function toast(msg){ const el=document.createElement('div'); el.textContent=msg; $('toast').appendChild(el); setTimeout(()=>el.remove(),3600); }
     function esc(v){ return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c])); }
+    function createId(prefix){ return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2,8)}`; }
     function bytes(n){ return n<1024?n+' B':n<1048576?(n/1024).toFixed(1)+' KB':(n/1048576).toFixed(1)+' MB'; }
     function imageExt(type){ return ({'image/jpeg':'jpg','image/png':'png','image/webp':'webp','image/gif':'gif','image/avif':'avif'}[type] || 'png'); }
     function pastedName(type,index){ return `pasted-product-${Date.now()}-${index}.${imageExt(type)}`; }
@@ -316,7 +331,13 @@
 
     function addFiles(list){
       const incoming=[...(list||[])].filter(f=>f.type.startsWith('image/'));
-      incoming.forEach(file=>{ state.files.push(file); state.previews.push(URL.createObjectURL(file)); });
+      incoming.forEach(file=>{
+        const id=createId('queue');
+        state.files.push(file);
+        state.fileIds.push(id);
+        state.queueSelected.add(id);
+        state.previews.push(URL.createObjectURL(file));
+      });
       $('productInput').value='';
       renderQueue();
       if(incoming.length) setStatus(`${incoming.length} image${incoming.length===1?'':'s'} ready. Generate images when you are happy with the queue.`);
@@ -324,6 +345,7 @@
     function addRemoteImages(images){
       const incoming=(images||[]).filter(image=>image && image.url);
       incoming.forEach((image,index)=>{
+        const id=createId('queue');
         state.files.push({
           isRemote:true,
           url:image.url,
@@ -332,6 +354,8 @@
           type:image.contentType || 'image/jpeg',
           size:0
         });
+        state.fileIds.push(id);
+        state.queueSelected.add(id);
         state.previews.push(yupooPreviewUrl(image));
       });
       renderQueue();
@@ -401,17 +425,39 @@
     }
     function removeFile(i){
       if(!state.files[i]?.isRemote) URL.revokeObjectURL(state.previews[i]);
-      state.files.splice(i,1); state.previews.splice(i,1); renderQueue();
+      state.queueSelected.delete(state.fileIds[i]);
+      state.files.splice(i,1); state.fileIds.splice(i,1); state.previews.splice(i,1); renderQueue();
+    }
+    function toggleQueue(id,on){
+      on ? state.queueSelected.add(id) : state.queueSelected.delete(id);
+      updateActionButtons();
+      renderQueue();
+    }
+    function setQueueSelection(on){
+      state.queueSelected = new Set(on ? state.fileIds : []);
+      renderQueue();
+      updateActionButtons();
+    }
+    function selectedQueueItems(){
+      return state.files
+        .map((file,index)=>({file,index,id:state.fileIds[index],preview:state.previews[index]}))
+        .filter(item=>state.queueSelected.has(item.id));
     }
     function renderQueue(){
       $('queue').innerHTML = state.files.length
-        ? `<div class="queue-head"><span class="tiny">${state.files.length} queued</span></div>` + state.files.map((f,i)=>`<div class="q"><img src="${state.previews[i]}" alt=""><div><strong>${esc(f.name)}</strong><p class="tiny">${f.isRemote?'Yupoo link':bytes(f.size)}</p></div><button class="icon-btn" onclick="removeFile(${i})" aria-label="Remove ${esc(f.name)}">&times;</button></div>`).join('')
+        ? `<div class="queue-head"><span class="tiny">${state.queueSelected.size} of ${state.files.length} selected</span><div class="queue-tools"><button class="mini-btn" onclick="setQueueSelection(true)">All</button><button class="mini-btn" onclick="setQueueSelection(false)">None</button></div></div>` + state.files.map((f,i)=>{
+            const id=state.fileIds[i];
+            return `<div class="q"><div class="q-preview"><img src="${state.previews[i]}" alt=""><label class="queue-check" aria-label="Select ${esc(f.name)}"><input type="checkbox" ${state.queueSelected.has(id)?'checked':''} onchange="toggleQueue('${id}',this.checked)"></label></div><div><strong>${esc(f.name)}</strong><p class="tiny">${f.isRemote?'Yupoo link':bytes(f.size)}</p></div><button class="icon-btn" onclick="removeFile(${i})" aria-label="Remove ${esc(f.name)}">&times;</button></div>`;
+          }).join('')
         : '';
+      updateActionButtons();
     }
 
     async function generate(){
       saveSettings();
+      const targets=selectedQueueItems();
       if(!state.files.length){ setStatus('Upload product images first.','bad'); return; }
+      if(!targets.length){ setStatus('Select at least one queued image to generate.','bad'); return; }
       setBusy(true); setStatus('Generating realistic XCLUSIVELINE images. First run may take a moment.');
       try{
         state.generated=[];
@@ -419,37 +465,23 @@
         renderResults();
         const allErrors=[];
         const background=state.bgFile || await defaultBackgroundFile();
-        const total=state.files.length;
-        for(let index=0; index<total; index+=1){
-          const file=state.files[index];
-          const label=file?.name || `product-${index+1}`;
-          setStatus(`Generating image ${index+1} of ${total}: ${label}. ${state.generated.length} finished so far.`);
-          const form=new FormData();
-          if(file.isRemote){
-            form.append('productUrls',JSON.stringify([{url:file.url,pageUrl:file.pageUrl,filename:file.name}]));
-          }else{
-            form.append('products',file,file.name||'product.png');
-          }
-          form.append('background',background,background.name||'xclusiveline-original-background.png');
-          const r=await fetch(apiUrl('/api/generate'),{method:'POST',headers:auth(),body:form});
-          const d=await r.json().catch(()=>({ok:false,error:'Generation failed.'}));
-          if(!r.ok || !d.ok){
-            const message=d.error||'Generation failed';
-            if(/unauthorized|admin token|worker url/i.test(message)) throw new Error(message);
-            allErrors.push({originalName:label,error:message});
-            setStatus(`Image ${index+1} failed: ${message}`);
-            continue;
-          }
-          const newResults=(d.results||[]).filter(x=>x && x.dataUrl);
-          if(newResults.length){
+        const total=targets.length;
+        for(let position=0; position<total; position+=1){
+          const source=targets[position];
+          const label=source.file?.name || `product-${source.index+1}`;
+          setStatus(`Generating image ${position+1} of ${total}: ${label}. ${state.generated.length} finished so far.`);
+          try{
+            const newResults=await generateSource(source, background);
             state.generated.push(...newResults);
             newResults.forEach(x=>state.selected.add(x.id));
             renderResults();
-            setStatus(`Generated ${state.generated.length} of ${total}. Continuing with image ${Math.min(index+2,total)} of ${total}.`,'ok');
-          }else if(!(d.errors||[]).length){
-            allErrors.push({originalName:label,error:'No image was returned.'});
+            setStatus(`Generated ${state.generated.length} of ${total}. Continuing with image ${Math.min(position+2,total)} of ${total}.`,'ok');
+          }catch(error){
+            const message=error.message || 'Generation failed.';
+            if(/unauthorized|admin token|worker url/i.test(message)) throw error;
+            allErrors.push({originalName:label,error:message});
+            setStatus(`Image ${position+1} failed: ${message}`);
           }
-          allErrors.push(...(d.errors||[]));
         }
         if(!state.generated.length){
           const firstError=allErrors[0]?.error;
@@ -464,15 +496,102 @@
       }
       finally{ setBusy(false); }
     }
-    function renderResults(){
-      if(!state.generated.length){ $('results').innerHTML='<div class="panel" style="padding:18px"><h3>No images yet</h3><p class="muted">Upload products and press Generate Images.</p></div>'; updateSaveButton(); return; }
-      $('results').innerHTML=state.generated.map(x=>`<article class="card"><div class="shot"><img src="${x.dataUrl}" alt=""><label class="check"><input type="checkbox" ${state.selected.has(x.id)?'checked':''} onchange="toggleSel('${x.id}',this.checked)">Select</label></div><div class="body"><strong>${esc(x.originalName)}</strong><p class="tiny">Realistic flat-lay image</p><a class="link-btn" download="${esc(x.filename)}" href="${x.dataUrl}">Download</a></div></article>`).join('');
-      updateSaveButton();
+
+    async function generateSource(source, background){
+      const file=source.file;
+      const label=file?.name || `product-${source.index+1}`;
+      const form=new FormData();
+      if(file.isRemote){
+        form.append('productUrls',JSON.stringify([{url:file.url,pageUrl:file.pageUrl,filename:file.name}]));
+      }else{
+        form.append('products',file,file.name||'product.png');
+      }
+      form.append('background',background,background.name||'xclusiveline-original-background.png');
+      const r=await fetch(apiUrl('/api/generate'),{method:'POST',headers:auth(),body:form});
+      const d=await r.json().catch(()=>({ok:false,error:'Generation failed.'}));
+      if(!r.ok || !d.ok) throw new Error(d.error||'Generation failed');
+      const workerErrors=(d.errors||[]).filter(Boolean);
+      const newResults=(d.results||[]).filter(x=>x && x.dataUrl).map(result=>({
+        ...result,
+        sourceQueueId: source.id,
+        sourceIndex: source.index,
+        sourceName: label,
+        sourceFile: file,
+        sourcePreview: source.preview
+      }));
+      if(!newResults.length){
+        throw new Error(workerErrors[0]?.error || 'No image was returned.');
+      }
+      return newResults;
     }
-    function toggleSel(id,on){ on?state.selected.add(id):state.selected.delete(id); updateSaveButton(); }
-    function updateSaveButton(){
-      $('saveBtn').classList.toggle('hidden',!state.generated.length);
-      $('saveBtn').disabled = !state.generated.length || !state.selected.size;
+    function renderResults(){
+      if(!state.generated.length){ $('results').innerHTML='<div class="panel" style="padding:18px"><h3>No images yet</h3><p class="muted">Upload products and press Generate Images.</p></div>'; updateActionButtons(); return; }
+      $('results').innerHTML=state.generated.map(x=>`<article class="card"><div class="shot"><img src="${x.dataUrl}" alt=""><label class="check"><input type="checkbox" ${state.selected.has(x.id)?'checked':''} onchange="toggleSel('${x.id}',this.checked)">Select</label></div><div class="body"><strong>${esc(x.originalName)}</strong><p class="tiny">Realistic flat-lay image</p><div class="card-actions"><a class="link-btn" download="${esc(x.filename)}" href="${x.dataUrl}">Download</a><button class="mini-btn" onclick="regenerateGenerated('${x.id}')">Regenerate</button><button class="mini-btn danger" onclick="deleteGenerated('${x.id}')">Remove</button></div></div></article>`).join('');
+      updateActionButtons();
+    }
+    function toggleSel(id,on){ on?state.selected.add(id):state.selected.delete(id); updateActionButtons(); }
+    function updateActionButtons(){
+      const hasGenerated=Boolean(state.generated.length);
+      const hasSelectedGenerated=Boolean(state.selected.size);
+      const hasSelectedQueue=Boolean(selectedQueueItems().length);
+      $('generateBtn').disabled = state.busy || !hasSelectedQueue;
+      ['saveBtn','regenerateBtn','removeGeneratedBtn'].forEach(id=>$(id).classList.toggle('hidden',!hasGenerated));
+      $('saveBtn').disabled = state.busy || !hasSelectedGenerated;
+      $('regenerateBtn').disabled = state.busy || !hasSelectedGenerated;
+      $('removeGeneratedBtn').disabled = state.busy || !hasSelectedGenerated;
+    }
+    function deleteGenerated(id){
+      const removed=state.generated.find(x=>x.id===id);
+      state.generated=state.generated.filter(x=>x.id!==id);
+      state.selected.delete(id);
+      renderResults();
+      if(removed) toast('Generated image removed');
+    }
+    function removeSelectedGenerated(){
+      const count=state.selected.size;
+      if(!count){ setStatus('Select at least one generated image first.','bad'); return; }
+      state.generated=state.generated.filter(x=>!state.selected.has(x.id));
+      state.selected=new Set();
+      renderResults();
+      setStatus(`Removed ${count} generated image${count===1?'':'s'} from the preview list.`,'ok');
+    }
+    function sourceForGenerated(result){
+      const queueIndex=state.fileIds.indexOf(result.sourceQueueId);
+      if(queueIndex>=0){
+        return {file:state.files[queueIndex],index:queueIndex,id:state.fileIds[queueIndex],preview:state.previews[queueIndex]};
+      }
+      if(result.sourceFile){
+        return {file:result.sourceFile,index:result.sourceIndex ?? 0,id:result.sourceQueueId || createId('regen'),preview:result.sourcePreview};
+      }
+      return null;
+    }
+    async function regenerateGenerated(id){
+      const result=state.generated.find(x=>x.id===id);
+      if(!result){ setStatus('Generated image was not found.','bad'); return; }
+      const source=sourceForGenerated(result);
+      if(!source){ setStatus('Original queued product is no longer available for regeneration.','bad'); return; }
+      setBusy(true); setStatus(`Regenerating ${result.originalName || result.sourceName || 'selected image'}...`);
+      try{
+        const background=state.bgFile || await defaultBackgroundFile();
+        const replacements=await generateSource(source, background);
+        const index=state.generated.findIndex(x=>x.id===id);
+        state.selected.delete(id);
+        replacements.forEach(x=>state.selected.add(x.id));
+        if(index>=0) state.generated.splice(index,1,...replacements);
+        renderResults();
+        setStatus(`Regenerated ${replacements.length} image${replacements.length===1?'':'s'}.`,'ok');
+      }catch(e){
+        if(/unauthorized|admin token|worker url/i.test(e.message||'')) $('setupDetails').open=true;
+        setStatus(friendlyFetchError(e),'bad');
+      }finally{ setBusy(false); }
+    }
+    async function regenerateSelected(){
+      const ids=[...state.selected];
+      if(!ids.length){ setStatus('Select at least one generated image to regenerate.','bad'); return; }
+      for(const id of ids){
+        if(!state.generated.some(x=>x.id===id)) continue;
+        await regenerateGenerated(id);
+      }
     }
     async function saveSelected(){
       saveSettings();
@@ -495,16 +614,32 @@
         const r=await fetch(apiUrl('/api/media?limit=60'),{headers:auth()});
         const d=await r.json();
         if(!r.ok || !d.ok) throw new Error(d.error||'Media load failed');
+        state.media=d.objects||[];
         const token=encodeURIComponent($('adminToken').value.trim()||state.token);
-        $('media').innerHTML=(d.objects||[]).length ? d.objects.map(o=>{
+        $('media').innerHTML=state.media.length ? state.media.map((o,index)=>{
           const src=o.publicUrl || (apiUrl(o.rawUrl)+'&token='+token);
-          return `<a href="${src}" target="_blank" rel="noreferrer"><img src="${src}" alt=""><span>${esc(o.key.split('/').pop())}</span></a>`;
+          return `<article class="media-card"><a href="${src}" target="_blank" rel="noreferrer"><img src="${src}" alt=""><span>${esc(o.key.split('/').pop())}</span></a><div class="media-actions"><button class="mini-btn danger" onclick="deleteSavedMedia(${index})">Delete</button></div></article>`;
         }).join('') : '<div class="panel" style="padding:14px"><p class="muted">No saved studio images yet.</p></div>';
-        if(!quiet) setStatus(`Loaded ${(d.objects||[]).length} saved image${(d.objects||[]).length===1?'':'s'}.`,'ok');
+        if(!quiet) setStatus(`Loaded ${state.media.length} saved image${state.media.length===1?'':'s'}.`,'ok');
       }catch(e){ if(!quiet) setStatus(friendlyFetchError(e),'bad'); }
     }
-    function setBusy(on){ ['generateBtn','saveBtn','importYupooBtn'].forEach(id=>$(id).disabled=on); if(!on) updateSaveButton(); }
-    window.removeFile=removeFile; window.toggleSel=toggleSel;
+    async function deleteSavedMedia(index){
+      const item=state.media[index];
+      if(!item?.key){ setStatus('Saved image was not found.','bad'); return; }
+      if(!confirm(`Delete ${item.key.split('/').pop()} from the saved library?`)) return;
+      setBusy(true); setStatus('Deleting saved image from R2...');
+      try{
+        const r=await fetch(apiUrl('/api/media?key='+encodeURIComponent(item.key)),{method:'DELETE',headers:auth()});
+        const d=await r.json().catch(()=>({ok:false,error:'Delete failed.'}));
+        if(!r.ok || !d.ok) throw new Error(d.error||'Delete failed');
+        setStatus('Deleted saved image from the media library.','ok');
+        toast('Saved image deleted');
+        await loadMedia({quiet:true});
+      }catch(e){ setStatus(friendlyFetchError(e),'bad'); }
+      finally{ setBusy(false); }
+    }
+    function setBusy(on){ state.busy=on; updateActionButtons(); $('importYupooBtn').disabled=on; }
+    window.removeFile=removeFile; window.toggleSel=toggleSel; window.toggleQueue=toggleQueue; window.setQueueSelection=setQueueSelection; window.deleteGenerated=deleteGenerated; window.regenerateGenerated=regenerateGenerated; window.deleteSavedMedia=deleteSavedMedia;
     init();
   </script>
 </body>
