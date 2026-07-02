@@ -9,6 +9,18 @@ binding = "XCLUSIVELINE_MEDIA"
 bucket_name = "xclusiveline-media"
 preview_bucket_name = "xclusiveline-media-preview"
 
+[[queues.producers]]
+binding = "XCLUSIVELINE_STUDIO_QUEUE"
+queue = "xclusiveline-photo-studio-jobs"
+
+[[queues.consumers]]
+queue = "xclusiveline-photo-studio-jobs"
+max_batch_size = 1
+max_batch_timeout = 1
+max_retries = 1
+max_concurrency = 1
+retry_delay = 30
+
 [vars]
 XCLUSIVELINE_OPENAI_IMAGE_MODEL = "gpt-image-2"
 XCLUSIVELINE_IMAGE_SIZE = "1200x1600"

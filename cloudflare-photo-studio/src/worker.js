@@ -11,6 +11,7 @@ const JSON_TYPE = "application/json; charset=utf-8";
 const PNG_TYPE = "image/png";
 const JPEG_TYPE = "image/jpeg";
 const WEBP_TYPE = "image/webp";
+const JOB_STALE_AFTER_MS = 2 * 60 * 1000;
 
 export default {
   async fetch(request, env, ctx) {
@@ -74,7 +75,7 @@ export default {
 
       if (pathname === "/api/jobs" && request.method === "GET") {
         await requireAdmin(request, env);
-        return await getBackgroundJobs(request, env);
+        return await getBackgroundJobs(request, env, ctx);
       }
 
       if (pathname === "/api/jobs/resume" && request.method === "POST") {
@@ -109,6 +110,15 @@ export default {
       return json({ ok: false, error: "Not found" }, request, env, 404);
     } catch (error) {
       return json({ ok: false, error: error.message || "Request failed" }, request, env, error.status || 500);
+    }
+  },
+
+  async queue(batch, env) {
+    for (const message of batch.messages || []) {
+      await processBackgroundJobMessage(env, message.body);
+      if (typeof message.ack === "function") {
+        message.ack();
+      }
     }
   },
 };
@@ -373,11 +383,12 @@ async function createBackgroundJob(request, env, ctx) {
   };
 
   await writeJob(env, job);
-  ctx.waitUntil(processBackgroundJob(env, jobId));
-  return json({ ok: true, job: publicJob(job) }, request, env, 202);
+  const enqueueResult = await enqueueBackgroundJob(env, job, ctx);
+  const queuedJob = await readJob(env, jobId);
+  return json({ ok: true, job: publicJob(queuedJob || job), queue: enqueueResult }, request, env, 202);
 }
 
-async function getBackgroundJobs(request, env) {
+async function getBackgroundJobs(request, env, ctx) {
   if (!env.XCLUSIVELINE_MEDIA) {
     throw statusError("XCLUSIVELINE_MEDIA R2 binding is not configured.", 500);
   }
@@ -385,8 +396,11 @@ async function getBackgroundJobs(request, env) {
   const url = new URL(request.url);
   const id = url.searchParams.get("id");
   if (id) {
-    const job = await readJob(env, id);
+    let job = await readJob(env, id);
     if (!job) throw statusError("Background job was not found.", 404);
+    if (isStaleJob(job)) {
+      job = await resumeJobInPlace(env, job, ctx, "stale-read-recovery");
+    }
     return json({ ok: true, job: publicJob(job) }, request, env);
   }
 
@@ -416,97 +430,197 @@ async function resumeBackgroundJob(request, env, ctx) {
   const body = await request.json().catch(() => ({}));
   const id = body.id || new URL(request.url).searchParams.get("id");
   if (!id) throw statusError("Missing background job id.", 400);
-  const job = await readJob(env, id);
+  let job = await readJob(env, id);
   if (!job) throw statusError("Background job was not found.", 404);
   if (["complete", "partial", "failed"].includes(job.status)) {
     return json({ ok: true, job: publicJob(job), alreadyFinished: true }, request, env);
   }
-  ctx.waitUntil(processBackgroundJob(env, id));
-  return json({ ok: true, job: publicJob({ ...job, status: "queued" }) }, request, env, 202);
+  job = await resumeJobInPlace(env, job, ctx, "manual-resume");
+  return json({ ok: true, job: publicJob(job) }, request, env, 202);
+}
+
+async function enqueueBackgroundJob(env, job, ctx, reason = "created") {
+  const pending = (job.items || [])
+    .map((item, index) => ({ item, index }))
+    .filter(({ item }) => item && item.status === "queued");
+
+  if (!pending.length) {
+    await finalizeJobProgress(env, job);
+    return { method: "none", count: 0 };
+  }
+
+  job.status = job.startedAt ? "running" : "queued";
+  job.finishedAt = null;
+  job.queue = {
+    method: env.XCLUSIVELINE_STUDIO_QUEUE ? "queue" : "waitUntil",
+    reason,
+    count: pending.length,
+    enqueuedAt: new Date().toISOString(),
+  };
+  await writeJob(env, job);
+
+  if (env.XCLUSIVELINE_STUDIO_QUEUE && typeof env.XCLUSIVELINE_STUDIO_QUEUE.sendBatch === "function") {
+    const messages = pending.map(({ item, index }) => ({
+      body: {
+        type: "xclusiveline-photo-studio-item",
+        jobId: job.id,
+        itemId: item.id,
+        index,
+      },
+    }));
+
+    for (let index = 0; index < messages.length; index += 100) {
+      await env.XCLUSIVELINE_STUDIO_QUEUE.sendBatch(messages.slice(index, index + 100));
+    }
+
+    return { method: "queue", count: messages.length };
+  }
+
+  if (ctx) {
+    ctx.waitUntil(processBackgroundJob(env, job.id));
+    return { method: "waitUntil", count: pending.length };
+  }
+
+  throw statusError("Background queue binding is not configured.", 500);
+}
+
+async function resumeJobInPlace(env, job, ctx, reason) {
+  for (const item of job.items || []) {
+    if (item.status === "running") {
+      item.status = "queued";
+      item.error = null;
+      item.resumedAt = new Date().toISOString();
+    }
+  }
+
+  job.completed = (job.items || []).filter((entry) => entry.status === "complete").length;
+  job.failed = (job.items || []).filter((entry) => entry.status === "failed").length;
+  job.status = job.completed + job.failed >= (job.total || 0) ? job.status : "queued";
+  job.finishedAt = null;
+  await writeJob(env, job);
+  await enqueueBackgroundJob(env, job, ctx, reason);
+  return (await readJob(env, job.id)) || job;
+}
+
+function isStaleJob(job) {
+  if (!job || ["complete", "partial", "failed"].includes(job.status)) return false;
+  if (job.queue?.method === "queue") return false;
+  const updatedAt = Date.parse(job.updatedAt || job.startedAt || job.createdAt || "");
+  if (!Number.isFinite(updatedAt)) return false;
+  const incomplete = (job.completed || 0) + (job.failed || 0) < (job.total || job.items?.length || 0);
+  return incomplete && Date.now() - updatedAt > JOB_STALE_AFTER_MS;
 }
 
 async function processBackgroundJob(env, jobId) {
   let job = await readJob(env, jobId);
   if (!job || ["complete", "partial", "failed"].includes(job.status)) return;
 
-  job.status = "running";
-  job.startedAt = job.startedAt || new Date().toISOString();
-  job.updatedAt = new Date().toISOString();
-  await writeJob(env, job);
-
   for (let index = 0; index < job.items.length; index += 1) {
     job = await readJob(env, jobId);
     if (!job) return;
     const item = job.items[index];
     if (!item || item.status === "complete") continue;
+    await processBackgroundJobItem(env, jobId, item.id, index);
+  }
+}
 
-    item.status = "running";
-    item.startedAt = new Date().toISOString();
-    item.error = null;
-    job.status = "running";
-    job.updatedAt = new Date().toISOString();
-    await writeJob(env, job);
+async function processBackgroundJobMessage(env, rawBody) {
+  const body = normalizeQueueMessageBody(rawBody);
+  if (!body?.jobId) return;
+  await processBackgroundJobItem(env, body.jobId, body.itemId, Number(body.index));
+}
 
-    try {
-      let productFile = item.remote ? await fetchRemoteProductFile(item.remote) : await fileFromR2(env, item.sourceKey, item.originalName);
-      productFile = normalizeImageFileForOpenAi(productFile, `Product ${index + 1}`);
-      const backgroundFile = await backgroundFileForJob(env, job);
-      const generated = await generateFlatlayComposite({
-        env,
-        productFile,
-        backgroundFile,
-        generationMode: job.mode,
-      });
-      const id = crypto.randomUUID();
-      const filename = outputFilename(productFile.name || item.originalName, id, generated.contentType);
-      const bytes = base64ToUint8Array(generated.b64);
-      const key = `${jobPrefix(env, jobId)}outputs/${String(index + 1).padStart(2, "0")}-${id}-${filename}`;
-      await env.XCLUSIVELINE_MEDIA.put(key, bytes, {
-        httpMetadata: {
-          contentType: generated.contentType,
-          cacheControl: "private, max-age=604800",
-        },
-        customMetadata: {
-          brand: BRAND.name,
-          source: item.originalName || "",
-          createdBy: "xclusiveline-photo-studio-job",
-        },
-      });
+function normalizeQueueMessageBody(value) {
+  if (typeof value !== "string") return value || {};
+  try {
+    return JSON.parse(value);
+  } catch {
+    return {};
+  }
+}
 
-      item.status = "complete";
-      item.finishedAt = new Date().toISOString();
-      item.result = {
-        id,
-        key,
-        filename,
-        originalName: item.originalName || productFile.name || `product-${index + 1}`,
-        contentType: generated.contentType,
-        size: bytes.byteLength,
-        rawUrl: `/api/media/raw?key=${encodeURIComponent(key)}`,
-        mode: generated.mode,
-        prompt: generated.prompt,
-        imageSize: generated.imageSize,
-        saved: false,
-      };
-    } catch (error) {
-      item.status = "failed";
-      item.finishedAt = new Date().toISOString();
-      item.error = error.message || "Generation failed.";
-    }
+async function processBackgroundJobItem(env, jobId, itemId, fallbackIndex = 0) {
+  let job = await readJob(env, jobId);
+  if (!job || ["complete", "partial", "failed"].includes(job.status)) return;
 
-    job.completed = job.items.filter((entry) => entry.status === "complete").length;
-    job.failed = job.items.filter((entry) => entry.status === "failed").length;
-    job.updatedAt = new Date().toISOString();
-    await writeJob(env, job);
+  const indexById = (job.items || []).findIndex((entry) => entry.id === itemId);
+  const index = indexById >= 0 ? indexById : fallbackIndex;
+  const item = job.items?.[index];
+  if (!item || item.status === "complete" || item.status === "failed") {
+    await finalizeJobProgress(env, job);
+    return;
   }
 
-  job = await readJob(env, jobId);
-  if (!job) return;
+  item.status = "running";
+  item.startedAt = item.startedAt || new Date().toISOString();
+  item.lastAttemptAt = new Date().toISOString();
+  item.error = null;
+  job.status = "running";
+  job.startedAt = job.startedAt || new Date().toISOString();
+  job.finishedAt = null;
+  await writeJob(env, job);
+
+  try {
+    let productFile = item.remote ? await fetchRemoteProductFile(item.remote) : await fileFromR2(env, item.sourceKey, item.originalName);
+    productFile = normalizeImageFileForOpenAi(productFile, `Product ${index + 1}`);
+    const backgroundFile = await backgroundFileForJob(env, job);
+    const generated = await generateFlatlayComposite({
+      env,
+      productFile,
+      backgroundFile,
+      generationMode: job.mode,
+    });
+    const id = crypto.randomUUID();
+    const filename = outputFilename(productFile.name || item.originalName, id, generated.contentType);
+    const bytes = base64ToUint8Array(generated.b64);
+    const key = `${jobPrefix(env, jobId)}outputs/${String(index + 1).padStart(2, "0")}-${id}-${filename}`;
+    await env.XCLUSIVELINE_MEDIA.put(key, bytes, {
+      httpMetadata: {
+        contentType: generated.contentType,
+        cacheControl: "private, max-age=604800",
+      },
+      customMetadata: {
+        brand: BRAND.name,
+        source: item.originalName || "",
+        createdBy: "xclusiveline-photo-studio-job",
+      },
+    });
+
+    item.status = "complete";
+    item.finishedAt = new Date().toISOString();
+    item.result = {
+      id,
+      key,
+      filename,
+      originalName: item.originalName || productFile.name || `product-${index + 1}`,
+      contentType: generated.contentType,
+      size: bytes.byteLength,
+      rawUrl: `/api/media/raw?key=${encodeURIComponent(key)}`,
+      mode: generated.mode,
+      prompt: generated.prompt,
+      imageSize: generated.imageSize,
+      saved: false,
+    };
+  } catch (error) {
+    item.status = "failed";
+    item.finishedAt = new Date().toISOString();
+    item.error = error.message || "Generation failed.";
+  }
+
+  await finalizeJobProgress(env, job);
+}
+
+async function finalizeJobProgress(env, job) {
   job.completed = job.items.filter((entry) => entry.status === "complete").length;
   job.failed = job.items.filter((entry) => entry.status === "failed").length;
-  job.status = job.completed === job.total ? "complete" : job.completed > 0 ? "partial" : "failed";
-  job.finishedAt = new Date().toISOString();
-  job.updatedAt = job.finishedAt;
+  const total = job.total || job.items.length || 0;
+  if (job.completed + job.failed >= total) {
+    job.status = job.completed === total ? "complete" : job.completed > 0 ? "partial" : "failed";
+    job.finishedAt = new Date().toISOString();
+  } else {
+    job.status = "running";
+    job.finishedAt = null;
+  }
   await writeJob(env, job);
 }
 
