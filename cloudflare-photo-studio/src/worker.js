@@ -874,8 +874,8 @@ function outputSizeForModel(env, model) {
 }
 
 function outputQualityForEnv(env) {
-  const quality = String(env.XCLUSIVELINE_IMAGE_QUALITY || env.OPENAI_IMAGE_QUALITY || "medium").toLowerCase();
-  return ["low", "medium", "high", "auto"].includes(quality) ? quality : "medium";
+  const quality = String(env.XCLUSIVELINE_IMAGE_QUALITY || env.OPENAI_IMAGE_QUALITY || "high").toLowerCase();
+  return ["low", "medium", "high", "auto"].includes(quality) ? quality : "high";
 }
 
 function outputFormatForEnv(env) {
@@ -884,8 +884,8 @@ function outputFormatForEnv(env) {
 }
 
 function outputCompressionForEnv(env) {
-  const value = Number(env.XCLUSIVELINE_OUTPUT_COMPRESSION || env.OPENAI_OUTPUT_COMPRESSION || 88);
-  if (!Number.isFinite(value)) return 88;
+  const value = Number(env.XCLUSIVELINE_OUTPUT_COMPRESSION || env.OPENAI_OUTPUT_COMPRESSION || 95);
+  if (!Number.isFinite(value)) return 95;
   return Math.max(0, Math.min(100, Math.round(value)));
 }
 
