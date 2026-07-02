@@ -503,7 +503,9 @@ function buildFlatlayPrompt(productName) {
     "Preserve the supplied XCLUSIVELINE background's yellow fabric texture and existing black lettering. Do not invent, duplicate, extend, or add any extra XCLUSIVELINE text, bottom text, watermarks, labels, props, hands, hangers, floor, or wall.",
     "Only add subtle realism where the product touches the background: a soft natural contact shadow, tiny fabric compression, and very slight local creases under or immediately around the product.",
     "Shadows must be soft and believable, not dramatic, floating, glossy, harsh, or unrealistic.",
-    "Keep realistic scale and perspective. Center the product like a clean online store flat-lay; the product may naturally cover parts of the background lettering.",
+    "Keep realistic scale and perspective. Size the product proportionally to the background like a real overhead camera photo, not an oversized cutout.",
+    "Leave believable yellow fabric visible around the product on all sides. For most clothing, the product should usually fill about 55-75% of the canvas width or height; shoes, watches, and small accessories should appear smaller. Do not make the product touch the frame edges or dominate the entire background unless the original item is naturally very large.",
+    "Center the product like a clean online store flat-lay; the product may naturally cover parts of the background lettering.",
     "If anything is uncertain, prioritize preserving the uploaded product and supplied background over making new details.",
   ].join("\n");
 }
