@@ -216,20 +216,19 @@ async function generatePreviews(request, env) {
     submittedBackground && typeof submittedBackground === "object" && submittedBackground.size > 0
       ? submittedBackground
       : await loadDefaultBackgroundFile(request, env);
-  validateImageFile(backgroundFile, "XCLUSIVELINE background");
+  const normalizedBackgroundFile = normalizeImageFileForOpenAi(backgroundFile, "XCLUSIVELINE background");
 
   const results = [];
   const errors = [];
 
   for (let index = 0; index < productFiles.length; index += 1) {
-    const productFile = productFiles[index];
+    let productFile = productFiles[index];
     try {
-      validateImageFile(productFile, `Product ${index + 1}`);
-
+      productFile = normalizeImageFileForOpenAi(productFile, `Product ${index + 1}`);
       const generated = await generateFlatlayComposite({
         env,
         productFile,
-        backgroundFile,
+        backgroundFile: normalizedBackgroundFile,
       });
 
       const id = crypto.randomUUID();
@@ -724,7 +723,7 @@ function isYupooPhotoHost(hostname) {
 
 function isLikelyImageUrl(url) {
   const path = String(url.pathname || "").toLowerCase();
-  return /\.(?:jpe?g|png|webp|gif|avif)$/.test(path) || /\/(?:big|small)\.jpe?g$/.test(path);
+  return /\.(?:jpe?g|png|webp)$/.test(path) || /\/(?:big|small)\.jpe?g$/.test(path);
 }
 
 function isLikelyYupooProductImageUrl(url) {
@@ -792,7 +791,13 @@ async function fetchYupooImage(imageUrl, referer) {
 
 function normalizeImageContentType(value) {
   const type = String(value || "").split(";")[0].trim().toLowerCase();
+  if (type === "image/jpg" || type === "image/pjpeg") return "image/jpeg";
   return type.startsWith("image/") ? type : "";
+}
+
+function openAiImageContentType(value) {
+  const type = normalizeImageContentType(value);
+  return ["image/jpeg", "image/png", "image/webp"].includes(type) ? type : "";
 }
 
 function contentTypeFromImageUrl(value) {
@@ -887,14 +892,31 @@ function validateImageFile(file, label) {
     throw statusError(`${label} is missing.`, 400);
   }
 
-  if (!String(file.type || "").startsWith("image/")) {
-    throw statusError(`${label} must be an image file.`, 400);
+  const contentType = openAiImageContentType(file.type || "");
+  if (!contentType) {
+    throw statusError(`${label} must be a JPEG, PNG, or WebP image file.`, 400);
   }
 
   const maxMb = 20;
   if (file.size > maxMb * 1024 * 1024) {
     throw statusError(`${label} is larger than ${maxMb}MB.`, 400);
   }
+
+  return contentType;
+}
+
+function normalizeImageFileForOpenAi(file, label) {
+  const contentType = validateImageFile(file, label);
+  if (file.type === contentType) return file;
+
+  const filename = file.name || `${safeFilename(label)}.${extensionForContentType(contentType)}`;
+  if (typeof File === "function") {
+    return new File([file], filename, { type: contentType });
+  }
+
+  const blob = new Blob([file], { type: contentType });
+  blob.name = filename;
+  return blob;
 }
 
 function json(data, request, env, status = 200) {
