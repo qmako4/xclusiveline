@@ -277,6 +277,9 @@
       }
     }
     function apiUrl(path){ const base=normalizeApiBase($('apiBase').value || state.apiBase, true); $('apiBase').value=base; return base + path; }
+    function yupooPreviewUrl(image){
+      return apiUrl('/api/yupoo-preview?url='+encodeURIComponent(image.url)+'&pageUrl='+encodeURIComponent(image.pageUrl || image.url));
+    }
     function currentToken(){
       const t=$('adminToken').value.trim()||state.token||localStorage.getItem('xl-studio-token')||'';
       if(t){
@@ -329,7 +332,7 @@
           type:image.contentType || 'image/jpeg',
           size:0
         });
-        state.previews.push(image.previewUrl || image.url);
+        state.previews.push(yupooPreviewUrl(image));
       });
       renderQueue();
       return incoming.length;

@@ -51,6 +51,10 @@ export default {
         return await importYupooImages(request, env);
       }
 
+      if (pathname === "/api/yupoo-preview" && request.method === "GET") {
+        return await getYupooPreview(request, env);
+      }
+
       if (pathname === "/api/generate" && request.method === "POST") {
         await requireAdmin(request, env);
         return await generatePreviews(request, env);
@@ -147,6 +151,44 @@ async function importYupooImages(request, env) {
     request,
     env,
   );
+}
+
+async function getYupooPreview(request, env) {
+  const requestUrl = new URL(request.url);
+  const imageUrl = parseYupooImageUrl(requestUrl.searchParams.get("url"));
+  const referer = yupooReferer(requestUrl.searchParams.get("pageUrl"), imageUrl);
+  const response = await fetch(imageUrl.toString(), {
+    headers: {
+      accept: "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+      referer,
+      "user-agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36",
+    },
+  });
+
+  if (!response.ok) {
+    throw statusError(`Yupoo preview could not be loaded (${response.status}).`, 502);
+  }
+
+  const fallbackType = contentTypeFromImageUrl(imageUrl.toString()) || "image/jpeg";
+  const contentType = normalizeImageContentType(response.headers.get("content-type")) || fallbackType;
+  if (!contentType.startsWith("image/")) {
+    throw statusError("Yupoo returned a non-image preview response.", 502);
+  }
+
+  const buffer = await response.arrayBuffer();
+  const maxMb = 20;
+  if (buffer.byteLength > maxMb * 1024 * 1024) {
+    throw statusError("Yupoo preview image is larger than 20MB.", 400);
+  }
+
+  return new Response(buffer, {
+    headers: {
+      "content-type": contentType,
+      "cache-control": "public, max-age=3600",
+      ...corsHeaders(request, env),
+    },
+  });
 }
 
 async function generatePreviews(request, env) {
@@ -478,6 +520,19 @@ function parseYupooImageUrl(value) {
   url.protocol = "https:";
   url.hash = "";
   return url;
+}
+
+function yupooReferer(value, imageUrl) {
+  try {
+    const url = new URL(String(value || ""), `${imageUrl.origin}/`);
+    if (["http:", "https:"].includes(url.protocol) && isYupooHost(url.hostname)) {
+      url.protocol = "https:";
+      return url.toString();
+    }
+  } catch {
+    // Fall back to the image origin when the source page is absent or malformed.
+  }
+  return `${imageUrl.origin}/`;
 }
 
 async function fetchRemoteProductFile(item) {
