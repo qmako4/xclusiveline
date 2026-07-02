@@ -94,7 +94,7 @@ async function importYupooImages(request, env) {
   const visitedPages = new Set();
   let pagesScanned = 0;
 
-  if (isLikelyImageUrl(sourceUrl)) {
+  if (isLikelyYupooProductImageUrl(sourceUrl)) {
     candidates.push({ url: sourceUrl.toString(), pageUrl: sourceUrl.toString(), score: 120, order: 0 });
   } else {
     const firstHtml = await fetchYupooHtml(sourceUrl);
@@ -513,8 +513,8 @@ function parseYupooImageUrl(value) {
     throw statusError("Remote product image URL was invalid.", 400);
   }
 
-  if (!["http:", "https:"].includes(url.protocol) || !isYupooHost(url.hostname) || !isLikelyImageUrl(url)) {
-    throw statusError("Remote product image URL must be a Yupoo image.", 400);
+  if (!["http:", "https:"].includes(url.protocol) || !isLikelyYupooProductImageUrl(url)) {
+    throw statusError("Remote product image URL must be a Yupoo product photo.", 400);
   }
 
   url.protocol = "https:";
@@ -691,7 +691,7 @@ function normalizeYupooImageUrl(value, pageUrl) {
     return null;
   }
 
-  if (!isYupooHost(url.hostname) || !isLikelyImageUrl(url)) return null;
+  if (!isLikelyYupooProductImageUrl(url)) return null;
   url.protocol = "https:";
   url.hash = "";
   return url.toString();
@@ -718,14 +718,30 @@ function isYupooHost(hostname) {
   return host === "yupoo.com" || host.endsWith(".yupoo.com");
 }
 
+function isYupooPhotoHost(hostname) {
+  return String(hostname || "").toLowerCase() === "photo.yupoo.com";
+}
+
 function isLikelyImageUrl(url) {
   const path = String(url.pathname || "").toLowerCase();
   return /\.(?:jpe?g|png|webp|gif|avif)$/.test(path) || /\/(?:big|small)\.jpe?g$/.test(path);
 }
 
+function isLikelyYupooProductImageUrl(url) {
+  if (!isYupooPhotoHost(url.hostname) || !isLikelyImageUrl(url)) return false;
+  const path = String(url.pathname || "").toLowerCase();
+  const parts = path.split("/").filter(Boolean);
+  if (parts.length < 2) return false;
+  if (/(?:^|[-_/])(avatar|banner|brand|button|captcha|cart|close|empty|flag|icon|logo|qrcode|qr|search|sprite|wechat|weixin)(?:[-_.\/]|$)/i.test(path)) {
+    return false;
+  }
+  return true;
+}
+
 function yupooImageScore(url, source) {
   const path = new URL(url).pathname.toLowerCase();
   let score = source === "data-origin-src" ? 100 : source === "data-src" ? 80 : source === "src" ? 50 : 35;
+  if (!isLikelyYupooProductImageUrl(new URL(url))) score -= 1000;
   if (/\/(?:big)\.jpe?g$/.test(path)) score += 12;
   if (/\/(?:small)\.jpe?g$/.test(path)) score -= 18;
   if (/\/[a-f0-9]{6,}\.(?:jpe?g|png|webp|gif|avif)$/i.test(path)) score += 20;
