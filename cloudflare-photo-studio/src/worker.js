@@ -9,6 +9,8 @@ const BRAND = {
 
 const JSON_TYPE = "application/json; charset=utf-8";
 const PNG_TYPE = "image/png";
+const JPEG_TYPE = "image/jpeg";
+const WEBP_TYPE = "image/webp";
 
 export default {
   async fetch(request, env, ctx) {
@@ -32,6 +34,9 @@ export default {
             brand: BRAND,
             imageModel,
             imageSize: outputSizeForModel(env, imageModel),
+            imageQuality: outputQualityForEnv(env),
+            outputFormat: outputFormatForEnv(env),
+            outputCompression: outputCompressionForEnv(env),
             maxBulkImages: maxBulkImages(env),
             yupooImportLimit: yupooImportLimit(env),
             saveEnabled: Boolean(env.XCLUSIVELINE_MEDIA),
@@ -232,7 +237,7 @@ async function generatePreviews(request, env) {
       });
 
       const id = crypto.randomUUID();
-      const filename = outputFilename(productFile.name, id);
+      const filename = outputFilename(productFile.name, id, generated.contentType);
       results.push({
         id,
         sourceIndex: index,
@@ -367,10 +372,18 @@ async function generateFlatlayComposite({ env, productFile, backgroundFile }) {
   const prompt = buildFlatlayPrompt(productFile.name);
   const model = env.XCLUSIVELINE_OPENAI_IMAGE_MODEL || env.OPENAI_IMAGE_MODEL || "gpt-image-2";
   const size = outputSizeForModel(env, model);
+  const quality = outputQualityForEnv(env);
+  const outputFormat = outputFormatForEnv(env);
+  const outputContentType = contentTypeForOutputFormat(outputFormat);
+  const outputCompression = outputCompressionForEnv(env);
   const firstAttempt = await callOpenAiImagesEdit({
     apiKey,
     model,
     size,
+    quality,
+    outputFormat,
+    outputContentType,
+    outputCompression,
     prompt,
     productFile,
     backgroundFile,
@@ -383,6 +396,10 @@ async function generateFlatlayComposite({ env, productFile, backgroundFile }) {
       apiKey,
       model,
       size,
+      quality,
+      outputFormat,
+      outputContentType,
+      outputCompression,
       prompt,
       productFile,
       backgroundFile,
@@ -397,14 +414,29 @@ async function generateFlatlayComposite({ env, productFile, backgroundFile }) {
   return { ...finalAttempt.image, prompt, imageSize: size };
 }
 
-async function callOpenAiImagesEdit({ apiKey, model, size, prompt, productFile, backgroundFile, imageField }) {
+async function callOpenAiImagesEdit({
+  apiKey,
+  model,
+  size,
+  quality,
+  outputFormat,
+  outputContentType,
+  outputCompression,
+  prompt,
+  productFile,
+  backgroundFile,
+  imageField,
+}) {
   const form = new FormData();
   form.append("model", model);
   form.append("prompt", prompt);
   form.append("size", size);
   form.append("background", "opaque");
-  form.append("output_format", "png");
-  form.append("quality", "high");
+  form.append("output_format", outputFormat);
+  form.append("quality", quality);
+  if (outputFormat !== "png") {
+    form.append("output_compression", String(outputCompression));
+  }
   form.append(imageField, productFile, productFile.name || "product.png");
   form.append(imageField, backgroundFile, backgroundFile.name || "xclusiveline-background.png");
 
@@ -437,7 +469,7 @@ async function callOpenAiImagesEdit({ apiKey, model, size, prompt, productFile, 
       ok: true,
       image: {
         b64: first.b64_json,
-        contentType: PNG_TYPE,
+        contentType: outputContentType,
       },
     };
   }
@@ -841,6 +873,32 @@ function outputSizeForModel(env, model) {
   return String(model || "").startsWith("gpt-image-2") ? "1200x1600" : "auto";
 }
 
+function outputQualityForEnv(env) {
+  const quality = String(env.XCLUSIVELINE_IMAGE_QUALITY || env.OPENAI_IMAGE_QUALITY || "medium").toLowerCase();
+  return ["low", "medium", "high", "auto"].includes(quality) ? quality : "medium";
+}
+
+function outputFormatForEnv(env) {
+  const format = String(env.XCLUSIVELINE_OUTPUT_FORMAT || env.OPENAI_OUTPUT_FORMAT || "jpeg").toLowerCase();
+  return ["png", "jpeg", "webp"].includes(format) ? format : "jpeg";
+}
+
+function outputCompressionForEnv(env) {
+  const value = Number(env.XCLUSIVELINE_OUTPUT_COMPRESSION || env.OPENAI_OUTPUT_COMPRESSION || 88);
+  if (!Number.isFinite(value)) return 88;
+  return Math.max(0, Math.min(100, Math.round(value)));
+}
+
+function contentTypeForOutputFormat(format) {
+  return (
+    {
+      png: PNG_TYPE,
+      jpeg: JPEG_TYPE,
+      webp: WEBP_TYPE,
+    }[format] || JPEG_TYPE
+  );
+}
+
 async function getDefaultBackground(request, env) {
   const background = await loadDefaultBackgroundResponse(request, env);
   return new Response(background.body, {
@@ -960,9 +1018,9 @@ function yupooImportLimit(env, requested) {
   return Math.max(1, Math.min(Number(requested || env.XCLUSIVELINE_YUPOO_IMPORT_LIMIT || 24), 60));
 }
 
-function outputFilename(originalName, id) {
+function outputFilename(originalName, id, contentType) {
   const base = safeFilename(originalName || "product.png").replace(/\.[a-z0-9]+$/i, "");
-  return `${base}-xclusiveline-bg-${id.slice(0, 8)}.png`;
+  return `${base}-xclusiveline-bg-${id.slice(0, 8)}.${extensionForContentType(contentType)}`;
 }
 
 function safeFilename(value) {
