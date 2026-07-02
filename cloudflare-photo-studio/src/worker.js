@@ -40,6 +40,7 @@ export default {
             outputCompression: outputCompressionForEnv(env),
             maxBulkImages: maxBulkImages(env),
             yupooImportLimit: yupooImportLimit(env),
+            requiresAdminToken: studioRequiresAdminToken(env),
             saveEnabled: Boolean(env.XCLUSIVELINE_MEDIA),
             publicMediaBaseUrl: env.XCLUSIVELINE_R2_PUBLIC_URL || null,
           },
@@ -996,9 +997,13 @@ async function loadDefaultBackgroundResponse(request, env) {
 }
 
 async function requireAdmin(request, env) {
+  if (!studioRequiresAdminToken(env)) {
+    return true;
+  }
+
   const configuredToken = env.XCLUSIVELINE_STUDIO_ADMIN_TOKEN || env.ADMIN_TOKEN;
   if (!configuredToken) {
-    return true;
+    throw statusError("Studio admin token enforcement is enabled but no token is configured.", 500);
   }
 
   const url = new URL(request.url);
@@ -1011,6 +1016,11 @@ async function requireAdmin(request, env) {
   }
 
   return true;
+}
+
+function studioRequiresAdminToken(env) {
+  const value = env.XCLUSIVELINE_REQUIRE_ADMIN_TOKEN || env.REQUIRE_ADMIN_TOKEN || "";
+  return ["1", "true", "yes"].includes(String(value).trim().toLowerCase());
 }
 
 function validateImageFile(file, label) {

@@ -174,9 +174,6 @@
           <label class="small">Photo Studio Worker URL
             <input id="apiBase" type="text" placeholder="https://xclusiveline-photo-studio.your-name.workers.dev">
           </label>
-          <label class="small">Studio Admin Token
-            <input id="adminToken" type="password" placeholder="XCLUSIVELINE_STUDIO_ADMIN_TOKEN">
-          </label>
         </details>
         <div id="queue" class="queue"></div>
       </aside>
@@ -211,7 +208,6 @@
     const DEFAULT_BACKGROUND_SRC = '../../assets/xclusiveline-studio-background.png';
     const state = {
       apiBase: normalizeApiBase(localStorage.getItem('xl-studio-api')),
-      token: localStorage.getItem('xl-studio-token') || '',
       files: [],
       fileIds: [],
       previews: [],
@@ -230,9 +226,8 @@
     function init(){
       state.apiBase = normalizeApiBase(state.apiBase, true);
       $('apiBase').value = state.apiBase;
-      $('adminToken').value = state.token;
+      localStorage.removeItem('xl-studio-token');
       $('apiBase').addEventListener('change',()=>saveSettings());
-      $('adminToken').addEventListener('change',()=>saveSettings());
       $('productInput').onchange = e => addFiles(e.target.files);
       $('bgInput').onchange = e => setBg(e.target.files?.[0]);
       $('importYupooBtn').onclick = importYupoo;
@@ -260,7 +255,7 @@
       renderQueue();
       updateActionButtons();
       loadConfig();
-      if(state.token) loadMedia({quiet:true});
+      loadMedia({quiet:true});
     }
 
     function isLiveAdminPage(){
@@ -299,27 +294,14 @@
     function saveSettings(){
       state.apiBase = normalizeApiBase($('apiBase').value, true);
       $('apiBase').value = state.apiBase;
-      state.token = $('adminToken').value.trim() || state.token || localStorage.getItem('xl-studio-token') || '';
       localStorage.setItem('xl-studio-api', state.apiBase);
-      if(state.token){
-        localStorage.setItem('xl-studio-token', state.token);
-        $('adminToken').value = state.token;
-      }
+      localStorage.removeItem('xl-studio-token');
     }
     function apiUrl(path){ const base=normalizeApiBase($('apiBase').value || state.apiBase, true); $('apiBase').value=base; return base + path; }
     function yupooPreviewUrl(image){
       return apiUrl('/api/yupoo-preview?url='+encodeURIComponent(image.url)+'&pageUrl='+encodeURIComponent(image.pageUrl || image.url));
     }
-    function currentToken(){
-      const t=$('adminToken').value.trim()||state.token||localStorage.getItem('xl-studio-token')||'';
-      if(t){
-        state.token=t;
-        $('adminToken').value=t;
-        localStorage.setItem('xl-studio-token',t);
-      }
-      return t;
-    }
-    function auth(){ const t=currentToken(); return t ? {Authorization:'Bearer '+t,'x-admin-token':t} : {}; }
+    function auth(){ return {}; }
     function setStatus(msg, cls=''){ $('status').className='status '+cls; $('status').textContent=msg; }
     function toast(msg){ const el=document.createElement('div'); el.textContent=msg; $('toast').appendChild(el); setTimeout(()=>el.remove(),3600); }
     function esc(v){ return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c])); }
@@ -427,7 +409,7 @@
         setStatus(`${limitNote}${failNote} Press Generate Images when ready.`,'ok');
         toast(`Yupoo import added ${imported} image${imported===1?'':'s'}`);
       }catch(e){
-        if(/unauthorized|admin token|worker url/i.test(e.message||'')) $('setupDetails').open=true;
+        if(/worker url/i.test(e.message||'')) $('setupDetails').open=true;
         setStatus(friendlyFetchError(e),'bad');
       }
       finally{ setBusy(false); }
@@ -503,7 +485,7 @@
             setStatus(`Generated ${state.generated.length} of ${total}. Continuing with image ${Math.min(position+2,total)} of ${total}.`,'ok');
           }catch(error){
             const message=error.message || 'Generation failed.';
-            if(/unauthorized|admin token|worker url/i.test(message)) throw error;
+            if(/worker url/i.test(message)) throw error;
             allErrors.push({originalName:label,error:message});
             setStatus(`Image ${position+1} failed: ${message}`);
           }
@@ -516,7 +498,7 @@
         const errorNote=allErrors.length ? ` ${allErrors.length} image${allErrors.length===1?'':'s'} failed.` : '';
         setStatus(`Generated ${state.generated.length} realistic XCLUSIVELINE image${state.generated.length===1?'':'s'}.${errorNote}`,'ok');
       }catch(e){
-        if(/unauthorized|admin token|worker url/i.test(e.message||'')) $('setupDetails').open=true;
+        if(/worker url/i.test(e.message||'')) $('setupDetails').open=true;
         setStatus(friendlyFetchError(e),'bad');
       }
       finally{ setBusy(false); }
@@ -607,7 +589,7 @@
         renderResults();
         setStatus(`Regenerated ${replacements.length} image${replacements.length===1?'':'s'}.`,'ok');
       }catch(e){
-        if(/unauthorized|admin token|worker url/i.test(e.message||'')) $('setupDetails').open=true;
+        if(/worker url/i.test(e.message||'')) $('setupDetails').open=true;
         setStatus(friendlyFetchError(e),'bad');
       }finally{ setBusy(false); }
     }
@@ -641,9 +623,8 @@
         const d=await r.json();
         if(!r.ok || !d.ok) throw new Error(d.error||'Media load failed');
         state.media=d.objects||[];
-        const token=encodeURIComponent($('adminToken').value.trim()||state.token);
         $('media').innerHTML=state.media.length ? state.media.map((o,index)=>{
-          const src=o.publicUrl || (apiUrl(o.rawUrl)+'&token='+token);
+          const src=o.publicUrl || apiUrl(o.rawUrl);
           return `<article class="media-card"><a href="${src}" target="_blank" rel="noreferrer"><img src="${src}" alt=""><span>${esc(o.key.split('/').pop())}</span></a><div class="media-actions"><button class="mini-btn danger" onclick="deleteSavedMedia(${index})">Delete</button></div></article>`;
         }).join('') : '<div class="panel" style="padding:14px"><p class="muted">No saved studio images yet.</p></div>';
         if(!quiet) setStatus(`Loaded ${state.media.length} saved image${state.media.length===1?'':'s'}.`,'ok');
