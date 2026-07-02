@@ -34,6 +34,7 @@ export default {
             brand: BRAND,
             imageModel,
             imageSize: outputSizeForModel(env, imageModel),
+            keepCropImageSize: outputSizeForMode(env, imageModel, "keep-crop"),
             imageQuality: outputQualityForEnv(env),
             outputFormat: outputFormatForEnv(env),
             outputCompression: outputCompressionForEnv(env),
@@ -208,6 +209,7 @@ async function generatePreviews(request, env) {
     .filter((file) => file && typeof file === "object" && file.size > 0);
   const productUrlItems = parseProductUrlItems(form.get("productUrls"));
   const productFiles = [...uploadedFiles];
+  const generationMode = normalizeGenerationMode(form.get("mode"));
 
   if (!uploadedFiles.length && !productUrlItems.length) {
     throw statusError("Upload at least one product image.", 400);
@@ -239,6 +241,7 @@ async function generatePreviews(request, env) {
         env,
         productFile,
         backgroundFile: normalizedBackgroundFile,
+        generationMode,
       });
 
       const id = crypto.randomUUID();
@@ -251,7 +254,7 @@ async function generatePreviews(request, env) {
         contentType: generated.contentType,
         b64: generated.b64,
         dataUrl: `data:${generated.contentType};base64,${generated.b64}`,
-        mode: "realistic-xclusiveline-flatlay",
+        mode: generated.mode,
         prompt: generated.prompt,
         imageSize: generated.imageSize,
         saved: false,
@@ -393,15 +396,16 @@ async function deleteMediaObject(request, env) {
   return json({ ok: true, deleted: { key } }, request, env);
 }
 
-async function generateFlatlayComposite({ env, productFile, backgroundFile }) {
+async function generateFlatlayComposite({ env, productFile, backgroundFile, generationMode }) {
   const apiKey = env.OPENAI_API_KEY || env.XCLUSIVELINE_OPENAI_API_KEY;
   if (!apiKey) {
     throw statusError("Missing OPENAI_API_KEY or XCLUSIVELINE_OPENAI_API_KEY.", 500);
   }
 
-  const prompt = buildFlatlayPrompt(productFile.name);
+  const mode = normalizeGenerationMode(generationMode);
+  const prompt = buildGenerationPrompt(productFile.name, mode);
   const model = env.XCLUSIVELINE_OPENAI_IMAGE_MODEL || env.OPENAI_IMAGE_MODEL || "gpt-image-2";
-  const size = outputSizeForModel(env, model);
+  const size = outputSizeForMode(env, model, mode);
   const quality = outputQualityForEnv(env);
   const outputFormat = outputFormatForEnv(env);
   const outputContentType = contentTypeForOutputFormat(outputFormat);
@@ -441,7 +445,7 @@ async function generateFlatlayComposite({ env, productFile, backgroundFile }) {
     throw statusError(`OpenAI image edit failed: ${finalAttempt.errorText}`, 502);
   }
 
-  return { ...finalAttempt.image, prompt, imageSize: size };
+  return { ...finalAttempt.image, prompt, imageSize: size, mode };
 }
 
 async function callOpenAiImagesEdit({
@@ -520,6 +524,27 @@ async function callOpenAiImagesEdit({
   }
 
   return { ok: false, errorText: "OpenAI response did not include b64_json or url." };
+}
+
+function buildGenerationPrompt(productName, mode) {
+  return mode === "keep-crop" ? buildKeepCropPrompt(productName) : buildFlatlayPrompt(productName);
+}
+
+function buildKeepCropPrompt(productName) {
+  return [
+    "Use case: background-only replacement for a close-cropped XCLUSIVELINE product photo.",
+    `Input image 1 is the product photo${productName ? ` named ${productName}` : ""}. It may already be tightly cropped and the item may touch or leave the frame edges.`,
+    "Input image 2 is the original XCLUSIVELINE yellow fabric background. Use a clean yellow fabric area from it as the replacement surface.",
+    "Do not create a new full-product flat-lay. Do not zoom out. Do not move, shrink, enlarge, rotate, re-angle, re-crop, or reframe the product.",
+    "Preserve the exact uploaded camera crop and composition. Keep all visible product edges in the same positions and keep any naturally cut-off parts cut off.",
+    "Replace only the visible non-product background, such as grey, white, table, floor, or plain backdrop areas, with the yellow XCLUSIVELINE fabric texture.",
+    "Do not generate, complete, or invent missing parts of the product outside the original frame. Do not add extra canvas, props, hands, hangers, floor, wall, labels, watermarks, or extra XCLUSIVELINE text.",
+    "Preserve the product identity and details exactly: shape, colour, logos, printed text, texture, stitching, fabric grain, mesh holes, tags, defects, marks, shadows on the product, and edge detail.",
+    "Do not smooth, repaint, recolour, relight, retouch, redesign, or restyle the product. Avoid AI smoothing and keep fabric/product texture real.",
+    "Keep the existing product lighting and only add the minimum soft contact shadow needed where the product meets the new yellow background.",
+    "The output should look like the same original close-up photo with only the background changed to yellow fabric.",
+    "If anything is uncertain, preserve the uploaded product pixels and framing over making a more complete or cleaner product image.",
+  ].join("\n");
 }
 
 function buildFlatlayPrompt(productName) {
@@ -903,6 +928,17 @@ function outputSizeForModel(env, model) {
   const configured = env.XCLUSIVELINE_IMAGE_SIZE || env.OPENAI_IMAGE_SIZE;
   if (configured) return configured;
   return String(model || "").startsWith("gpt-image-2") ? "1200x1600" : "auto";
+}
+
+function outputSizeForMode(env, model, mode) {
+  if (mode === "keep-crop") {
+    return env.XCLUSIVELINE_KEEP_CROP_IMAGE_SIZE || env.OPENAI_KEEP_CROP_IMAGE_SIZE || "auto";
+  }
+  return outputSizeForModel(env, model);
+}
+
+function normalizeGenerationMode(value) {
+  return String(value || "").toLowerCase() === "keep-crop" ? "keep-crop" : "flatlay";
 }
 
 function outputQualityForEnv(env) {

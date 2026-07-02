@@ -51,6 +51,10 @@
     .import-block{margin-top:10px;border:1px solid var(--line);border-radius:12px;background:var(--b3);padding:12px}
     .link-row{display:grid;grid-template-columns:minmax(0,1fr) 92px;gap:8px;align-items:center}
     .link-row .btn{min-height:42px;padding:10px 12px}
+    .mode-block{margin-top:10px;border:1px solid var(--line);border-radius:12px;background:var(--b3);padding:12px}
+    .mode-control{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+    .mode-btn{min-height:38px;border-radius:9px;border:1px solid var(--line);background:rgba(250,250,250,.05);color:var(--w);font-family:var(--fd);font-weight:900;text-transform:uppercase}
+    .mode-btn.active{background:var(--y);border-color:var(--y);color:var(--b)}
     .drop,.paste-zone{border:2px dashed var(--line);border-radius:12px;background:var(--b3);display:grid;place-items:center;text-align:center;padding:20px;transition:.15s}
     .drop{min-height:180px}
     .paste-zone{min-height:94px;margin-top:10px;outline:0}
@@ -106,7 +110,7 @@
         <p class="muted">Upload product shots, generate finished images on command, then save only approved images to the XCLUSIVELINE media library.</p>
         <div style="margin-top:20px">
           <div class="rule"><span class="dot"></span><span>Product details stay unchanged.</span></div>
-          <div class="rule"><span class="dot"></span><span>Default output is 3:4.</span></div>
+          <div class="rule"><span class="dot"></span><span>Flat-lay output is 3:4.</span></div>
           <div class="rule"><span class="dot"></span><span>No generation happens until you press the button.</span></div>
         </div>
       </div>
@@ -152,6 +156,14 @@
             <button id="importYupooBtn" class="btn">Import</button>
           </div>
           <p class="tiny" style="margin-top:7px">Imports accessible Yupoo product photos into the queue.</p>
+        </div>
+        <div class="mode-block">
+          <span class="eyebrow">Generation mode</span>
+          <div class="mode-control" role="group" aria-label="Generation mode">
+            <button id="modeFlatlay" class="mode-btn" type="button" data-mode="flatlay">Flat-Lay</button>
+            <button id="modeKeepCrop" class="mode-btn" type="button" data-mode="keep-crop">Keep Crop</button>
+          </div>
+          <p id="modeHint" class="tiny" style="margin-top:7px"></p>
         </div>
         <div class="primary-actions">
           <button id="generateBtn" class="btn y">Generate Images</button>
@@ -209,6 +221,7 @@
       selected: new Set(),
       media: [],
       busy: false,
+      mode: localStorage.getItem('xl-studio-mode') || 'flatlay',
       maxBulkImages: 8,
       yupooImportLimit: 24
     };
@@ -225,6 +238,8 @@
       $('importYupooBtn').onclick = importYupoo;
       $('yupooUrl').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); importYupoo(); } });
       $('generateBtn').onclick = generate;
+      $('modeFlatlay').onclick = () => setMode('flatlay');
+      $('modeKeepCrop').onclick = () => setMode('keep-crop');
       $('regenerateBtn').onclick = regenerateSelected;
       $('removeGeneratedBtn').onclick = removeSelectedGenerated;
       $('saveBtn').onclick = saveSelected;
@@ -241,6 +256,7 @@
         if(target && target.closest && target.closest('input,textarea,[contenteditable="true"]')) return;
         handlePaste(e);
       });
+      setMode(state.mode, false);
       renderQueue();
       updateActionButtons();
       loadConfig();
@@ -307,6 +323,15 @@
     function setStatus(msg, cls=''){ $('status').className='status '+cls; $('status').textContent=msg; }
     function toast(msg){ const el=document.createElement('div'); el.textContent=msg; $('toast').appendChild(el); setTimeout(()=>el.remove(),3600); }
     function esc(v){ return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c])); }
+    function setMode(mode, persist=true){
+      state.mode = mode === 'keep-crop' ? 'keep-crop' : 'flatlay';
+      if(persist) localStorage.setItem('xl-studio-mode', state.mode);
+      $('modeFlatlay').classList.toggle('active',state.mode==='flatlay');
+      $('modeKeepCrop').classList.toggle('active',state.mode==='keep-crop');
+      $('modeHint').textContent = state.mode === 'keep-crop'
+        ? 'Only swaps the visible background and keeps the original crop.'
+        : 'Builds a finished 3:4 flat-lay image on the XCLUSIVELINE background.';
+    }
     function createId(prefix){ return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2,8)}`; }
     function bytes(n){ return n<1024?n+' B':n<1048576?(n/1024).toFixed(1)+' KB':(n/1048576).toFixed(1)+' MB'; }
     function imageExt(type){ return ({'image/jpeg':'jpg','image/png':'png','image/webp':'webp','image/gif':'gif','image/avif':'avif'}[type] || 'png'); }
@@ -507,6 +532,7 @@
         form.append('products',file,file.name||'product.png');
       }
       form.append('background',background,background.name||'xclusiveline-original-background.png');
+      form.append('mode',state.mode);
       const r=await fetch(apiUrl('/api/generate'),{method:'POST',headers:auth(),body:form});
       const d=await r.json().catch(()=>({ok:false,error:'Generation failed.'}));
       if(!r.ok || !d.ok) throw new Error(d.error||'Generation failed');
