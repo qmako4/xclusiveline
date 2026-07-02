@@ -66,9 +66,13 @@
     .icon-btn{width:32px;height:32px;border-radius:50%;background:rgba(250,250,250,.06);border:1px solid var(--line);color:var(--mut);font-size:16px;line-height:1}
     .actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
     .primary-actions{display:grid;grid-template-columns:1fr;gap:8px;margin-top:12px}
+    .secondary-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
     .hidden{display:none!important}
     .status{margin-top:12px;border:1px solid var(--line);border-radius:10px;background:var(--b3);padding:11px;color:var(--mut);font-size:13px}
     .status.ok{color:var(--green)}.status.bad{color:var(--red)}
+    .job-panel{margin-top:12px;border:1px solid var(--line);border-radius:12px;background:var(--b3);padding:12px}
+    .job-bar{height:8px;border-radius:999px;background:rgba(250,250,250,.12);overflow:hidden;margin:9px 0}.job-fill{height:100%;width:0;background:var(--y);transition:.2s}
+    .job-list{display:grid;gap:6px;margin-top:10px}.job-row{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;font-size:11px;color:var(--mut)}.job-row strong{color:var(--w);font-size:12px;word-break:break-word}.job-state{font-weight:900;text-transform:uppercase;color:var(--y)}
     .queue{display:grid;gap:8px;margin-top:12px}
     .queue-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:2px}
     .queue-tools{display:flex;gap:6px;align-items:center}
@@ -167,8 +171,13 @@
         </div>
         <div class="primary-actions">
           <button id="generateBtn" class="btn y">Generate Images</button>
+          <div class="secondary-actions">
+            <button id="backgroundJobBtn" class="btn">Run In Background</button>
+            <button id="refreshJobBtn" class="btn" disabled>Refresh Job</button>
+          </div>
         </div>
         <p id="status" class="status">Upload product images, then generate finished XCLUSIVELINE images.</p>
+        <div id="jobPanel" class="job-panel hidden"></div>
         <details id="setupDetails" class="advanced setup">
           <summary>Studio setup</summary>
           <label class="small">Photo Studio Worker URL
@@ -219,7 +228,11 @@
       busy: false,
       mode: localStorage.getItem('xl-studio-mode') || 'flatlay',
       maxBulkImages: 8,
-      yupooImportLimit: 24
+      yupooImportLimit: 24,
+      currentJobId: localStorage.getItem('xl-studio-job-id') || '',
+      job: null,
+      jobPoll: null,
+      knownJobResultIds: new Set()
     };
     const $ = id => document.getElementById(id);
 
@@ -233,6 +246,8 @@
       $('importYupooBtn').onclick = importYupoo;
       $('yupooUrl').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); importYupoo(); } });
       $('generateBtn').onclick = generate;
+      $('backgroundJobBtn').onclick = startBackgroundJob;
+      $('refreshJobBtn').onclick = () => loadJob({quiet:false});
       $('modeFlatlay').onclick = () => setMode('flatlay');
       $('modeKeepCrop').onclick = () => setMode('keep-crop');
       $('regenerateBtn').onclick = regenerateSelected;
@@ -256,6 +271,7 @@
       updateActionButtons();
       loadConfig();
       loadMedia({quiet:true});
+      if(state.currentJobId) loadJob({quiet:true});
     }
 
     function isLiveAdminPage(){
@@ -319,6 +335,7 @@
     function imageExt(type){ return ({'image/jpeg':'jpg','image/png':'png','image/webp':'webp','image/gif':'gif','image/avif':'avif'}[type] || 'png'); }
     function pastedName(type,index){ return `pasted-product-${Date.now()}-${index}.${imageExt(type)}`; }
     function chunkSize(){ return Math.max(1, Math.min(Number(state.maxBulkImages||8), 20)); }
+    function comparableName(value){ return String(value||'').toLowerCase().replace(/[^a-z0-9._-]+/g,'-').replace(/^-+|-+$/g,''); }
     async function defaultBackgroundFile(){
       const response=await fetch(DEFAULT_BACKGROUND_SRC,{cache:'reload'});
       if(!response.ok) throw new Error('Default XCLUSIVELINE background could not load.');
@@ -532,9 +549,144 @@
       }
       return newResults;
     }
+    function appendSelectedSourcesToForm(form, targets){
+      const remoteItems=[];
+      targets.forEach(source=>{
+        const file=source.file;
+        if(file.isRemote){
+          remoteItems.push({url:file.url,pageUrl:file.pageUrl,filename:file.name});
+        }else{
+          form.append('products',file,file.name||'product.png');
+        }
+      });
+      if(remoteItems.length) form.append('productUrls',JSON.stringify(remoteItems));
+    }
+    async function startBackgroundJob(){
+      saveSettings();
+      const targets=selectedQueueItems();
+      if(!state.files.length){ setStatus('Upload product images first.','bad'); return; }
+      if(!targets.length){ setStatus('Select at least one queued image to generate.','bad'); return; }
+      setBusy(true); setStatus(`Starting background job for ${targets.length} image${targets.length===1?'':'s'}...`);
+      try{
+        const form=new FormData();
+        appendSelectedSourcesToForm(form, targets);
+        if(state.bgFile) form.append('background',state.bgFile,state.bgFile.name||'xclusiveline-background.png');
+        form.append('mode',state.mode);
+        state.generated=[];
+        state.selected=new Set();
+        state.knownJobResultIds=new Set();
+        renderResults();
+        const r=await fetch(apiUrl('/api/jobs'),{method:'POST',headers:auth(),body:form});
+        const d=await r.json().catch(()=>({ok:false,error:'Background job failed to start.'}));
+        if(!r.ok || !d.ok) throw new Error(d.error||'Background job failed to start.');
+        state.currentJobId=d.job.id;
+        localStorage.setItem('xl-studio-job-id',state.currentJobId);
+        state.job=d.job;
+        renderJob(d.job);
+        applyJobResults(d.job);
+        startJobPolling();
+        setStatus('Background job started. Finished images will appear here one by one.','ok');
+        toast('Background job started');
+      }catch(e){
+        if(/worker url/i.test(e.message||'')) $('setupDetails').open=true;
+        setStatus(friendlyFetchError(e),'bad');
+      }finally{ setBusy(false); }
+    }
+    async function loadJob({quiet=false}={}){
+      if(!state.currentJobId) return;
+      if(!quiet) setStatus('Checking background job...');
+      try{
+        const r=await fetch(apiUrl('/api/jobs?id='+encodeURIComponent(state.currentJobId)),{headers:auth()});
+        const d=await r.json().catch(()=>({ok:false,error:'Background job could not be loaded.'}));
+        if(!r.ok || !d.ok) throw new Error(d.error||'Background job could not be loaded.');
+        state.job=d.job;
+        renderJob(d.job);
+        const added=applyJobResults(d.job);
+        if(jobIsDone(d.job)){
+          stopJobPolling();
+          const cls=d.job.status==='failed' ? 'bad' : 'ok';
+          if(!quiet || added) setStatus(`Background job ${d.job.status}. ${d.job.completed||0} of ${d.job.total||0} image${(d.job.total||0)===1?'':'s'} generated.`,cls);
+        }else{
+          startJobPolling();
+          if(!quiet || added) setStatus(`Background job running. ${d.job.completed||0} of ${d.job.total||0} image${(d.job.total||0)===1?'':'s'} finished.`,added?'ok':'');
+        }
+      }catch(e){
+        if(!quiet) setStatus(friendlyFetchError(e),'bad');
+      }finally{
+        updateActionButtons();
+      }
+    }
+    function startJobPolling(){
+      stopJobPolling();
+      state.jobPoll=setInterval(()=>loadJob({quiet:true}),5000);
+    }
+    function stopJobPolling(){
+      if(state.jobPoll){
+        clearInterval(state.jobPoll);
+        state.jobPoll=null;
+      }
+    }
+    function jobIsDone(job){
+      return ['complete','partial','failed'].includes(String(job?.status||''));
+    }
+    function statusLabel(value){
+      return String(value||'queued').replace(/-/g,' ');
+    }
+    function renderJob(job){
+      const panel=$('jobPanel');
+      if(!job){
+        panel.classList.add('hidden');
+        panel.innerHTML='';
+        return;
+      }
+      const total=Number(job.total||0);
+      const complete=Number(job.completed||0);
+      const failed=Number(job.failed||0);
+      const done=complete+failed;
+      const pct=total ? Math.round((done/total)*100) : 0;
+      const rows=(job.items||[]).map(item=>{
+        const stateText=item.result?.deleted ? 'removed' : item.error ? item.error : statusLabel(item.status);
+        return `<div class="job-row"><strong>${esc(item.originalName||'Product image')}</strong><span class="job-state">${esc(stateText)}</span></div>`;
+      }).join('');
+      panel.classList.remove('hidden');
+      panel.innerHTML=`<div class="job-row"><strong>Background job ${esc(job.id.slice(0,8))}</strong><span class="job-state">${esc(statusLabel(job.status))}</span></div><div class="job-bar" aria-label="Job progress"><div class="job-fill" style="width:${pct}%"></div></div><p class="tiny">${complete} complete, ${failed} failed, ${total} total</p>${rows?`<div class="job-list">${rows}</div>`:''}`;
+    }
+    function applyJobResults(job){
+      const previousIds=new Set(state.generated.map(x=>x.id));
+      const previousSelection=new Set(state.selected);
+      const results=[];
+      let added=0;
+      (job.items||[]).forEach(item=>{
+        const result=item.result;
+        if(item.status!=='complete' || !result?.id || !result.rawUrl || result.deleted) return;
+        if(!state.knownJobResultIds.has(result.id)){
+          state.knownJobResultIds.add(result.id);
+          added+=1;
+        }
+        results.push({
+          ...result,
+          dataUrl: apiUrl(result.rawUrl),
+          sourceJobId: job.id,
+          sourceJobItemId: item.id,
+          originalName: result.originalName || item.originalName || result.filename,
+          saved: result.saved || false
+        });
+      });
+      if(!results.length && !state.generated.length){
+        renderResults();
+        return 0;
+      }
+      state.generated=results;
+      state.selected=new Set(results.filter(x=>previousSelection.has(x.id) || !previousIds.has(x.id)).map(x=>x.id));
+      renderResults();
+      return added;
+    }
     function renderResults(){
       if(!state.generated.length){ $('results').innerHTML='<div class="panel" style="padding:18px"><h3>No images yet</h3><p class="muted">Upload products and press Generate Images.</p></div>'; updateActionButtons(); return; }
-      $('results').innerHTML=state.generated.map(x=>`<article class="card"><div class="shot"><img src="${x.dataUrl}" alt=""><label class="check"><input type="checkbox" ${state.selected.has(x.id)?'checked':''} onchange="toggleSel('${x.id}',this.checked)">Select</label></div><div class="body"><strong>${esc(x.originalName)}</strong><p class="tiny">Realistic flat-lay image</p><div class="card-actions"><a class="link-btn" download="${esc(x.filename)}" href="${x.dataUrl}">Download</a><button class="mini-btn" onclick="regenerateGenerated('${x.id}')">Regenerate</button><button class="mini-btn danger" onclick="deleteGenerated('${x.id}')">Remove</button></div></div></article>`).join('');
+      $('results').innerHTML=state.generated.map(x=>{
+        const label=x.mode==='keep-crop' ? 'Background-only image' : x.sourceJobId ? 'Background job image' : 'Realistic flat-lay image';
+        return `<article class="card"><div class="shot"><img src="${x.dataUrl}" alt=""><label class="check"><input type="checkbox" ${state.selected.has(x.id)?'checked':''} onchange="toggleSel('${x.id}',this.checked)">Select</label></div><div class="body"><strong>${esc(x.originalName)}</strong><p class="tiny">${label}</p><div class="card-actions"><a class="link-btn" download="${esc(x.filename)}" href="${x.dataUrl}">Download</a><button class="mini-btn" onclick="regenerateGenerated('${x.id}')">Regenerate</button><button class="mini-btn danger" onclick="deleteGenerated('${x.id}')">Remove</button></div></div></article>`;
+      }).join('');
       updateActionButtons();
     }
     function toggleSel(id,on){ on?state.selected.add(id):state.selected.delete(id); updateActionButtons(); }
@@ -543,30 +695,51 @@
       const hasSelectedGenerated=Boolean(state.selected.size);
       const hasSelectedQueue=Boolean(selectedQueueItems().length);
       $('generateBtn').disabled = state.busy || !hasSelectedQueue;
+      $('backgroundJobBtn').disabled = state.busy || !hasSelectedQueue;
+      $('refreshJobBtn').disabled = state.busy || !state.currentJobId;
       ['saveBtn','regenerateBtn','removeGeneratedBtn'].forEach(id=>$(id).classList.toggle('hidden',!hasGenerated));
       $('saveBtn').disabled = state.busy || !hasSelectedGenerated;
       $('regenerateBtn').disabled = state.busy || !hasSelectedGenerated;
       $('removeGeneratedBtn').disabled = state.busy || !hasSelectedGenerated;
     }
-    function deleteGenerated(id){
+    async function deleteGenerated(id){
       const removed=state.generated.find(x=>x.id===id);
       state.generated=state.generated.filter(x=>x.id!==id);
       state.selected.delete(id);
       renderResults();
-      if(removed) toast('Generated image removed');
+      if(!removed) return;
+      toast('Generated image removed');
+      if(removed.key) await deleteGeneratedRemote(removed);
     }
-    function removeSelectedGenerated(){
+    async function removeSelectedGenerated(){
       const count=state.selected.size;
       if(!count){ setStatus('Select at least one generated image first.','bad'); return; }
+      const removed=state.generated.filter(x=>state.selected.has(x.id));
       state.generated=state.generated.filter(x=>!state.selected.has(x.id));
       state.selected=new Set();
       renderResults();
       setStatus(`Removed ${count} generated image${count===1?'':'s'} from the preview list.`,'ok');
+      await Promise.allSettled(removed.map(deleteGeneratedRemote));
+    }
+    async function deleteGeneratedRemote(result){
+      if(!result?.key) return;
+      try{
+        const r=await fetch(apiUrl('/api/media?key='+encodeURIComponent(result.key)),{method:'DELETE',headers:auth()});
+        const d=await r.json().catch(()=>({ok:false,error:'Delete failed.'}));
+        if(!r.ok || !d.ok) throw new Error(d.error||'Delete failed');
+      }catch(e){
+        setStatus(friendlyFetchError(e),'bad');
+      }
     }
     function sourceForGenerated(result){
       const queueIndex=state.fileIds.indexOf(result.sourceQueueId);
       if(queueIndex>=0){
         return {file:state.files[queueIndex],index:queueIndex,id:state.fileIds[queueIndex],preview:state.previews[queueIndex]};
+      }
+      const resultName=comparableName(result.originalName || result.sourceName || result.filename);
+      const matchedIndex=state.files.findIndex(file=>comparableName(file.name)===resultName);
+      if(matchedIndex>=0){
+        return {file:state.files[matchedIndex],index:matchedIndex,id:state.fileIds[matchedIndex],preview:state.previews[matchedIndex]};
       }
       if(result.sourceFile){
         return {file:result.sourceFile,index:result.sourceIndex ?? 0,id:result.sourceQueueId || createId('regen'),preview:result.sourcePreview};
@@ -607,7 +780,7 @@
       if(!imgs.length){ setStatus('Select at least one image first.','bad'); return; }
       setBusy(true); setStatus('Saving approved images to R2...');
       try{
-        const r=await fetch(apiUrl('/api/save'),{method:'POST',headers:{...auth(),'Content-Type':'application/json'},body:JSON.stringify({images:imgs.map(x=>({id:x.id,originalName:x.originalName,filename:x.filename,contentType:x.contentType,b64:x.b64}))})});
+        const r=await fetch(apiUrl('/api/save'),{method:'POST',headers:{...auth(),'Content-Type':'application/json'},body:JSON.stringify({images:imgs.map(x=>({id:x.id,originalName:x.originalName,filename:x.filename,contentType:x.contentType,b64:x.b64,key:x.key}))})});
         const d=await r.json();
         if(!r.ok || !d.ok) throw new Error(d.error||'Save failed');
         setStatus(`Saved ${d.saved.length} image${d.saved.length===1?'':'s'} to R2.`,'ok');

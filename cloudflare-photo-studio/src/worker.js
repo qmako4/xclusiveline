@@ -67,6 +67,21 @@ export default {
         return await generatePreviews(request, env);
       }
 
+      if (pathname === "/api/jobs" && request.method === "POST") {
+        await requireAdmin(request, env);
+        return await createBackgroundJob(request, env, ctx);
+      }
+
+      if (pathname === "/api/jobs" && request.method === "GET") {
+        await requireAdmin(request, env);
+        return await getBackgroundJobs(request, env);
+      }
+
+      if (pathname === "/api/jobs/resume" && request.method === "POST") {
+        await requireAdmin(request, env);
+        return await resumeBackgroundJob(request, env, ctx);
+      }
+
       if (pathname === "/api/save" && request.method === "POST") {
         await requireAdmin(request, env);
         return await saveGeneratedImages(request, env);
@@ -271,6 +286,344 @@ async function generatePreviews(request, env) {
   return json({ ok: true, results, errors }, request, env);
 }
 
+async function createBackgroundJob(request, env, ctx) {
+  if (!env.XCLUSIVELINE_MEDIA) {
+    throw statusError("XCLUSIVELINE_MEDIA R2 binding is not configured.", 500);
+  }
+
+  const form = await request.formData();
+  const uploadedFiles = form
+    .getAll("products")
+    .filter((file) => file && typeof file === "object" && file.size > 0);
+  const productUrlItems = parseProductUrlItems(form.get("productUrls"));
+  const total = uploadedFiles.length + productUrlItems.length;
+  if (!total) {
+    throw statusError("Upload at least one product image.", 400);
+  }
+  if (total > maxBulkImages(env)) {
+    throw statusError(`Upload ${maxBulkImages(env)} images or fewer per batch.`, 400);
+  }
+
+  const jobId = crypto.randomUUID();
+  const mode = normalizeGenerationMode(form.get("mode"));
+  const prefix = cleanPrefix(env.XCLUSIVELINE_R2_PREFIX || "photo-studio/");
+  const jobPrefixValue = jobPrefix(env, jobId);
+  const now = new Date().toISOString();
+  const items = [];
+
+  let itemIndex = 0;
+  for (const file of uploadedFiles) {
+    const contentType = validateImageFile(file, `Product ${itemIndex + 1}`);
+    const filename = safeFilename(file.name || `product-${itemIndex + 1}.${extensionForContentType(contentType)}`);
+    const sourceKey = `${jobPrefixValue}sources/${String(itemIndex + 1).padStart(2, "0")}-${crypto.randomUUID()}-${filename}`;
+    const bytes = await file.arrayBuffer();
+    await env.XCLUSIVELINE_MEDIA.put(sourceKey, bytes, {
+      httpMetadata: { contentType },
+      customMetadata: { brand: BRAND.name, role: "job-source", originalName: filename },
+    });
+    items.push({
+      id: crypto.randomUUID(),
+      status: "queued",
+      originalName: filename,
+      sourceKey,
+      contentType,
+      size: bytes.byteLength,
+    });
+    itemIndex += 1;
+  }
+
+  for (const item of productUrlItems) {
+    items.push({
+      id: crypto.randomUUID(),
+      status: "queued",
+      originalName: item.filename || `remote-product-${itemIndex + 1}.jpg`,
+      remote: item,
+    });
+    itemIndex += 1;
+  }
+
+  let background = { kind: "default" };
+  const submittedBackground = form.get("background");
+  if (submittedBackground && typeof submittedBackground === "object" && submittedBackground.size > 0) {
+    const contentType = validateImageFile(submittedBackground, "XCLUSIVELINE background");
+    const filename = safeFilename(submittedBackground.name || `background.${extensionForContentType(contentType)}`);
+    const backgroundKey = `${jobPrefixValue}background/${crypto.randomUUID()}-${filename}`;
+    const bytes = await submittedBackground.arrayBuffer();
+    await env.XCLUSIVELINE_MEDIA.put(backgroundKey, bytes, {
+      httpMetadata: { contentType },
+      customMetadata: { brand: BRAND.name, role: "job-background", originalName: filename },
+    });
+    background = { kind: "stored", key: backgroundKey, filename, contentType };
+  }
+
+  const job = {
+    id: jobId,
+    status: "queued",
+    mode,
+    prefix,
+    createdAt: now,
+    updatedAt: now,
+    startedAt: null,
+    finishedAt: null,
+    total: items.length,
+    completed: 0,
+    failed: 0,
+    background,
+    items,
+  };
+
+  await writeJob(env, job);
+  ctx.waitUntil(processBackgroundJob(env, jobId));
+  return json({ ok: true, job: publicJob(job) }, request, env, 202);
+}
+
+async function getBackgroundJobs(request, env) {
+  if (!env.XCLUSIVELINE_MEDIA) {
+    throw statusError("XCLUSIVELINE_MEDIA R2 binding is not configured.", 500);
+  }
+
+  const url = new URL(request.url);
+  const id = url.searchParams.get("id");
+  if (id) {
+    const job = await readJob(env, id);
+    if (!job) throw statusError("Background job was not found.", 404);
+    return json({ ok: true, job: publicJob(job) }, request, env);
+  }
+
+  const prefix = `${cleanPrefix(env.XCLUSIVELINE_R2_PREFIX || "photo-studio/")}jobs/`;
+  const limit = Math.min(Number(url.searchParams.get("limit") || 12), 30);
+  const listed = await env.XCLUSIVELINE_MEDIA.list({ prefix, limit: 100 });
+  const jobKeys = listed.objects
+    .map((object) => object.key)
+    .filter((key) => key.endsWith("/job.json"))
+    .slice(0, limit);
+  const jobs = [];
+  for (const key of jobKeys) {
+    const object = await env.XCLUSIVELINE_MEDIA.get(key);
+    if (!object) continue;
+    const job = await object.json();
+    jobs.push(publicJob(job, { includeItems: false }));
+  }
+  jobs.sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+  return json({ ok: true, jobs, truncated: listed.truncated, cursor: listed.cursor || null }, request, env);
+}
+
+async function resumeBackgroundJob(request, env, ctx) {
+  if (!env.XCLUSIVELINE_MEDIA) {
+    throw statusError("XCLUSIVELINE_MEDIA R2 binding is not configured.", 500);
+  }
+
+  const body = await request.json().catch(() => ({}));
+  const id = body.id || new URL(request.url).searchParams.get("id");
+  if (!id) throw statusError("Missing background job id.", 400);
+  const job = await readJob(env, id);
+  if (!job) throw statusError("Background job was not found.", 404);
+  if (["complete", "partial", "failed"].includes(job.status)) {
+    return json({ ok: true, job: publicJob(job), alreadyFinished: true }, request, env);
+  }
+  ctx.waitUntil(processBackgroundJob(env, id));
+  return json({ ok: true, job: publicJob({ ...job, status: "queued" }) }, request, env, 202);
+}
+
+async function processBackgroundJob(env, jobId) {
+  let job = await readJob(env, jobId);
+  if (!job || ["complete", "partial", "failed"].includes(job.status)) return;
+
+  job.status = "running";
+  job.startedAt = job.startedAt || new Date().toISOString();
+  job.updatedAt = new Date().toISOString();
+  await writeJob(env, job);
+
+  for (let index = 0; index < job.items.length; index += 1) {
+    job = await readJob(env, jobId);
+    if (!job) return;
+    const item = job.items[index];
+    if (!item || item.status === "complete") continue;
+
+    item.status = "running";
+    item.startedAt = new Date().toISOString();
+    item.error = null;
+    job.status = "running";
+    job.updatedAt = new Date().toISOString();
+    await writeJob(env, job);
+
+    try {
+      let productFile = item.remote ? await fetchRemoteProductFile(item.remote) : await fileFromR2(env, item.sourceKey, item.originalName);
+      productFile = normalizeImageFileForOpenAi(productFile, `Product ${index + 1}`);
+      const backgroundFile = await backgroundFileForJob(env, job);
+      const generated = await generateFlatlayComposite({
+        env,
+        productFile,
+        backgroundFile,
+        generationMode: job.mode,
+      });
+      const id = crypto.randomUUID();
+      const filename = outputFilename(productFile.name || item.originalName, id, generated.contentType);
+      const bytes = base64ToUint8Array(generated.b64);
+      const key = `${jobPrefix(env, jobId)}outputs/${String(index + 1).padStart(2, "0")}-${id}-${filename}`;
+      await env.XCLUSIVELINE_MEDIA.put(key, bytes, {
+        httpMetadata: {
+          contentType: generated.contentType,
+          cacheControl: "private, max-age=604800",
+        },
+        customMetadata: {
+          brand: BRAND.name,
+          source: item.originalName || "",
+          createdBy: "xclusiveline-photo-studio-job",
+        },
+      });
+
+      item.status = "complete";
+      item.finishedAt = new Date().toISOString();
+      item.result = {
+        id,
+        key,
+        filename,
+        originalName: item.originalName || productFile.name || `product-${index + 1}`,
+        contentType: generated.contentType,
+        size: bytes.byteLength,
+        rawUrl: `/api/media/raw?key=${encodeURIComponent(key)}`,
+        mode: generated.mode,
+        prompt: generated.prompt,
+        imageSize: generated.imageSize,
+        saved: false,
+      };
+    } catch (error) {
+      item.status = "failed";
+      item.finishedAt = new Date().toISOString();
+      item.error = error.message || "Generation failed.";
+    }
+
+    job.completed = job.items.filter((entry) => entry.status === "complete").length;
+    job.failed = job.items.filter((entry) => entry.status === "failed").length;
+    job.updatedAt = new Date().toISOString();
+    await writeJob(env, job);
+  }
+
+  job = await readJob(env, jobId);
+  if (!job) return;
+  job.completed = job.items.filter((entry) => entry.status === "complete").length;
+  job.failed = job.items.filter((entry) => entry.status === "failed").length;
+  job.status = job.completed === job.total ? "complete" : job.completed > 0 ? "partial" : "failed";
+  job.finishedAt = new Date().toISOString();
+  job.updatedAt = job.finishedAt;
+  await writeJob(env, job);
+}
+
+async function fileFromR2(env, key, fallbackName) {
+  const object = await env.XCLUSIVELINE_MEDIA.get(key);
+  if (!object) {
+    throw statusError("Stored job source image was not found.", 404);
+  }
+  const headers = new Headers();
+  object.writeHttpMetadata(headers);
+  const contentType = headers.get("content-type") || "image/jpeg";
+  const bytes = await object.arrayBuffer();
+  const filename = fallbackName || key.split("/").pop() || `image.${extensionForContentType(contentType)}`;
+  if (typeof File === "function") {
+    return new File([bytes], filename, { type: contentType });
+  }
+  const blob = new Blob([bytes], { type: contentType });
+  blob.name = filename;
+  return blob;
+}
+
+async function backgroundFileForJob(env, job) {
+  if (job.background?.kind === "stored" && job.background.key) {
+    return normalizeImageFileForOpenAi(await fileFromR2(env, job.background.key, job.background.filename), "XCLUSIVELINE background");
+  }
+  return await loadDefaultBackgroundFileFromUrl(env);
+}
+
+async function loadDefaultBackgroundFileFromUrl(env) {
+  const response = await fetch(env.XCLUSIVELINE_BACKGROUND_URL || BRAND.defaultBackgroundUrl);
+  if (!response.ok) {
+    throw statusError("Default XCLUSIVELINE background asset was not found.", 500);
+  }
+  const contentType = response.headers.get("content-type") || "image/png";
+  return new Blob([await response.arrayBuffer()], { type: contentType });
+}
+
+function jobPrefix(env, jobId) {
+  return `${cleanPrefix(env.XCLUSIVELINE_R2_PREFIX || "photo-studio/")}jobs/${jobId}/`;
+}
+
+function jobRecordKey(env, jobId) {
+  return `${jobPrefix(env, jobId)}job.json`;
+}
+
+function isJobOutputKey(env, key) {
+  const jobsPrefix = `${cleanPrefix(env.XCLUSIVELINE_R2_PREFIX || "photo-studio/")}jobs/`;
+  return String(key || "").startsWith(jobsPrefix) && String(key || "").includes("/outputs/");
+}
+
+function jobIdFromOutputKey(env, key) {
+  const jobsPrefix = `${cleanPrefix(env.XCLUSIVELINE_R2_PREFIX || "photo-studio/")}jobs/`;
+  const text = String(key || "");
+  if (!text.startsWith(jobsPrefix)) return "";
+  const parts = text.slice(jobsPrefix.length).split("/");
+  return parts[1] === "outputs" ? parts[0] : "";
+}
+
+async function readJob(env, jobId) {
+  const object = await env.XCLUSIVELINE_MEDIA.get(jobRecordKey(env, jobId));
+  if (!object) return null;
+  return await object.json();
+}
+
+async function writeJob(env, job) {
+  const record = { ...job, updatedAt: new Date().toISOString() };
+  await env.XCLUSIVELINE_MEDIA.put(jobRecordKey(env, job.id), JSON.stringify(record, null, 2), {
+    httpMetadata: {
+      contentType: JSON_TYPE,
+      cacheControl: "private, max-age=0, no-store",
+    },
+    customMetadata: {
+      brand: BRAND.name,
+      createdBy: "xclusiveline-photo-studio-job",
+    },
+  });
+  return record;
+}
+
+async function markJobOutputDeleted(env, key) {
+  const jobId = jobIdFromOutputKey(env, key);
+  if (!jobId) return;
+  const job = await readJob(env, jobId);
+  if (!job) return;
+  const item = (job.items || []).find((entry) => entry.result?.key === key);
+  if (!item?.result) return;
+  item.result.deleted = true;
+  item.result.deletedAt = new Date().toISOString();
+  await writeJob(env, job);
+}
+
+function publicJob(job, options = {}) {
+  const includeItems = options.includeItems !== false;
+  const publicValue = {
+    id: job.id,
+    status: job.status,
+    mode: job.mode,
+    createdAt: job.createdAt,
+    updatedAt: job.updatedAt,
+    startedAt: job.startedAt || null,
+    finishedAt: job.finishedAt || null,
+    total: job.total || job.items?.length || 0,
+    completed: job.completed || 0,
+    failed: job.failed || 0,
+  };
+  if (includeItems) {
+    publicValue.items = (job.items || []).map((item, index) => ({
+      id: item.id,
+      status: item.status,
+      originalName: item.originalName || `product-${index + 1}`,
+      error: item.error || null,
+      result: item.result || null,
+    }));
+  }
+  return publicValue;
+}
+
 async function saveGeneratedImages(request, env) {
   if (!env.XCLUSIVELINE_MEDIA) {
     throw statusError("XCLUSIVELINE_MEDIA R2 binding is not configured.", 500);
@@ -288,14 +641,30 @@ async function saveGeneratedImages(request, env) {
   const datePath = new Date().toISOString().slice(0, 10).replace(/-/g, "/");
 
   for (const image of images) {
-    const contentType = image.contentType || PNG_TYPE;
-    const b64 = stripDataUrl(image.b64 || image.dataUrl || "");
-    if (!b64) {
-      throw statusError("Saved image is missing base64 content.", 400);
+    let contentType = image.contentType || PNG_TYPE;
+    let bytes;
+    if (image.key) {
+      const sourceKey = String(image.key);
+      if (!isJobOutputKey(env, sourceKey)) {
+        throw statusError("Saved image key is outside the generated job output library.", 400);
+      }
+      const object = await env.XCLUSIVELINE_MEDIA.get(sourceKey);
+      if (!object) {
+        throw statusError("Generated job image was not found.", 404);
+      }
+      const headers = new Headers();
+      object.writeHttpMetadata(headers);
+      contentType = image.contentType || headers.get("content-type") || PNG_TYPE;
+      bytes = new Uint8Array(await object.arrayBuffer());
+    } else {
+      const b64 = stripDataUrl(image.b64 || image.dataUrl || "");
+      if (!b64) {
+        throw statusError("Saved image is missing base64 content.", 400);
+      }
+      bytes = base64ToUint8Array(b64);
     }
 
     const key = `${prefix}generated/${datePath}/${crypto.randomUUID()}-${safeFilename(image.filename || "xclusiveline-output.png")}`;
-    const bytes = base64ToUint8Array(b64);
 
     await env.XCLUSIVELINE_MEDIA.put(key, bytes, {
       httpMetadata: {
@@ -389,11 +758,16 @@ async function deleteMediaObject(request, env) {
   }
 
   const allowedPrefix = `${cleanPrefix(env.XCLUSIVELINE_R2_PREFIX || "photo-studio/")}generated/`;
-  if (!key.startsWith(allowedPrefix)) {
+  const isGeneratedImage = key.startsWith(allowedPrefix);
+  const isJobImage = isJobOutputKey(env, key);
+  if (!isGeneratedImage && !isJobImage) {
     throw statusError("Media key is outside the generated image library.", 400);
   }
 
   await env.XCLUSIVELINE_MEDIA.delete(key);
+  if (isJobImage) {
+    await markJobOutputDeleted(env, key);
+  }
   return json({ ok: true, deleted: { key } }, request, env);
 }
 
