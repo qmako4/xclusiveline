@@ -417,37 +417,44 @@
         state.generated=[];
         state.selected=new Set();
         renderResults();
-        const size=chunkSize();
-        const totalBatches=Math.ceil(state.files.length/size);
-        const allResults=[];
         const allErrors=[];
         const background=state.bgFile || await defaultBackgroundFile();
-        for(let batchIndex=0; batchIndex<totalBatches; batchIndex+=1){
-          const batch=state.files.slice(batchIndex*size,(batchIndex+1)*size);
-          setStatus(`Generating batch ${batchIndex+1} of ${totalBatches} (${batch.length} image${batch.length===1?'':'s'}).`);
+        const total=state.files.length;
+        for(let index=0; index<total; index+=1){
+          const file=state.files[index];
+          const label=file?.name || `product-${index+1}`;
+          setStatus(`Generating image ${index+1} of ${total}: ${label}. ${state.generated.length} finished so far.`);
           const form=new FormData();
-          const remote=[];
-          batch.forEach(file=>{
-            if(file.isRemote){
-              remote.push({url:file.url,pageUrl:file.pageUrl,filename:file.name});
-            }else{
-              form.append('products',file,file.name||'product.png');
-            }
-          });
-          if(remote.length) form.append('productUrls',JSON.stringify(remote));
+          if(file.isRemote){
+            form.append('productUrls',JSON.stringify([{url:file.url,pageUrl:file.pageUrl,filename:file.name}]));
+          }else{
+            form.append('products',file,file.name||'product.png');
+          }
           form.append('background',background,background.name||'xclusiveline-original-background.png');
           const r=await fetch(apiUrl('/api/generate'),{method:'POST',headers:auth(),body:form});
           const d=await r.json().catch(()=>({ok:false,error:'Generation failed.'}));
-          if(!r.ok || !d.ok) throw new Error(d.error||'Generation failed');
-          allResults.push(...(d.results||[]).filter(x=>x && x.dataUrl));
+          if(!r.ok || !d.ok){
+            const message=d.error||'Generation failed';
+            if(/unauthorized|admin token|worker url/i.test(message)) throw new Error(message);
+            allErrors.push({originalName:label,error:message});
+            setStatus(`Image ${index+1} failed: ${message}`);
+            continue;
+          }
+          const newResults=(d.results||[]).filter(x=>x && x.dataUrl);
+          if(newResults.length){
+            state.generated.push(...newResults);
+            newResults.forEach(x=>state.selected.add(x.id));
+            renderResults();
+            setStatus(`Generated ${state.generated.length} of ${total}. Continuing with image ${Math.min(index+2,total)} of ${total}.`,'ok');
+          }else if(!(d.errors||[]).length){
+            allErrors.push({originalName:label,error:'No image was returned.'});
+          }
           allErrors.push(...(d.errors||[]));
         }
-        state.generated=allResults;
         if(!state.generated.length){
           const firstError=allErrors[0]?.error;
           throw new Error(firstError || 'No image was returned. Try one product photo first.');
         }
-        state.selected=new Set(state.generated.map(x=>x.id));
         renderResults();
         const errorNote=allErrors.length ? ` ${allErrors.length} image${allErrors.length===1?'':'s'} failed.` : '';
         setStatus(`Generated ${state.generated.length} realistic XCLUSIVELINE image${state.generated.length===1?'':'s'}.${errorNote}`,'ok');
