@@ -276,11 +276,25 @@ footer{border-top:1px solid var(--line);padding:3rem 0 2rem;margin-top:2rem}
 .drop{border:1.5px dashed var(--line);border-radius:10px;padding:1.6rem;text-align:center;color:var(--mut);cursor:pointer;transition:var(--trs)}
 .drop:hover{border-color:var(--y);color:var(--y)}
 .notice{background:rgba(245,168,0,.08);border:1px solid rgba(245,168,0,.25);color:var(--y);padding:13px 15px;border-radius:9px;font-size:13px;margin-bottom:1.4rem;line-height:1.55}
+.gallery-section{margin-top:1.4rem}
+.gallery-section:first-child{margin-top:0}
+.gallery-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:.8rem}
+.gallery-head h4{font-family:var(--fd);font-size:1.05rem;font-weight:800;text-transform:uppercase;letter-spacing:.04em}
+.gallery-head span{color:var(--mut2);font-size:12px}
 .gallery-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px}
-.gal-item{cursor:pointer;border-radius:9px;overflow:hidden;border:1px solid var(--line);background:var(--b3);transition:var(--trs)}
+.gal-item{border-radius:9px;overflow:hidden;border:1px solid var(--line);background:var(--b3);transition:var(--trs)}
 .gal-item:hover{border-color:var(--y)}
 .gal-item img{width:100%;aspect-ratio:1;object-fit:cover;display:block}
 .gal-cap{font-size:10px;color:var(--mut);padding:5px 7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gal-actions{display:flex;gap:6px;padding:0 7px 7px}
+.gal-actions .mini{flex:1;padding:6px 8px;font-size:11px}
+.studio-picker{margin-top:12px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--b3)}
+.studio-picker-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+.studio-picker-head p{color:var(--mut);font-size:12px;margin:0}
+.studio-picker-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:9px}
+.studio-picker-card{border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--b2)}
+.studio-picker-card img{width:100%;aspect-ratio:3/4;object-fit:cover}
+.studio-picker-card button{width:100%;padding:7px;background:var(--y);color:var(--b);font-family:var(--fd);font-weight:800;text-transform:uppercase;font-size:12px}
 
 /* POLICY */
 .prose{max-width:760px}
@@ -492,6 +506,13 @@ footer{border-top:1px solid var(--line);padding:3rem 0 2rem;margin-top:2rem}
     <div class="field"><label>Images</label>
       <div class="drop" id="drop" onclick="document.getElementById('fileInput').click()">Click or drop images here</div>
       <input type="file" id="fileInput" accept="image/*" multiple class="hidden">
+      <div class="studio-picker">
+        <div class="studio-picker-head">
+          <p>Use images saved from Photo Studio.</p>
+          <button class="btn ghost mini" type="button" onclick="loadStudioPicker()">Load Studio Images</button>
+        </div>
+        <div id="studioPicker"></div>
+      </div>
       <div class="img-prev" id="imgPrev"></div>
     </div>
     <div style="display:flex;gap:10px">
@@ -503,7 +524,7 @@ footer{border-top:1px solid var(--line);padding:3rem 0 2rem;margin-top:2rem}
   <div class="tablo" id="tab-orders"><div class="panel"><div id="adminOrders">Loading…</div></div></div>
   <div class="tablo" id="tab-gallery"><div class="panel">
     <h3>Image Library</h3>
-    <p style="color:var(--mut);font-size:13px;margin-bottom:1rem">Every product image in your store. Tap any image to copy its URL.</p>
+    <p style="color:var(--mut);font-size:13px;margin-bottom:1rem">Product photos from Supabase and saved Photo Studio images from R2. Copy a URL or add a studio image to the product form.</p>
     <div id="adminGallery">Loading…</div>
   </div></div>
   <div class="tablo" id="tab-users"><div class="panel"><div id="adminUsers">Loading…</div></div></div>
@@ -587,6 +608,7 @@ footer{border-top:1px solid var(--line);padding:3rem 0 2rem;margin-top:2rem}
 const SUPABASE_URL = 'https://ptucjxjqyvirhumzdggo.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB0dWNqeGpxeXZpcmh1bXpkZ2dvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYyMDkzNzEsImV4cCI6MjA5MTc4NTM3MX0.o-kQ-zVRnEVIuPRS1mqFtkY2znkrEgIXh_qPMwIRvm4';
 const PAYPAL_CLIENT_ID = 'AViPSrHXjYHOGpq30UOuIQB7iPkpRGCz2_SLMkUw3yk8w_X1QA0SJq-psuTff3JquBUtCdibI21McjV9';
+const PHOTO_STUDIO_API_BASE = 'https://xclusiveline-photo-studio.qmako41212.workers.dev';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: { persistSession:true, autoRefreshToken:true, detectSessionInUrl:true, storage:window.localStorage, storageKey:'xl-auth' }
 });
@@ -610,6 +632,7 @@ const state = {
   topup: 0,
   editId: null,
   form: {sizes:[], images:[]},   // images: {type:'existing'|'new', url, file?}
+  studioMedia: [],
 };
 
 const recoveryAtLoad = new URLSearchParams(location.hash.replace(/^#/, '')).get('type') === 'recovery';
@@ -1080,6 +1103,84 @@ async function loadGallery(){
   }catch(e){ box.innerHTML=`<div class="empty">${escapeHtml(e.message)}</div>`; }
 }
 function copyUrl(u){ try{ navigator.clipboard.writeText(u); }catch(e){} toast('Image URL copied'); }
+function studioApiBase(){ return (localStorage.getItem('xl-studio-api') || PHOTO_STUDIO_API_BASE).replace(/\/+$/,''); }
+function studioApiUrl(path){ return studioApiBase()+path; }
+function studioImageUrl(o){ return o.publicUrl || studioApiUrl(o.rawUrl || `/api/media/raw?key=${encodeURIComponent(o.key)}`); }
+function studioImageName(o){ return (o.key||'studio-image').split('/').pop(); }
+function jsString(v){ return JSON.stringify(String(v??'')).replace(/</g,'\\u003c'); }
+async function loadStudioMedia(){
+  const r=await fetch(studioApiUrl('/api/media?limit=100'));
+  const d=await r.json().catch(()=>({ok:false,error:'Could not read Photo Studio response.'}));
+  if(!r.ok || !d.ok) throw new Error(d.error || 'Could not load saved Photo Studio images.');
+  state.studioMedia=d.objects||[];
+  return state.studioMedia;
+}
+async function loadGallery(){
+  const box=el('adminGallery'); box.innerHTML='Loading...';
+  let imgs=[];
+  let studio=[];
+  let studioError='';
+  try{
+    imgs=await rGet('product_images?select=id,url,products(name)');
+  }catch(e){
+    box.innerHTML=`<div class="empty">${escapeHtml(e.message)}</div>`;
+    return;
+  }
+  try{
+    studio=await loadStudioMedia();
+  }catch(e){
+    studioError=e.message || 'Could not load Photo Studio images.';
+  }
+
+  const productSection = `<div class="gallery-section">
+    <div class="gallery-head"><h4>Store Product Images</h4><span>${imgs.length} image${imgs.length!==1?'s':''}</span></div>
+    ${imgs.length ? `<div class="gallery-grid">${imgs.map(i=>`
+      <div class="gal-item">
+        <img src="${escapeHtml(i.url)}" loading="lazy" alt="">
+        <div class="gal-cap">${escapeHtml(i.products?.name||'Product image')}</div>
+        <div class="gal-actions"><button class="btn ghost mini" onclick='copyUrl(${jsString(i.url)})'>Copy URL</button></div>
+      </div>`).join('')}</div>` : '<div class="empty">No product images yet.</div>'}
+  </div>`;
+
+  const studioSection = `<div class="gallery-section">
+    <div class="gallery-head"><h4>Saved Photo Studio Images</h4><span>${studio.length} image${studio.length!==1?'s':''}</span></div>
+    ${studioError ? `<div class="notice">${escapeHtml(studioError)}</div>` : studio.length ? `<div class="gallery-grid">${studio.map(o=>{
+      const src=studioImageUrl(o);
+      return `<div class="gal-item">
+        <img src="${escapeHtml(src)}" loading="lazy" alt="">
+        <div class="gal-cap">${escapeHtml(studioImageName(o))}</div>
+        <div class="gal-actions"><button class="btn ghost mini" onclick='copyUrl(${jsString(src)})'>Copy</button><button class="btn mini" onclick='useStudioImageInProduct(${jsString(src)})'>Use</button></div>
+      </div>`;
+    }).join('')}</div>` : '<div class="empty">No saved Photo Studio images yet. Save approved images inside Photo Studio first.</div>'}
+  </div>`;
+
+  box.innerHTML=productSection+studioSection;
+}
+function addStudioImageToForm(src){
+  if(!src) return;
+  if(state.form.images.some(im=>im.url===src)){ toast('Studio image already added'); return; }
+  state.form.images.push({type:'existing',url:src});
+  renderImgPrev();
+  toast('Studio image added');
+}
+function useStudioImageInProduct(src){
+  adminTab('add');
+  addStudioImageToForm(src);
+}
+async function loadStudioPicker(){
+  const box=el('studioPicker');
+  box.innerHTML='<div class="empty" style="padding:1rem">Loading studio images...</div>';
+  try{
+    const studio=await loadStudioMedia();
+    if(!studio.length){ box.innerHTML='<div class="empty" style="padding:1rem">No saved Photo Studio images yet.</div>'; return; }
+    box.innerHTML=`<div class="studio-picker-grid">${studio.map(o=>{
+      const src=studioImageUrl(o);
+      return `<div class="studio-picker-card"><img src="${escapeHtml(src)}" loading="lazy" alt=""><button type="button" onclick='addStudioImageToForm(${jsString(src)})'>Add</button></div>`;
+    }).join('')}</div>`;
+  }catch(e){
+    box.innerHTML=`<div class="notice">${escapeHtml(e.message || 'Could not load saved Photo Studio images.')}</div>`;
+  }
+}
 async function loadAdminProducts(){
   try{
     const {products}=await api('/api/admin/products');
