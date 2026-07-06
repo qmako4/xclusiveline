@@ -1016,7 +1016,26 @@ async function callOpenAiImagesEdit({
 }
 
 function buildGenerationPrompt(productName, mode) {
-  return mode === "keep-crop" ? buildKeepCropPrompt(productName) : buildFlatlayPrompt(productName);
+  if (mode === "keep-crop") return buildKeepCropPrompt(productName);
+  if (mode === "auto") return buildAutoPrompt(productName);
+  return buildFlatlayPrompt(productName);
+}
+
+function buildAutoPrompt(productName) {
+  return [
+    "Use case: automatic XCLUSIVELINE product photo background replacement.",
+    `Input image 1 is the product photo${productName ? ` named ${productName}` : ""}. Input image 2 is the original XCLUSIVELINE yellow fabric background.`,
+    "First decide which treatment fits the input image:",
+    "Use BACKGROUND-ONLY KEEP-CROP when the product is close-up, cropped by the frame, partially visible, already fills most of the image, touches the image edges, or only has a simple grey/white/table/floor backdrop that needs replacing.",
+    "Use REALISTIC FLAT-LAY when the full product is visible enough to be presented as an ecommerce product photo with natural yellow fabric around it.",
+    "If you choose BACKGROUND-ONLY KEEP-CROP: keep the exact uploaded crop, product position, scale, visible edges, and composition. Do not zoom out, move, shrink, enlarge, rotate, re-angle, extend, complete, or reframe the product. Only replace the visible non-product background with the yellow XCLUSIVELINE fabric texture.",
+    "If you choose REALISTIC FLAT-LAY: create a clean 3:4 overhead ecommerce flat-lay on the supplied yellow XCLUSIVELINE fabric background. Keep realistic scale with believable yellow fabric visible around the product.",
+    "In both cases, preserve the product identity and details exactly: shape, colour, logos, printed text, texture, stitching, fabric grain, tags, hands, clothing, shoes, watches, defects, marks, shadows on the product, and edge detail.",
+    "Do not smooth, repaint, recolour, relight, retouch, redesign, or restyle the product. Avoid AI smoothing and keep fabric/product texture real.",
+    "Preserve the supplied XCLUSIVELINE background's yellow fabric texture and existing black lettering where visible. Do not invent, duplicate, extend, or add extra XCLUSIVELINE text, bottom text, watermarks, labels, props, hands, hangers, floor, or wall.",
+    "Only add subtle realism where the product touches the new background: a soft natural contact shadow, tiny fabric compression, and very slight local creases immediately around the product. Shadows must be soft and believable.",
+    "If uncertain, choose BACKGROUND-ONLY KEEP-CROP and prioritize preserving the uploaded product pixels and framing over making a more complete or cleaner product image.",
+  ].join("\n");
 }
 
 function buildKeepCropPrompt(productName) {
@@ -1423,11 +1442,17 @@ function outputSizeForMode(env, model, mode) {
   if (mode === "keep-crop") {
     return env.XCLUSIVELINE_KEEP_CROP_IMAGE_SIZE || env.OPENAI_KEEP_CROP_IMAGE_SIZE || "auto";
   }
+  if (mode === "auto") {
+    return env.XCLUSIVELINE_AUTO_IMAGE_SIZE || env.OPENAI_AUTO_IMAGE_SIZE || "auto";
+  }
   return outputSizeForModel(env, model);
 }
 
 function normalizeGenerationMode(value) {
-  return String(value || "").toLowerCase() === "keep-crop" ? "keep-crop" : "flatlay";
+  const mode = String(value || "").toLowerCase();
+  if (mode === "keep-crop") return "keep-crop";
+  if (mode === "auto") return "auto";
+  return "flatlay";
 }
 
 function outputQualityForEnv(env) {
