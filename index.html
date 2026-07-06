@@ -215,6 +215,9 @@ footer{border-top:1px solid var(--line);padding:3rem 0 2rem;margin-top:2rem}
 .field textarea{resize:vertical;min-height:80px}
 .form-err{color:var(--red);font-size:13px;margin:.4rem 0;display:none}
 .form-err.show{display:block}
+.form-err.ok{color:var(--grn)}
+.auth-link{display:block;margin:.8rem auto 0;color:var(--mut);font-size:13px;text-decoration:underline;text-underline-offset:3px}
+.auth-link:hover{color:var(--y)}
 .auth-tabs{display:flex;gap:0;margin-bottom:1.5rem;border:1px solid var(--line);border-radius:10px;overflow:hidden}
 .auth-tabs button{flex:1;padding:11px;font-family:var(--fd);font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--mut);font-size:14px}
 .auth-tabs button.on{background:var(--y);color:var(--b)}
@@ -553,6 +556,15 @@ footer{border-top:1px solid var(--line);padding:3rem 0 2rem;margin-top:2rem}
   </div>
   <div class="form-err" id="authErr"></div>
   <button class="btn block" id="authSubmit" onclick="submitAuth()">Login</button>
+  <button class="auth-link" id="forgotLink" onclick="sendPasswordReset()">Forgot password?</button>
+</div></div></div>
+
+<div class="modal" id="resetModal"><div class="modal-card sm"><button class="x modal-x" onclick="closeModal('resetModal')">x</button><div class="modal-pad">
+  <div class="modal-h">Set New Password</div>
+  <div class="field"><label>New password</label><input id="rpPass" type="password" autocomplete="new-password"></div>
+  <div class="field"><label>Confirm password</label><input id="rpPass2" type="password" autocomplete="new-password"></div>
+  <div class="form-err" id="rpErr"></div>
+  <button class="btn block" id="rpSubmit" onclick="submitNewPassword()">Save password</button>
 </div></div></div>
 
 <div class="modal" id="checkoutModal"><div class="modal-card sm"><button class="x modal-x" onclick="closeModal('checkoutModal')">✕</button><div class="modal-pad">
@@ -599,6 +611,15 @@ const state = {
   editId: null,
   form: {sizes:[], images:[]},   // images: {type:'existing'|'new', url, file?}
 };
+
+const recoveryAtLoad = new URLSearchParams(location.hash.replace(/^#/, '')).get('type') === 'recovery';
+sb.auth.onAuthStateChange((event, session) => {
+  if (session?.access_token) {
+    state.token = session.access_token;
+    localStorage.setItem('xl-token', session.access_token);
+  }
+  if (event === 'PASSWORD_RECOVERY') openPasswordReset();
+});
 
 /* ════════════ SUPABASE DATA LAYER ════════════
    The UI was written against a small REST-style API. This shim maps those
@@ -698,6 +719,7 @@ async function init(){
   updateAuthUI();
   await loadProducts();
   routeFromHash();
+  if (recoveryAtLoad) setTimeout(openPasswordReset, 700);
 }
 function routeFromHash(){
   const h=location.hash.replace('#','');
@@ -829,17 +851,20 @@ function setCurrency(c){ state.currency=c; localStorage.setItem('xl-cur',c); ren
 
 /* ════════════ AUTH ════════════ */
 let authMode='login';
-function openAuth(mode){ setAuthMode(mode); el('authErr').classList.remove('show'); openModal('authModal'); }
+function openAuth(mode){ setAuthMode(mode); el('authErr').classList.remove('show','ok'); openModal('authModal'); }
+function showAuthMessage(msg, ok=false){ const errEl=el('authErr'); errEl.textContent=msg; errEl.classList.toggle('ok',ok); errEl.classList.add('show'); }
 function setAuthMode(mode){ authMode=mode;
   el('tabLogin').classList.toggle('on',mode==='login'); el('tabReg').classList.toggle('on',mode==='register');
   el('regOnly').classList.toggle('hidden',mode==='login');
   el('regAddr').classList.toggle('hidden',mode==='login');
+  el('forgotLink').classList.toggle('hidden',mode!=='login');
   el('authSubmit').textContent = mode==='login'?'Login':'Create account';
 }
 async function submitAuth(){
   const email=el('auEmail').value.trim(), pass=el('auPass').value, name=el('auName').value.trim();
   const errEl=el('authErr');
-  if(!email||!pass){ errEl.textContent='Email and password required'; errEl.classList.add('show'); return; }
+  errEl.classList.remove('ok');
+  if(!email||!pass){ showAuthMessage('Email and password required'); return; }
   const address={address:el('auAddr').value.trim(),city:el('auCity').value.trim(),postcode:el('auPost').value.trim(),country:el('auCountry').value.trim()};
   const btn=el('authSubmit'); btn.disabled=true; btn.textContent='Please wait…';
   try{
@@ -849,8 +874,51 @@ async function submitAuth(){
     closeModal('authModal'); updateAuthUI(); updateBalance();
     toast(authMode==='register'?'Welcome 🎉':'Welcome back!');
     go('account');
-  }catch(e){ errEl.textContent=e.message; errEl.classList.add('show'); }
+  }catch(e){ showAuthMessage(e.message); }
   finally{ btn.disabled=false; setAuthMode(authMode); }
+}
+function resetRedirectUrl(){
+  if(location.protocol === 'file:') return 'https://qmako4.github.io/xclusiveline/';
+  return `${location.origin}${location.pathname}`;
+}
+async function sendPasswordReset(){
+  const email=el('auEmail').value.trim();
+  if(!email){ showAuthMessage('Enter your email first, then press Forgot password.'); return; }
+  const btn=el('forgotLink'), original=btn.textContent;
+  btn.disabled=true; btn.textContent='Sending...';
+  try{
+    const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:resetRedirectUrl()});
+    if(error) throw new Error(error.message);
+    showAuthMessage('Check your email for the password reset link.',true);
+    toast('Reset email sent');
+  }catch(e){ showAuthMessage(e.message); }
+  finally{ btn.disabled=false; btn.textContent=original; }
+}
+function openPasswordReset(){
+  closeModal('authModal');
+  el('rpPass').value='';
+  el('rpPass2').value='';
+  el('rpErr').classList.remove('show','ok');
+  openModal('resetModal');
+}
+async function submitNewPassword(){
+  const pass=el('rpPass').value, pass2=el('rpPass2').value, errEl=el('rpErr');
+  errEl.classList.remove('ok');
+  if(pass.length<8){ errEl.textContent='Password must be at least 8 characters.'; errEl.classList.add('show'); return; }
+  if(pass!==pass2){ errEl.textContent='Passwords do not match.'; errEl.classList.add('show'); return; }
+  const btn=el('rpSubmit'), original=btn.textContent;
+  btn.disabled=true; btn.textContent='Saving...';
+  try{
+    const {error}=await sb.auth.updateUser({password:pass});
+    if(error) throw new Error(error.message);
+    try{ state.user=await currentUser(); }catch(e){}
+    updateAuthUI();
+    closeModal('resetModal');
+    history.replaceState(null,'',location.pathname+location.search);
+    toast('Password updated');
+    go('account');
+  }catch(e){ errEl.textContent=e.message; errEl.classList.add('show'); }
+  finally{ btn.disabled=false; btn.textContent=original; }
 }
 async function logout(){ try{ await sb.auth.signOut(); }catch(e){} state.token=null; state.user=null; localStorage.removeItem('xl-token'); updateAuthUI(); go('shop'); toast('Signed out'); }
 function updateAuthUI(){
