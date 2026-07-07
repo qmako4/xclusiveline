@@ -52,7 +52,9 @@
     .link-row{display:grid;grid-template-columns:minmax(0,1fr) 92px;gap:8px;align-items:center}
     .link-row .btn{min-height:42px;padding:10px 12px}
     .mode-block{margin-top:10px;border:1px solid var(--line);border-radius:12px;background:var(--b3);padding:12px}
-    .auto-mode{margin-top:8px;border:1px solid rgba(245,168,0,.32);border-radius:10px;background:rgba(245,168,0,.09);padding:10px;color:var(--y);font-size:12px;font-weight:900;text-transform:uppercase}
+    .mode-control{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+    .mode-btn{min-height:38px;border-radius:9px;border:1px solid var(--line);background:rgba(250,250,250,.05);color:var(--w);font-family:var(--fd);font-weight:900;text-transform:uppercase}
+    .mode-btn.active{background:var(--y);border-color:var(--y);color:var(--b)}
     .drop,.paste-zone{border:2px dashed var(--line);border-radius:12px;background:var(--b3);display:grid;place-items:center;text-align:center;padding:20px;transition:.15s}
     .drop{min-height:180px}
     .paste-zone{min-height:94px;margin-top:10px;outline:0}
@@ -170,7 +172,10 @@
         </div>
         <div class="mode-block">
           <span class="eyebrow">Generation mode</span>
-          <div class="auto-mode">AI Auto</div>
+          <div class="mode-control" role="group" aria-label="Generation mode">
+            <button id="modeFlatlay" class="mode-btn" type="button" data-mode="flatlay">Flat-Lay</button>
+            <button id="modeKeepCrop" class="mode-btn" type="button" data-mode="keep-crop">Cropped</button>
+          </div>
           <p id="modeHint" class="tiny" style="margin-top:7px"></p>
         </div>
         <div class="primary-actions">
@@ -223,6 +228,7 @@
   <script>
     const DEFAULT_API_BASE = 'https://xclusiveline-photo-studio.qmako41212.workers.dev';
     const DEFAULT_BACKGROUND_SRC = '../../assets/xclusiveline-studio-background.png';
+    const PRODUCT_IMAGE_TRANSFER_KEY = 'xl-product-draft-images';
     const state = {
       apiBase: normalizeApiBase(localStorage.getItem('xl-studio-api')),
       files: [],
@@ -234,7 +240,7 @@
       selected: new Set(),
       media: [],
       busy: false,
-      mode: 'auto',
+      mode: localStorage.getItem('xl-studio-mode') === 'keep-crop' ? 'keep-crop' : 'flatlay',
       maxBulkImages: 8,
       yupooImportLimit: 24,
       currentJobId: localStorage.getItem('xl-studio-job-id') || '',
@@ -265,6 +271,8 @@
       $('generateBtn').onclick = generate;
       $('backgroundJobBtn').onclick = startBackgroundJob;
       $('refreshJobBtn').onclick = () => loadJob({quiet:false});
+      $('modeFlatlay').onclick = () => setMode('flatlay');
+      $('modeKeepCrop').onclick = () => setMode('keep-crop');
       $('generatedTab').onclick = () => setActiveView('generated');
       $('savedTab').onclick = () => setActiveView('saved');
       $('newBatchBtn').onclick = startNewBatch;
@@ -345,9 +353,13 @@
     function toast(msg){ const el=document.createElement('div'); el.textContent=msg; $('toast').appendChild(el); setTimeout(()=>el.remove(),3600); }
     function esc(v){ return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c])); }
     function setMode(mode, persist=true){
-      state.mode = 'auto';
+      state.mode = mode === 'keep-crop' ? 'keep-crop' : 'flatlay';
       if(persist) localStorage.setItem('xl-studio-mode', state.mode);
-      $('modeHint').textContent = 'The AI decides per image: close-up/cropped photos keep the original crop and only swap the background; full product shots become realistic 3:4 flat-lays.';
+      $('modeFlatlay').classList.toggle('active',state.mode==='flatlay');
+      $('modeKeepCrop').classList.toggle('active',state.mode==='keep-crop');
+      $('modeHint').textContent = state.mode === 'keep-crop'
+        ? 'Keeps the original crop and only swaps the visible background.'
+        : 'Builds a finished 3:4 flat-lay image on the XCLUSIVELINE background.';
     }
     function setActiveView(view, persist=true){
       state.activeView = view === 'saved' ? 'saved' : 'generated';
@@ -875,8 +887,8 @@
     function renderResults(){
       if(!state.generated.length){ $('results').innerHTML='<div class="panel empty"><h3>No images yet</h3><p class="muted">Upload products and press Generate Images.</p></div>'; updateActionButtons(); return; }
       $('results').innerHTML=state.generated.map(x=>{
-        const label=x.mode==='auto' ? 'AI auto image' : x.mode==='keep-crop' ? 'Background-only image' : x.sourceJobId ? 'Background job image' : 'Realistic flat-lay image';
-        return `<article class="card"><div class="shot"><img src="${x.dataUrl}" alt=""><label class="check"><input type="checkbox" ${state.selected.has(x.id)?'checked':''} onchange="toggleSel('${x.id}',this.checked)">Select</label></div><div class="body"><strong>${esc(x.originalName)}</strong><p class="tiny">${label}</p><div class="card-actions"><a class="link-btn" download="${esc(x.filename)}" href="${x.dataUrl}">Download</a><button class="mini-btn" onclick="regenerateGenerated('${x.id}')">Regenerate</button><button class="mini-btn danger" onclick="deleteGenerated('${x.id}')">Remove</button></div></div></article>`;
+        const label=x.mode==='keep-crop' ? 'Cropped background swap' : x.sourceJobId ? 'Background job image' : 'Realistic flat-lay image';
+        return `<article class="card"><div class="shot"><img src="${x.dataUrl}" alt=""><label class="check"><input type="checkbox" ${state.selected.has(x.id)?'checked':''} onchange="toggleSel('${x.id}',this.checked)">Select</label></div><div class="body"><strong>${esc(x.originalName)}</strong><p class="tiny">${label}</p><div class="card-actions"><a class="link-btn" download="${esc(x.filename)}" href="${x.dataUrl}">Download</a><button class="mini-btn" onclick="useGeneratedForProduct('${x.id}')">Use for Product</button><button class="mini-btn" onclick="regenerateGenerated('${x.id}')">Regenerate</button><button class="mini-btn danger" onclick="deleteGenerated('${x.id}')">Remove</button></div></div></article>`;
       }).join('');
       updateActionButtons();
     }
@@ -1014,10 +1026,50 @@
         state.media=d.objects||[];
         $('media').innerHTML=state.media.length ? state.media.map((o,index)=>{
           const src=o.publicUrl || apiUrl(o.rawUrl);
-          return `<article class="media-card"><a href="${src}" target="_blank" rel="noreferrer"><img src="${src}" alt=""><span>${esc(o.key.split('/').pop())}</span></a><div class="media-actions"><button class="mini-btn danger" onclick="deleteSavedMedia(${index})">Delete</button></div></article>`;
+          return `<article class="media-card"><a href="${src}" target="_blank" rel="noreferrer"><img src="${src}" alt=""><span>${esc(o.key.split('/').pop())}</span></a><div class="media-actions"><button class="mini-btn" onclick="useSavedForProduct(${index})">Use</button><button class="mini-btn danger" onclick="deleteSavedMedia(${index})">Delete</button></div></article>`;
         }).join('') : '<div class="panel empty"><p class="muted">No saved studio images yet.</p></div>';
         if(!quiet) setStatus(`Loaded ${state.media.length} saved image${state.media.length===1?'':'s'}.`,'ok');
       }catch(e){ if(!quiet) setStatus(friendlyFetchError(e),'bad'); }
+    }
+    function savedMediaUrl(item){
+      if(!item) return '';
+      return item.publicUrl || apiUrl(item.rawUrl || `/api/media/raw?key=${encodeURIComponent(item.key)}`);
+    }
+    function openProductFormWithImages(urls){
+      const images=[...new Set((urls||[]).filter(Boolean))];
+      if(!images.length){ setStatus('No product image URL was available. Save the image first and try again.','bad'); return; }
+      localStorage.setItem(PRODUCT_IMAGE_TRANSFER_KEY,JSON.stringify({images,createdAt:Date.now(),source:'photo-studio'}));
+      toast(images.length===1 ? 'Opening product form' : 'Opening product form with images');
+      window.location.href='../../#admin';
+    }
+    async function saveGeneratedForProduct(result){
+      if(result.publicUrl || result.rawUrl || result.key) return savedMediaUrl(result);
+      const r=await fetch(apiUrl('/api/save'),{method:'POST',headers:{...auth(),'Content-Type':'application/json'},body:JSON.stringify({images:[{id:result.id,originalName:result.originalName,filename:result.filename,contentType:result.contentType,b64:result.b64,key:result.key}]})});
+      const d=await r.json().catch(()=>({ok:false,error:'Save failed.'}));
+      if(!r.ok || !d.ok) throw new Error(d.error||'Save failed');
+      const saved=d.saved?.[0];
+      if(!saved) throw new Error('Saved image was not returned.');
+      Object.assign(result,saved,{saved:true});
+      renderResults();
+      await loadMedia({quiet:true});
+      return savedMediaUrl(result);
+    }
+    async function useGeneratedForProduct(id){
+      const result=state.generated.find(x=>x.id===id);
+      if(!result){ setStatus('Generated image was not found.','bad'); return; }
+      setBusy(true); setStatus('Preparing this image for the product form...');
+      try{
+        const url=await saveGeneratedForProduct(result);
+        openProductFormWithImages([url]);
+      }catch(e){
+        setStatus(friendlyFetchError(e),'bad');
+      }finally{ setBusy(false); }
+    }
+    function useSavedForProduct(index){
+      const item=state.media[index];
+      const url=savedMediaUrl(item);
+      if(!url){ setStatus('Saved image was not found.','bad'); return; }
+      openProductFormWithImages([url]);
     }
     async function deleteSavedMedia(index){
       const item=state.media[index];
@@ -1035,7 +1087,7 @@
       finally{ setBusy(false); }
     }
     function setBusy(on){ state.busy=on; updateActionButtons(); $('importYupooBtn').disabled=on; }
-    window.removeFile=removeFile; window.toggleSel=toggleSel; window.toggleQueue=toggleQueue; window.setQueueSelection=setQueueSelection; window.clearQueue=clearQueue; window.deleteGenerated=deleteGenerated; window.regenerateGenerated=regenerateGenerated; window.deleteSavedMedia=deleteSavedMedia; window.startNewBatch=startNewBatch;
+    window.removeFile=removeFile; window.toggleSel=toggleSel; window.toggleQueue=toggleQueue; window.setQueueSelection=setQueueSelection; window.clearQueue=clearQueue; window.deleteGenerated=deleteGenerated; window.regenerateGenerated=regenerateGenerated; window.deleteSavedMedia=deleteSavedMedia; window.useGeneratedForProduct=useGeneratedForProduct; window.useSavedForProduct=useSavedForProduct; window.startNewBatch=startNewBatch;
     init();
   </script>
 </body>

@@ -609,6 +609,7 @@ const SUPABASE_URL = 'https://ptucjxjqyvirhumzdggo.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB0dWNqeGpxeXZpcmh1bXpkZ2dvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYyMDkzNzEsImV4cCI6MjA5MTc4NTM3MX0.o-kQ-zVRnEVIuPRS1mqFtkY2znkrEgIXh_qPMwIRvm4';
 const PAYPAL_CLIENT_ID = 'AViPSrHXjYHOGpq30UOuIQB7iPkpRGCz2_SLMkUw3yk8w_X1QA0SJq-psuTff3JquBUtCdibI21McjV9';
 const PHOTO_STUDIO_API_BASE = 'https://xclusiveline-photo-studio.qmako41212.workers.dev';
+const PRODUCT_IMAGE_TRANSFER_KEY = 'xl-product-draft-images';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: { persistSession:true, autoRefreshToken:true, detectSessionInUrl:true, storage:window.localStorage, storageKey:'xl-auth' }
 });
@@ -1077,6 +1078,7 @@ async function placeOrder(){
 /* ════════════ ADMIN ════════════ */
 function renderAdmin(){
   if(!state.user?.is_admin){ go('shop'); toast('Admins only'); return; }
+  if(consumePendingStudioProductImages()) return;
   adminTab('products');
 }
 function adminTab(tab){
@@ -1157,11 +1159,32 @@ async function loadGallery(){
   box.innerHTML=productSection+studioSection;
 }
 function addStudioImageToForm(src){
-  if(!src) return;
-  if(state.form.images.some(im=>im.url===src)){ toast('Studio image already added'); return; }
-  state.form.images.push({type:'existing',url:src});
-  renderImgPrev();
-  toast('Studio image added');
+  return addStudioImagesToForm([src], {silent:false});
+}
+function addStudioImagesToForm(urls,{silent=false}={}){
+  let added=0;
+  (urls||[]).forEach(src=>{
+    if(!src) return;
+    if(state.form.images.some(im=>im.url===src)) return;
+    state.form.images.push({type:'existing',url:src});
+    added++;
+  });
+  if(added) renderImgPrev();
+  if(!silent) toast(added ? 'Studio image added' : 'Studio image already added');
+  return added;
+}
+function consumePendingStudioProductImages(){
+  const raw=localStorage.getItem(PRODUCT_IMAGE_TRANSFER_KEY);
+  if(!raw) return false;
+  localStorage.removeItem(PRODUCT_IMAGE_TRANSFER_KEY);
+  let payload=null;
+  try{ payload=JSON.parse(raw); }catch(e){}
+  const images=(payload?.images||[]).filter(Boolean);
+  if(!images.length) return false;
+  adminTab('add');
+  const added=addStudioImagesToForm(images,{silent:true});
+  toast(added ? `${added} Photo Studio image${added===1?'':'s'} added` : 'Photo Studio image already added');
+  return true;
 }
 function useStudioImageInProduct(src){
   adminTab('add');
