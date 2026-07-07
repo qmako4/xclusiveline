@@ -1035,6 +1035,10 @@
       if(!item) return '';
       return item.publicUrl || apiUrl(item.rawUrl || `/api/media/raw?key=${encodeURIComponent(item.key)}`);
     }
+    function isTemporaryJobOutputKey(key){
+      const value='/'+String(key || '');
+      return value.includes('/jobs/') && value.includes('/outputs/');
+    }
     function openProductFormWithImages(urls){
       const images=[...new Set((urls||[]).filter(Boolean))];
       if(!images.length){ setStatus('No product image URL was available. Save the image first and try again.','bad'); return; }
@@ -1043,7 +1047,7 @@
       window.location.href='../../#admin';
     }
     async function saveGeneratedForProduct(result){
-      if(result.publicUrl || result.rawUrl || result.key) return savedMediaUrl(result);
+      if((result.publicUrl || result.rawUrl || result.key) && !isTemporaryJobOutputKey(result.key)) return savedMediaUrl(result);
       const r=await fetch(apiUrl('/api/save'),{method:'POST',headers:{...auth(),'Content-Type':'application/json'},body:JSON.stringify({images:[{id:result.id,originalName:result.originalName,filename:result.filename,contentType:result.contentType,b64:result.b64,key:result.key}]})});
       const d=await r.json().catch(()=>({ok:false,error:'Save failed.'}));
       if(!r.ok || !d.ok) throw new Error(d.error||'Save failed');
