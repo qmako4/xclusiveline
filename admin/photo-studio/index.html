@@ -458,9 +458,6 @@
 
       const nameBase=baseName(file.name,label.toLowerCase().replace(/\s+/g,'-'));
       const maxBytes=19*1024*1024;
-      const png=await canvasBlob(canvas,'image/png');
-      if(png.size<=maxBytes) return new File([png],`${nameBase}-openai.png`,{type:'image/png'});
-
       const jpegCanvas=document.createElement('canvas');
       jpegCanvas.width=canvas.width;
       jpegCanvas.height=canvas.height;
@@ -468,13 +465,15 @@
       jpegCtx.fillStyle='#ffffff';
       jpegCtx.fillRect(0,0,jpegCanvas.width,jpegCanvas.height);
       jpegCtx.drawImage(canvas,0,0);
-      let quality=.96;
+      let quality=.98;
       let jpeg=await canvasBlob(jpegCanvas,'image/jpeg',quality);
-      while(jpeg.size>maxBytes && quality>.82){
-        quality-=.04;
+      while(jpeg.size>maxBytes && quality>.9){
+        quality-=.02;
         jpeg=await canvasBlob(jpegCanvas,'image/jpeg',quality);
       }
       if(jpeg.size<=maxBytes) return new File([jpeg],`${nameBase}-openai.jpg`,{type:'image/jpeg'});
+      const png=await canvasBlob(canvas,'image/png');
+      if(png.size<=maxBytes) return new File([png],`${nameBase}-openai.png`,{type:'image/png'});
       throw new Error(`${label} is too large after cleanup. Try a smaller export.`);
     }
     async function remoteFileForGeneration(file){

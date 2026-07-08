@@ -254,7 +254,7 @@ async function generatePreviews(request, env) {
     submittedBackground && typeof submittedBackground === "object" && submittedBackground.size > 0
       ? submittedBackground
       : await loadDefaultBackgroundFile(request, env);
-  const normalizedBackgroundFile = normalizeImageFileForOpenAi(backgroundFile, "XCLUSIVELINE background");
+  const normalizedBackgroundFile = await normalizeImageFileForOpenAi(backgroundFile, "XCLUSIVELINE background");
 
   const results = [];
   const errors = [];
@@ -262,7 +262,7 @@ async function generatePreviews(request, env) {
   for (let index = 0; index < productFiles.length; index += 1) {
     let productFile = productFiles[index];
     try {
-      productFile = normalizeImageFileForOpenAi(productFile, `Product ${index + 1}`);
+      productFile = await normalizeImageFileForOpenAi(productFile, `Product ${index + 1}`);
       const generated = await generateFlatlayComposite({
         env,
         productFile,
@@ -323,10 +323,11 @@ async function createBackgroundJob(request, env, ctx) {
 
   let itemIndex = 0;
   for (const file of uploadedFiles) {
-    const contentType = validateImageFile(file, `Product ${itemIndex + 1}`);
-    const filename = safeFilename(file.name || `product-${itemIndex + 1}.${extensionForContentType(contentType)}`);
+    const normalizedFile = await normalizeImageFileForOpenAi(file, `Product ${itemIndex + 1}`);
+    const contentType = normalizedFile.type;
+    const filename = safeFilename(normalizedFile.name || `product-${itemIndex + 1}.${extensionForContentType(contentType)}`);
     const sourceKey = `${jobPrefixValue}sources/${String(itemIndex + 1).padStart(2, "0")}-${crypto.randomUUID()}-${filename}`;
-    const bytes = await file.arrayBuffer();
+    const bytes = await normalizedFile.arrayBuffer();
     await env.XCLUSIVELINE_MEDIA.put(sourceKey, bytes, {
       httpMetadata: { contentType },
       customMetadata: { brand: BRAND.name, role: "job-source", originalName: filename },
@@ -355,10 +356,11 @@ async function createBackgroundJob(request, env, ctx) {
   let background = { kind: "default" };
   const submittedBackground = form.get("background");
   if (submittedBackground && typeof submittedBackground === "object" && submittedBackground.size > 0) {
-    const contentType = validateImageFile(submittedBackground, "XCLUSIVELINE background");
-    const filename = safeFilename(submittedBackground.name || `background.${extensionForContentType(contentType)}`);
+    const normalizedBackground = await normalizeImageFileForOpenAi(submittedBackground, "XCLUSIVELINE background");
+    const contentType = normalizedBackground.type;
+    const filename = safeFilename(normalizedBackground.name || `background.${extensionForContentType(contentType)}`);
     const backgroundKey = `${jobPrefixValue}background/${crypto.randomUUID()}-${filename}`;
-    const bytes = await submittedBackground.arrayBuffer();
+    const bytes = await normalizedBackground.arrayBuffer();
     await env.XCLUSIVELINE_MEDIA.put(backgroundKey, bytes, {
       httpMetadata: { contentType },
       customMetadata: { brand: BRAND.name, role: "job-background", originalName: filename },
@@ -562,7 +564,7 @@ async function processBackgroundJobItem(env, jobId, itemId, fallbackIndex = 0) {
 
   try {
     let productFile = item.remote ? await fetchRemoteProductFile(item.remote) : await fileFromR2(env, item.sourceKey, item.originalName);
-    productFile = normalizeImageFileForOpenAi(productFile, `Product ${index + 1}`);
+    productFile = await normalizeImageFileForOpenAi(productFile, `Product ${index + 1}`);
     const backgroundFile = await backgroundFileForJob(env, job);
     const generated = await generateFlatlayComposite({
       env,
@@ -644,7 +646,7 @@ async function fileFromR2(env, key, fallbackName) {
 
 async function backgroundFileForJob(env, job) {
   if (job.background?.kind === "stored" && job.background.key) {
-    return normalizeImageFileForOpenAi(await fileFromR2(env, job.background.key, job.background.filename), "XCLUSIVELINE background");
+    return await normalizeImageFileForOpenAi(await fileFromR2(env, job.background.key, job.background.filename), "XCLUSIVELINE background");
   }
   return await loadDefaultBackgroundFileFromUrl(env);
 }
@@ -1074,7 +1076,7 @@ function buildFlatlayPrompt(productName) {
 }
 
 function shouldRetryWithRepeatedImageField(errorText) {
-  return /image\[\]|unknown parameter|invalid parameter|missing required parameter|expected.*image|array/i.test(
+  return /image\[\]|unknown parameter|invalid parameter|missing required parameter|expected.*image|invalid image|image file|array/i.test(
     String(errorText || ""),
   );
 }
@@ -1541,31 +1543,85 @@ function validateImageFile(file, label) {
     throw statusError(`${label} is missing.`, 400);
   }
 
-  const contentType = openAiImageContentType(file.type || "");
-  if (!contentType) {
-    throw statusError(`${label} must be a JPEG, PNG, or WebP image file.`, 400);
-  }
-
   const maxMb = 20;
   if (file.size > maxMb * 1024 * 1024) {
     throw statusError(`${label} is larger than ${maxMb}MB.`, 400);
   }
 
-  return contentType;
+  return openAiImageContentType(file.type || "");
 }
 
-function normalizeImageFileForOpenAi(file, label) {
-  const contentType = validateImageFile(file, label);
-  if (file.type === contentType) return file;
+async function normalizeImageFileForOpenAi(file, label) {
+  const declaredContentType = validateImageFile(file, label);
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const detectedContentType = detectImageContentType(bytes);
+  const contentType = detectedContentType || declaredContentType;
 
-  const filename = file.name || `${safeFilename(label)}.${extensionForContentType(contentType)}`;
-  if (typeof File === "function") {
-    return new File([file], filename, { type: contentType });
+  if (!openAiImageContentType(contentType)) {
+    throw statusError(`${label} must be a JPEG, PNG, or WebP image file.`, 400);
   }
 
-  const blob = new Blob([file], { type: contentType });
+  const filename = normalizedImageFilename(file.name, label, contentType);
+  if (typeof File === "function") {
+    return new File([bytes], filename, { type: contentType });
+  }
+
+  const blob = new Blob([bytes], { type: contentType });
   blob.name = filename;
   return blob;
+}
+
+function detectImageContentType(bytes) {
+  if (!bytes || bytes.length < 4) return "";
+  if (
+    bytes.length >= 8 &&
+    bytes[0] === 0x89 &&
+    bytes[1] === 0x50 &&
+    bytes[2] === 0x4e &&
+    bytes[3] === 0x47 &&
+    bytes[4] === 0x0d &&
+    bytes[5] === 0x0a &&
+    bytes[6] === 0x1a &&
+    bytes[7] === 0x0a
+  ) {
+    return PNG_TYPE;
+  }
+  if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
+    return JPEG_TYPE;
+  }
+  if (
+    bytes.length >= 12 &&
+    bytes[0] === 0x52 &&
+    bytes[1] === 0x49 &&
+    bytes[2] === 0x46 &&
+    bytes[3] === 0x46 &&
+    bytes[8] === 0x57 &&
+    bytes[9] === 0x45 &&
+    bytes[10] === 0x42 &&
+    bytes[11] === 0x50
+  ) {
+    return WEBP_TYPE;
+  }
+  if (bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x38) {
+    return "image/gif";
+  }
+  if (
+    bytes.length >= 12 &&
+    bytes[4] === 0x66 &&
+    bytes[5] === 0x74 &&
+    bytes[6] === 0x79 &&
+    bytes[7] === 0x70
+  ) {
+    const brand = String.fromCharCode(bytes[8], bytes[9], bytes[10], bytes[11]).toLowerCase();
+    if (["avif", "heic", "heix", "hevc", "mif1"].includes(brand)) return `image/${brand}`;
+  }
+  return "";
+}
+
+function normalizedImageFilename(name, label, contentType) {
+  const fallback = safeFilename(label || "image");
+  const base = safeFilename(String(name || fallback).replace(/\.[a-z0-9]+$/i, "")) || fallback;
+  return `${base}.${extensionForContentType(contentType)}`;
 }
 
 function json(data, request, env, status = 200) {
