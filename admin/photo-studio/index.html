@@ -61,6 +61,7 @@
     .btn.y{background:var(--y);border-color:var(--y);color:var(--b)}
     .btn.dark{background:var(--w);border-color:var(--w);color:var(--b)}
     .btn.red{color:var(--red)}
+    .btn.cancel{border-color:rgba(229,72,77,.42);background:rgba(229,72,77,.12);color:#ff8c90}
     .icon-btn{width:32px;height:32px;border-radius:50%;background:rgba(250,250,250,.06);border:1px solid var(--line);color:var(--mut);font-size:16px;line-height:1}
     .actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
     .primary-actions{display:grid;grid-template-columns:1fr;gap:8px;margin-top:12px}
@@ -175,6 +176,7 @@
         </div>
         <div class="primary-actions">
           <button id="generateBtn" class="btn y">Generate Images</button>
+          <button id="cancelGenerationBtn" class="btn cancel hidden" disabled>Cancel Generation</button>
           <div class="secondary-actions">
             <button id="backgroundJobBtn" class="btn">Run In Background</button>
             <button id="refreshJobBtn" class="btn" disabled>Refresh Job</button>
@@ -235,6 +237,9 @@
       selected: new Set(),
       media: [],
       busy: false,
+      activeAbort: null,
+      activeOperation: '',
+      cancelRequested: false,
       mode: 'auto',
       maxBulkImages: 8,
       yupooImportLimit: 24,
@@ -264,6 +269,7 @@
       $('importYupooBtn').onclick = importYupoo;
       $('yupooUrl').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); importYupoo(); } });
       $('generateBtn').onclick = generate;
+      $('cancelGenerationBtn').onclick = cancelGeneration;
       $('backgroundJobBtn').onclick = startBackgroundJob;
       $('refreshJobBtn').onclick = () => loadJob({quiet:false});
       $('generatedTab').onclick = () => setActiveView('generated');
@@ -631,7 +637,8 @@
       if(!state.files.length){ setStatus('Upload product images first.','bad'); return; }
       if(!targets.length){ setStatus('Select at least one queued image to generate.','bad'); return; }
       const duplicateText=duplicateNotice(targets);
-      setBusy(true); setStatus(`${duplicateText}Generating realistic XCLUSIVELINE images. First run may take a moment.`);
+      const signal=beginOperation('generate');
+      setStatus(`${duplicateText}Generating realistic XCLUSIVELINE images. First run may take a moment.`);
       try{
         state.generated=[];
         state.selected=new Set();
@@ -640,11 +647,13 @@
         const background=state.bgFile || await defaultBackgroundFile();
         const total=targets.length;
         for(let position=0; position<total; position+=1){
+          if(state.cancelRequested || signal.aborted) break;
           const source=targets[position];
           const label=source.file?.name || `product-${source.index+1}`;
           setStatus(`Generating image ${position+1} of ${total}: ${label}. ${state.generated.length} finished so far.`);
           try{
-            const newResults=await generateSource(source, background);
+            const newResults=await generateSource(source, background, signal);
+            if(state.cancelRequested || signal.aborted) break;
             state.generated.push(...newResults);
             newResults.forEach(x=>state.selected.add(x.id));
             let sourceHistoryChanged=false;
@@ -655,9 +664,15 @@
           }catch(error){
             const message=error.message || 'Generation failed.';
             if(/worker url/i.test(message)) throw error;
+            if(isAbortError(error) || state.cancelRequested) throw error;
             allErrors.push({originalName:label,error:message});
             setStatus(`Image ${position+1} failed: ${message}`);
           }
+        }
+        if(state.cancelRequested || signal.aborted){
+          renderResults();
+          setStatus(`Cancelled generation. ${state.generated.length} finished image${state.generated.length===1?'':'s'} kept in the preview list.`,'ok');
+          return;
         }
         if(!state.generated.length){
           const firstError=allErrors[0]?.error;
@@ -667,13 +682,18 @@
         const errorNote=allErrors.length ? ` ${allErrors.length} image${allErrors.length===1?'':'s'} failed.` : '';
         setStatus(`Generated ${state.generated.length} realistic XCLUSIVELINE image${state.generated.length===1?'':'s'}.${errorNote}`,'ok');
       }catch(e){
+        if(isAbortError(e) || state.cancelRequested){
+          renderResults();
+          setStatus(`Cancelled generation. ${state.generated.length} finished image${state.generated.length===1?'':'s'} kept in the preview list.`,'ok');
+          return;
+        }
         if(/worker url/i.test(e.message||'')) $('setupDetails').open=true;
         setStatus(friendlyFetchError(e),'bad');
       }
-      finally{ setBusy(false); }
+      finally{ endOperation(); }
     }
 
-    async function generateSource(source, background){
+    async function generateSource(source, background, signal){
       const file=source.file;
       const label=file?.name || `product-${source.index+1}`;
       const form=new FormData();
@@ -682,7 +702,7 @@
       form.append('products',preparedProduct,preparedProduct.name||file.name||'product.png');
       form.append('background',preparedBackground,preparedBackground.name||'xclusiveline-original-background.png');
       form.append('mode',state.mode);
-      const r=await fetch(apiUrl('/api/generate'),{method:'POST',headers:auth(),body:form});
+      const r=await fetch(apiUrl('/api/generate'),{method:'POST',headers:auth(),body:form,signal});
       const d=await r.json().catch(()=>({ok:false,error:'Generation failed.'}));
       if(!r.ok || !d.ok) throw new Error(d.error||'Generation failed');
       const workerErrors=(d.errors||[]).filter(Boolean);
@@ -701,6 +721,7 @@
     }
     async function appendSelectedSourcesToForm(form, targets){
       for(let index=0; index<targets.length; index+=1){
+        if(state.cancelRequested) throw new DOMException('Generation cancelled.', 'AbortError');
         const source=targets[index];
         setStatus(`Preparing image ${index+1} of ${targets.length} for OpenAI...`);
         const preparedProduct=await productFileForGeneration(source);
@@ -744,7 +765,8 @@
       if(!state.files.length){ setStatus('Upload product images first.','bad'); return; }
       if(!targets.length){ setStatus('Select at least one queued image to generate.','bad'); return; }
       const duplicateText=duplicateNotice(targets);
-      setBusy(true); setStatus(`${duplicateText}Starting background job for ${targets.length} image${targets.length===1?'':'s'}...`);
+      const signal=beginOperation('background-start');
+      setStatus(`${duplicateText}Starting background job for ${targets.length} image${targets.length===1?'':'s'}...`);
       try{
         const form=new FormData();
         await appendSelectedSourcesToForm(form, targets);
@@ -755,7 +777,7 @@
         state.selected=new Set();
         state.knownJobResultIds=new Set();
         renderResults();
-        const r=await fetch(apiUrl('/api/jobs'),{method:'POST',headers:auth(),body:form});
+        const r=await fetch(apiUrl('/api/jobs'),{method:'POST',headers:auth(),body:form,signal});
         const d=await r.json().catch(()=>({ok:false,error:'Background job failed to start.'}));
         if(!r.ok || !d.ok) throw new Error(d.error||'Background job failed to start.');
         state.currentJobId=d.job.id;
@@ -768,9 +790,13 @@
         setStatus('Background job started. Finished images will appear here one by one.','ok');
         toast('Background job started');
       }catch(e){
+        if(isAbortError(e) || state.cancelRequested){
+          setStatus('Cancelled before the background job started.','ok');
+          return;
+        }
         if(/worker url/i.test(e.message||'')) $('setupDetails').open=true;
         setStatus(friendlyFetchError(e),'bad');
-      }finally{ setBusy(false); }
+      }finally{ endOperation(); }
     }
     async function loadJob({quiet=false}={}){
       if(!state.currentJobId) return;
@@ -807,7 +833,7 @@
       }
     }
     function jobIsDone(job){
-      return ['complete','partial','failed'].includes(String(job?.status||''));
+      return ['complete','partial','failed','cancelled'].includes(String(job?.status||''));
     }
     function statusLabel(value){
       return String(value||'queued').replace(/-/g,' ');
@@ -822,7 +848,8 @@
       const total=Number(job.total||0);
       const complete=Number(job.completed||0);
       const failed=Number(job.failed||0);
-      const done=complete+failed;
+      const cancelled=Number(job.cancelled||0);
+      const done=complete+failed+cancelled;
       const pct=total ? Math.round((done/total)*100) : 0;
       const rows=(job.items||[]).map(item=>{
         const stateText=item.result?.deleted ? 'removed' : item.error ? item.error : statusLabel(item.status);
@@ -830,7 +857,8 @@
       }).join('');
       const actions=jobIsDone(job) ? '<div class="job-actions"><button class="mini-btn" onclick="startNewBatch()">Start New Batch</button></div>' : '';
       panel.classList.remove('hidden');
-      panel.innerHTML=`<div class="job-row"><strong>Background job ${esc(job.id.slice(0,8))}</strong><span class="job-state">${esc(statusLabel(job.status))}</span></div><div class="job-bar" aria-label="Job progress"><div class="job-fill" style="width:${pct}%"></div></div><p class="tiny">${complete} complete, ${failed} failed, ${total} total</p>${rows?`<div class="job-list">${rows}</div>`:''}${actions}`;
+      const cancelledText=cancelled ? `, ${cancelled} cancelled` : '';
+      panel.innerHTML=`<div class="job-row"><strong>Background job ${esc(job.id.slice(0,8))}</strong><span class="job-state">${esc(statusLabel(job.status))}</span></div><div class="job-bar" aria-label="Job progress"><div class="job-fill" style="width:${pct}%"></div></div><p class="tiny">${complete} complete, ${failed} failed${cancelledText}, ${total} total</p>${rows?`<div class="job-list">${rows}</div>`:''}${actions}`;
     }
     function applyJobResults(job){
       const previousIds=new Set(state.generated.map(x=>x.id));
@@ -887,9 +915,14 @@
       const hasSelectedQueue=Boolean(selectedQueueItems().length);
       const onGeneratedView=state.activeView==='generated';
       const hasBatch=Boolean(state.currentJobId || state.job || state.generated.length);
+      const hasRunningJob=Boolean(state.currentJobId && state.job && !jobIsDone(state.job));
+      const canCancel=Boolean(state.activeAbort || hasRunningJob);
       $('generateBtn').disabled = state.busy || !hasSelectedQueue;
       $('backgroundJobBtn').disabled = state.busy || !hasSelectedQueue;
       $('refreshJobBtn').disabled = state.busy || !state.currentJobId;
+      $('cancelGenerationBtn').classList.toggle('hidden',!canCancel);
+      $('cancelGenerationBtn').disabled = !canCancel;
+      $('cancelGenerationBtn').textContent = hasRunningJob && !state.activeAbort ? 'Cancel Background Job' : state.activeOperation === 'background-start' ? 'Cancel Background Start' : 'Cancel Generation';
       ['saveBtn','regenerateBtn','removeGeneratedBtn'].forEach(id=>$(id).classList.toggle('hidden',!onGeneratedView || !hasGenerated));
       $('newBatchBtn').classList.toggle('hidden',!onGeneratedView || !hasBatch);
       $('refreshMediaBtn').classList.toggle('hidden',state.activeView!=='saved');
@@ -916,6 +949,43 @@
       renderResults();
       setActiveView('generated');
       setStatus('Cleared the current results. Select queued images and start the next generation.','ok');
+    }
+    async function cancelGeneration(){
+      if(state.activeAbort){
+        state.cancelRequested=true;
+        state.activeAbort.abort();
+        setStatus('Cancelling the current generation...');
+        updateActionButtons();
+        return;
+      }
+      if(state.currentJobId && state.job && !jobIsDone(state.job)){
+        await cancelBackgroundJob();
+      }
+    }
+    async function cancelBackgroundJob(){
+      const id=state.currentJobId;
+      if(!id) return;
+      stopJobPolling();
+      setStatus('Cancelling background job...');
+      try{
+        await fetch(apiUrl('/api/jobs/cancel'),{
+          method:'POST',
+          headers:{...auth(),'Content-Type':'application/json'},
+          body:JSON.stringify({id})
+        });
+      }catch{}
+      state.currentJobId='';
+      state.job=null;
+      state.jobSources={};
+      state.knownJobResultIds=new Set();
+      localStorage.removeItem(`xl-studio-job-sources-${id}`);
+      localStorage.removeItem('xl-studio-job-id');
+      localStorage.removeItem('xl-studio-job-sources-key');
+      renderJob(null);
+      renderResults();
+      updateActionButtons();
+      setStatus('Cancelled the background job on this page. Any finished images are still shown, and you can start a new batch now.','ok');
+      toast('Background job cancelled');
     }
     async function deleteGenerated(id){
       const removed=state.generated.find(x=>x.id===id);
@@ -1079,6 +1149,22 @@
       finally{ setBusy(false); }
     }
     function setBusy(on){ state.busy=on; updateActionButtons(); $('importYupooBtn').disabled=on; }
+    function beginOperation(name){
+      state.cancelRequested=false;
+      state.activeOperation=name;
+      state.activeAbort=new AbortController();
+      setBusy(true);
+      return state.activeAbort.signal;
+    }
+    function endOperation(){
+      state.activeAbort=null;
+      state.activeOperation='';
+      state.cancelRequested=false;
+      setBusy(false);
+    }
+    function isAbortError(error){
+      return error?.name === 'AbortError' || /abort|cancel/i.test(error?.message || '');
+    }
     window.removeFile=removeFile; window.toggleSel=toggleSel; window.toggleQueue=toggleQueue; window.setQueueSelection=setQueueSelection; window.clearQueue=clearQueue; window.deleteGenerated=deleteGenerated; window.regenerateGenerated=regenerateGenerated; window.deleteSavedMedia=deleteSavedMedia; window.useGeneratedForProduct=useGeneratedForProduct; window.useSavedForProduct=useSavedForProduct; window.startNewBatch=startNewBatch;
     init();
   </script>

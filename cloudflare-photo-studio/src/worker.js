@@ -12,6 +12,7 @@ const PNG_TYPE = "image/png";
 const JPEG_TYPE = "image/jpeg";
 const WEBP_TYPE = "image/webp";
 const JOB_STALE_AFTER_MS = 2 * 60 * 1000;
+const TERMINAL_JOB_STATUSES = ["complete", "partial", "failed", "cancelled"];
 
 export default {
   async fetch(request, env, ctx) {
@@ -81,6 +82,11 @@ export default {
       if (pathname === "/api/jobs/resume" && request.method === "POST") {
         await requireAdmin(request, env);
         return await resumeBackgroundJob(request, env, ctx);
+      }
+
+      if (pathname === "/api/jobs/cancel" && request.method === "POST") {
+        await requireAdmin(request, env);
+        return await cancelBackgroundJob(request, env);
       }
 
       if (pathname === "/api/save" && request.method === "POST") {
@@ -434,14 +440,53 @@ async function resumeBackgroundJob(request, env, ctx) {
   if (!id) throw statusError("Missing background job id.", 400);
   let job = await readJob(env, id);
   if (!job) throw statusError("Background job was not found.", 404);
-  if (["complete", "partial", "failed"].includes(job.status)) {
+  if (isTerminalJobStatus(job.status)) {
     return json({ ok: true, job: publicJob(job), alreadyFinished: true }, request, env);
   }
   job = await resumeJobInPlace(env, job, ctx, "manual-resume");
   return json({ ok: true, job: publicJob(job) }, request, env, 202);
 }
 
+async function cancelBackgroundJob(request, env) {
+  if (!env.XCLUSIVELINE_MEDIA) {
+    throw statusError("XCLUSIVELINE_MEDIA R2 binding is not configured.", 500);
+  }
+
+  const body = await request.json().catch(() => ({}));
+  const id = body.id || new URL(request.url).searchParams.get("id");
+  if (!id) throw statusError("Missing background job id.", 400);
+
+  const job = await readJob(env, id);
+  if (!job) throw statusError("Background job was not found.", 404);
+  if (isTerminalJobStatus(job.status)) {
+    return json({ ok: true, job: publicJob(job), alreadyFinished: true }, request, env);
+  }
+
+  const now = new Date().toISOString();
+  for (const item of job.items || []) {
+    if (["queued", "running"].includes(item.status)) {
+      item.status = "cancelled";
+      item.error = null;
+      item.cancelledAt = now;
+    }
+  }
+
+  job.status = "cancelled";
+  job.cancelledAt = now;
+  job.finishedAt = now;
+  job.completed = (job.items || []).filter((entry) => entry.status === "complete").length;
+  job.failed = (job.items || []).filter((entry) => entry.status === "failed").length;
+  job.cancelled = (job.items || []).filter((entry) => entry.status === "cancelled").length;
+  await writeJob(env, job);
+
+  return json({ ok: true, job: publicJob(job) }, request, env);
+}
+
 async function enqueueBackgroundJob(env, job, ctx, reason = "created") {
+  if (job.status === "cancelled") {
+    return { method: "none", count: 0 };
+  }
+
   const pending = (job.items || [])
     .map((item, index) => ({ item, index }))
     .filter(({ item }) => item && item.status === "queued");
@@ -505,7 +550,7 @@ async function resumeJobInPlace(env, job, ctx, reason) {
 }
 
 function isStaleJob(job) {
-  if (!job || ["complete", "partial", "failed"].includes(job.status)) return false;
+  if (!job || isTerminalJobStatus(job.status)) return false;
   if (job.queue?.method === "queue") return false;
   const updatedAt = Date.parse(job.updatedAt || job.startedAt || job.createdAt || "");
   if (!Number.isFinite(updatedAt)) return false;
@@ -513,15 +558,19 @@ function isStaleJob(job) {
   return incomplete && Date.now() - updatedAt > JOB_STALE_AFTER_MS;
 }
 
+function isTerminalJobStatus(status) {
+  return TERMINAL_JOB_STATUSES.includes(String(status || ""));
+}
+
 async function processBackgroundJob(env, jobId) {
   let job = await readJob(env, jobId);
-  if (!job || ["complete", "partial", "failed"].includes(job.status)) return;
+  if (!job || isTerminalJobStatus(job.status)) return;
 
   for (let index = 0; index < job.items.length; index += 1) {
     job = await readJob(env, jobId);
-    if (!job) return;
+    if (!job || isTerminalJobStatus(job.status)) return;
     const item = job.items[index];
-    if (!item || item.status === "complete") continue;
+    if (!item || ["complete", "failed", "cancelled"].includes(item.status)) continue;
     await processBackgroundJobItem(env, jobId, item.id, index);
   }
 }
@@ -543,12 +592,12 @@ function normalizeQueueMessageBody(value) {
 
 async function processBackgroundJobItem(env, jobId, itemId, fallbackIndex = 0) {
   let job = await readJob(env, jobId);
-  if (!job || ["complete", "partial", "failed"].includes(job.status)) return;
+  if (!job || isTerminalJobStatus(job.status)) return;
 
   const indexById = (job.items || []).findIndex((entry) => entry.id === itemId);
   const index = indexById >= 0 ? indexById : fallbackIndex;
   const item = job.items?.[index];
-  if (!item || item.status === "complete" || item.status === "failed") {
+  if (!item || item.status === "complete" || item.status === "failed" || item.status === "cancelled") {
     await finalizeJobProgress(env, job);
     return;
   }
@@ -572,6 +621,11 @@ async function processBackgroundJobItem(env, jobId, itemId, fallbackIndex = 0) {
       backgroundFile,
       generationMode: job.mode,
     });
+    const latestJob = await readJob(env, jobId);
+    const latestItem = latestJob?.items?.find((entry) => entry.id === item.id);
+    if (latestJob?.status === "cancelled" || latestItem?.status === "cancelled") {
+      return;
+    }
     const id = crypto.randomUUID();
     const filename = outputFilename(productFile.name || item.originalName, id, generated.contentType);
     const bytes = base64ToUint8Array(generated.b64);
@@ -587,6 +641,11 @@ async function processBackgroundJobItem(env, jobId, itemId, fallbackIndex = 0) {
         createdBy: "xclusiveline-photo-studio-job",
       },
     });
+    const storedJob = await readJob(env, jobId);
+    const storedItem = storedJob?.items?.find((entry) => entry.id === item.id);
+    if (storedJob?.status === "cancelled" || storedItem?.status === "cancelled") {
+      return;
+    }
 
     item.status = "complete";
     item.finishedAt = new Date().toISOString();
@@ -609,15 +668,26 @@ async function processBackgroundJobItem(env, jobId, itemId, fallbackIndex = 0) {
     item.error = error.message || "Generation failed.";
   }
 
+  const latestBeforeFinalize = await readJob(env, jobId);
+  if (latestBeforeFinalize?.status === "cancelled") return;
   await finalizeJobProgress(env, job);
 }
 
 async function finalizeJobProgress(env, job) {
   job.completed = job.items.filter((entry) => entry.status === "complete").length;
   job.failed = job.items.filter((entry) => entry.status === "failed").length;
+  job.cancelled = job.items.filter((entry) => entry.status === "cancelled").length;
   const total = job.total || job.items.length || 0;
-  if (job.completed + job.failed >= total) {
-    job.status = job.completed === total ? "complete" : job.completed > 0 ? "partial" : "failed";
+  if (job.status === "cancelled") {
+    job.finishedAt = job.finishedAt || new Date().toISOString();
+  } else if (job.completed + job.failed + job.cancelled >= total) {
+    if (job.cancelled && !job.completed && !job.failed) {
+      job.status = "cancelled";
+    } else if (job.cancelled) {
+      job.status = job.completed > 0 ? "partial" : "failed";
+    } else {
+      job.status = job.completed === total ? "complete" : job.completed > 0 ? "partial" : "failed";
+    }
     job.finishedAt = new Date().toISOString();
   } else {
     job.status = "running";
@@ -727,6 +797,7 @@ function publicJob(job, options = {}) {
     total: job.total || job.items?.length || 0,
     completed: job.completed || 0,
     failed: job.failed || 0,
+    cancelled: job.cancelled || 0,
   };
   if (includeItems) {
     publicValue.items = (job.items || []).map((item, index) => ({
