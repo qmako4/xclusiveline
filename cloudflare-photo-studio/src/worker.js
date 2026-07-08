@@ -1025,18 +1025,19 @@ function buildGenerationPrompt(productName, mode) {
 
 function buildAutoPrompt(productName) {
   return [
-    "Use case: automatic XCLUSIVELINE product photo background replacement.",
+    "Use case: Smart Auto XCLUSIVELINE product photo background replacement.",
     `Input image 1 is the product photo${productName ? ` named ${productName}` : ""}. Input image 2 is the original XCLUSIVELINE yellow fabric background.`,
-    "First decide which treatment fits the input image:",
-    "Use BACKGROUND-ONLY KEEP-CROP when the product is close-up, cropped by the frame, partially visible, already fills most of the image, touches the image edges, or only has a simple grey/white/table/floor backdrop that needs replacing.",
-    "Use REALISTIC FLAT-LAY when the full product is visible enough to be presented as an ecommerce product photo with natural yellow fabric around it.",
-    "If you choose BACKGROUND-ONLY KEEP-CROP: keep the exact uploaded crop, product position, scale, visible edges, and composition. Do not zoom out, move, shrink, enlarge, rotate, re-angle, extend, complete, or reframe the product. Only replace the visible non-product background with the yellow XCLUSIVELINE fabric texture.",
-    "If you choose REALISTIC FLAT-LAY: create a clean 3:4 overhead ecommerce flat-lay on the supplied yellow XCLUSIVELINE fabric background. Keep realistic scale with believable yellow fabric visible around the product.",
-    "In both cases, preserve the product identity and details exactly: shape, colour, logos, printed text, texture, stitching, fabric grain, tags, hands, clothing, shoes, watches, defects, marks, shadows on the product, and edge detail.",
-    "Do not smooth, repaint, recolour, relight, retouch, redesign, or restyle the product. Avoid AI smoothing and keep fabric/product texture real.",
-    "Preserve the supplied XCLUSIVELINE background's yellow fabric texture and existing black lettering where visible. Do not invent, duplicate, extend, or add extra XCLUSIVELINE text, bottom text, watermarks, labels, props, hands, hangers, floor, or wall.",
-    "Only add subtle realism where the product touches the new background: a soft natural contact shadow, tiny fabric compression, and very slight local creases immediately around the product. Shadows must be soft and believable.",
-    "If uncertain, choose BACKGROUND-ONLY KEEP-CROP and prioritize preserving the uploaded product pixels and framing over making a more complete or cleaner product image.",
+    "Make an internal decision first. Do not write the decision, labels, notes, or text into the image.",
+    "Decision rule: choose BACKGROUND-ONLY KEEP-CROP unless the image clearly qualifies for FULL-PRODUCT FLAT-LAY.",
+    "Choose BACKGROUND-ONLY KEEP-CROP when any of these are true: the product is cropped by any frame edge; only part of the item is visible; the item is a close-up/detail shot; the product touches or nearly touches the image edge; the product already fills most of the canvas; the photo is mainly correct but has a plain grey/white/table/floor background; perspective is not a clean overhead full-item view; or confidence is not high.",
+    "For BACKGROUND-ONLY KEEP-CROP: keep the exact uploaded canvas/crop, product position, visible scale, perspective, rotation, and composition. Do not zoom out, zoom in, center, shrink, enlarge, rotate, straighten, re-angle, complete missing parts, extend canvas, or create a new full product image. Replace only visible non-product background pixels with yellow XCLUSIVELINE fabric texture.",
+    "Choose FULL-PRODUCT FLAT-LAY only when all of these are true: the entire product is visible; all important edges are inside the frame; the product has enough separation from the existing background; the product can be naturally isolated without inventing missing parts; the camera angle can plausibly become an overhead ecommerce flat-lay; and there is room to show yellow fabric around it.",
+    "For FULL-PRODUCT FLAT-LAY: create a realistic 3:4 overhead ecommerce flat-lay on the supplied yellow fabric background. Keep product scale believable, usually filling about 55-75% of the canvas for clothing and less for shoes/accessories. Leave natural yellow fabric visible around the item and do not make it touch the output edges.",
+    "In both decisions, preserve the product exactly: shape, silhouette, colour, logos, printed text, texture, stitching, fabric grain, mesh holes, tags, defects, marks, wear, shadows on the product, hands, clothing, shoes, watches, and edge detail.",
+    "Do not smooth, repaint, recolour, relight, retouch, redesign, restyle, de-wrinkle, clean, repair, upscale, or alter the product. Avoid AI smoothing and keep the product texture real.",
+    "Use the supplied XCLUSIVELINE background as the physical surface. Preserve its yellow fabric texture and any existing black lettering only where it naturally appears from the supplied background. Do not invent, duplicate, extend, or add extra XCLUSIVELINE text, bottom text, logos, watermarks, labels, props, hangers, hands, floors, or walls.",
+    "Only add subtle contact realism where the product meets the yellow fabric: a soft natural contact shadow, tiny fabric compression, and slight local creases. Shadows must be soft and believable, never dramatic, glossy, floating, harsh, or unrealistic.",
+    "If uncertain at any point, choose BACKGROUND-ONLY KEEP-CROP and preserve the uploaded product pixels and framing over making a cleaner or more complete image.",
   ].join("\n");
 }
 
