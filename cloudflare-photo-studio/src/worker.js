@@ -242,6 +242,7 @@ async function generatePreviews(request, env) {
   const productUrlItems = parseProductUrlItems(form.get("productUrls"));
   const productFiles = [...uploadedFiles];
   const generationMode = normalizeGenerationMode(form.get("mode"));
+  const productModes = parseProductModes(form.get("productModes"), uploadedFiles.length + productUrlItems.length, generationMode);
 
   if (!uploadedFiles.length && !productUrlItems.length) {
     throw statusError("Upload at least one product image.", 400);
@@ -273,7 +274,7 @@ async function generatePreviews(request, env) {
         env,
         productFile,
         backgroundFile: normalizedBackgroundFile,
-        generationMode,
+        generationMode: productModes[index] || generationMode,
       });
 
       const id = crypto.randomUUID();
@@ -322,6 +323,7 @@ async function createBackgroundJob(request, env, ctx) {
 
   const jobId = crypto.randomUUID();
   const mode = normalizeGenerationMode(form.get("mode"));
+  const productModes = parseProductModes(form.get("productModes"), total, mode);
   const prefix = cleanPrefix(env.XCLUSIVELINE_R2_PREFIX || "photo-studio/");
   const jobPrefixValue = jobPrefix(env, jobId);
   const now = new Date().toISOString();
@@ -341,6 +343,7 @@ async function createBackgroundJob(request, env, ctx) {
     items.push({
       id: crypto.randomUUID(),
       status: "queued",
+      mode: productModes[itemIndex] || mode,
       originalName: filename,
       sourceKey,
       contentType,
@@ -353,6 +356,7 @@ async function createBackgroundJob(request, env, ctx) {
     items.push({
       id: crypto.randomUUID(),
       status: "queued",
+      mode: productModes[itemIndex] || mode,
       originalName: item.filename || `remote-product-${itemIndex + 1}.jpg`,
       remote: item,
     });
@@ -619,7 +623,7 @@ async function processBackgroundJobItem(env, jobId, itemId, fallbackIndex = 0) {
       env,
       productFile,
       backgroundFile,
-      generationMode: job.mode,
+      generationMode: item.mode || job.mode,
     });
     const latestJob = await readJob(env, jobId);
     const latestItem = latestJob?.items?.find((entry) => entry.id === item.id);
@@ -803,6 +807,7 @@ function publicJob(job, options = {}) {
     publicValue.items = (job.items || []).map((item, index) => ({
       id: item.id,
       status: item.status,
+      mode: item.mode || job.mode,
       originalName: item.originalName || `product-${index + 1}`,
       error: item.error || null,
       result: item.result || null,
@@ -1099,12 +1104,13 @@ function buildAutoPrompt(productName) {
     "Use case: Smart Auto XCLUSIVELINE product photo background replacement.",
     `Input image 1 is the product photo${productName ? ` named ${productName}` : ""}. Input image 2 is the original XCLUSIVELINE yellow fabric background.`,
     "Make an internal decision first. Do not write the decision, labels, notes, or text into the image.",
-    "Decision rule: choose BACKGROUND-ONLY KEEP-CROP unless the image clearly qualifies for FULL-PRODUCT FLAT-LAY.",
-    "Choose BACKGROUND-ONLY KEEP-CROP when any of these are true: the product is cropped by any frame edge; only part of the item is visible; the item is a close-up/detail shot; the product touches or nearly touches the image edge; the product already fills most of the canvas; the photo is mainly correct but has a plain grey/white/table/floor background; perspective is not a clean overhead full-item view; or confidence is not high.",
+    "Decision rule: choose BACKGROUND-ONLY KEEP-CROP unless the image clearly qualifies for FULL-PRODUCT FLAT-LAY. When uncertain, keep-crop is always the correct choice.",
+    "Choose BACKGROUND-ONLY KEEP-CROP when any of these are true: the product is cropped by any frame edge; only part of the item is visible; the item is a close-up/detail shot; the product touches or nearly touches the image edge; the product already fills most of the canvas; the photo shows multiple products, grouped products, overlapping items, or a set/bundle arrangement; the photo is mainly correct but has a plain grey/white/table/floor background; perspective is not a clean overhead full-item view; or confidence is not high.",
     "For BACKGROUND-ONLY KEEP-CROP: keep the exact uploaded canvas/crop, product position, visible scale, perspective, rotation, and composition. Do not zoom out, zoom in, center, shrink, enlarge, rotate, straighten, re-angle, complete missing parts, extend canvas, or create a new full product image. Replace only visible non-product background pixels with yellow XCLUSIVELINE fabric texture.",
-    "Choose FULL-PRODUCT FLAT-LAY only when all of these are true: the entire product is visible; all important edges are inside the frame; the product has enough separation from the existing background; the product can be naturally isolated without inventing missing parts; the camera angle can plausibly become an overhead ecommerce flat-lay; and there is room to show yellow fabric around it.",
-    "For FULL-PRODUCT FLAT-LAY: create a realistic 3:4 overhead ecommerce flat-lay on the supplied yellow fabric background. Keep product scale believable, usually filling about 55-75% of the canvas for clothing and less for shoes/accessories. Leave natural yellow fabric visible around the item and do not make it touch the output edges.",
+    "Choose FULL-PRODUCT FLAT-LAY only when all of these are true: one complete product or one complete existing group is visible; all important edges are inside the frame; the product has enough separation from the existing background; the product can be naturally isolated without inventing missing parts; the camera angle can plausibly become an overhead ecommerce flat-lay; and there is room to show yellow fabric around it.",
+    "For FULL-PRODUCT FLAT-LAY: create a realistic 3:4 overhead ecommerce flat-lay on the supplied yellow fabric background. Keep product scale believable, usually filling about 50-68% of the canvas for clothing and less for shoes/accessories. Leave natural yellow fabric visible around the item and do not make it touch the output edges.",
     "In both decisions, preserve the product exactly: shape, silhouette, colour, logos, printed text, texture, stitching, fabric grain, mesh holes, tags, defects, marks, wear, shadows on the product, hands, clothing, shoes, watches, and edge detail.",
+    "Preserve the exact number of product items. Do not add duplicates, extra colourways, extra garments, extra logos, missing alternate items, or a new product arrangement. If the input has one item, output one item. If it has a group, keep the same group and overlap order.",
     "Do not smooth, repaint, recolour, relight, retouch, redesign, restyle, de-wrinkle, clean, repair, upscale, or alter the product. Avoid AI smoothing and keep the product texture real.",
     "Use the supplied XCLUSIVELINE background as the physical surface. Preserve its yellow fabric texture and any existing black lettering only where it naturally appears from the supplied background. Do not invent, duplicate, extend, or add extra XCLUSIVELINE text, bottom text, logos, watermarks, labels, props, hangers, hands, floors, or walls.",
     "Only add subtle contact realism where the product meets the yellow fabric: a soft natural contact shadow, tiny fabric compression, and slight local creases. Shadows must be soft and believable, never dramatic, glossy, floating, harsh, or unrealistic.",
@@ -1119,6 +1125,7 @@ function buildKeepCropPrompt(productName) {
     "Input image 2 is the original XCLUSIVELINE yellow fabric background. Use a clean yellow fabric area from it as the replacement surface.",
     "Do not create a new full-product flat-lay. Do not zoom out. Do not move, shrink, enlarge, rotate, re-angle, re-crop, or reframe the product.",
     "Preserve the exact uploaded camera crop and composition. Keep all visible product edges in the same positions and keep any naturally cut-off parts cut off.",
+    "Preserve the exact number of visible products and their arrangement. If there are multiple items, keep the same items, same overlap order, same spacing, and same visible scale.",
     "Replace only the visible non-product background, such as grey, white, table, floor, or plain backdrop areas, with the yellow XCLUSIVELINE fabric texture.",
     "Do not generate, complete, or invent missing parts of the product outside the original frame. Do not add extra canvas, props, hands, hangers, floor, wall, labels, watermarks, or extra XCLUSIVELINE text.",
     "Preserve the product identity and details exactly: shape, colour, logos, printed text, texture, stitching, fabric grain, mesh holes, tags, defects, marks, shadows on the product, and edge detail.",
@@ -1136,12 +1143,13 @@ function buildFlatlayPrompt(productName) {
     "Input image 2 is the original XCLUSIVELINE yellow fabric background. Use it as the physical ground/surface that the product is lying on.",
     "Create a 3:4 flat-lay product photo where the product appears naturally placed on top of that exact supplied background.",
     "Preserve the product identity and details: shape, colour, logos, printed text, texture, stitching, fabric grain, tags, hands, clothing, shoes, watches, defects, marks, and edge detail.",
+    "Preserve the exact number of product items from the input. Do not add duplicates, alternate colourways, extra garments, props, or a new layout. If the input has a grouped set, keep the same group and overlap order.",
     "Do not smooth, repaint, recolour, relight, retouch, redesign, or restyle the product. Avoid AI smoothing and keep fabric/product texture real.",
     "Preserve the supplied XCLUSIVELINE background's yellow fabric texture and existing black lettering. Do not invent, duplicate, extend, or add any extra XCLUSIVELINE text, bottom text, watermarks, labels, props, hands, hangers, floor, or wall.",
     "Only add subtle realism where the product touches the background: a soft natural contact shadow, tiny fabric compression, and very slight local creases under or immediately around the product.",
     "Shadows must be soft and believable, not dramatic, floating, glossy, harsh, or unrealistic.",
     "Keep realistic scale and perspective. Size the product proportionally to the background like a real overhead camera photo, not an oversized cutout.",
-    "Leave believable yellow fabric visible around the product on all sides. For most clothing, the product should usually fill about 55-75% of the canvas width or height; shoes, watches, and small accessories should appear smaller. Do not make the product touch the frame edges or dominate the entire background unless the original item is naturally very large.",
+    "Leave believable yellow fabric visible around the product on all sides. For most clothing, the product should usually fill about 50-68% of the canvas width or height; shoes, watches, and small accessories should appear smaller. Do not make the product touch the frame edges or dominate the entire background unless the original item is naturally very large.",
     "Center the product like a clean online store flat-lay; the product may naturally cover parts of the background lettering.",
     "If anything is uncertain, prioritize preserving the uploaded product and supplied background over making new details.",
   ].join("\n");
@@ -1527,6 +1535,21 @@ function normalizeGenerationMode(value) {
   if (mode === "keep-crop") return "keep-crop";
   if (mode === "auto") return "auto";
   return "flatlay";
+}
+
+function parseProductModes(value, total, fallbackMode = "auto") {
+  const fallback = normalizeGenerationMode(fallbackMode);
+  if (!value) return Array.from({ length: total }, () => fallback);
+
+  let parsed = [];
+  try {
+    parsed = JSON.parse(String(value));
+  } catch {
+    parsed = [];
+  }
+
+  if (!Array.isArray(parsed)) parsed = [];
+  return Array.from({ length: total }, (_, index) => normalizeGenerationMode(parsed[index] || fallback));
 }
 
 function outputQualityForEnv(env) {

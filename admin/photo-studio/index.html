@@ -240,6 +240,7 @@
       activeAbort: null,
       activeOperation: '',
       cancelRequested: false,
+      autoModes: {},
       mode: 'auto',
       maxBulkImages: 8,
       yupooImportLimit: 24,
@@ -354,7 +355,7 @@
     function setMode(mode, persist=true){
       state.mode = 'auto';
       if(persist) localStorage.setItem('xl-studio-mode', state.mode);
-      $('modeHint').textContent = 'Smart Auto chooses cropped background-only for close-ups or edge-cut items, and only uses 3:4 flat-lay when the full product is clearly visible.';
+      $('modeHint').textContent = 'Smart Auto now defaults to background-only for close-ups, edge-cut items, grouped products, and uncertain photos. It only uses 3:4 flat-lay when the full product has clear space around it.';
     }
     function setActiveView(view, persist=true){
       state.activeView = view === 'saved' ? 'saved' : 'generated';
@@ -435,6 +436,67 @@
         img.src=url;
       });
     }
+    async function inspectProductFraming(file){
+      const img=await loadImageElement(file);
+      const width=img.naturalWidth || img.width;
+      const height=img.naturalHeight || img.height;
+      const size=96;
+      const band=8;
+      const canvas=document.createElement('canvas');
+      canvas.width=size;
+      canvas.height=size;
+      const ctx=canvas.getContext('2d',{alpha:false});
+      ctx.drawImage(img,0,0,size,size);
+      const data=ctx.getImageData(0,0,size,size).data;
+      const edges=[
+        ['top',0,0,size,band],
+        ['right',size-band,0,band,size],
+        ['bottom',0,size-band,size,band],
+        ['left',0,0,band,size]
+      ].map(([name,x,y,w,h])=>edgeStats(data,size,x,y,w,h,name));
+      const busyEdges=edges.filter(edge=>edge.busy);
+      const ratio=width/height;
+      const edgeNames=busyEdges.map(edge=>edge.name).join(', ');
+      const keepCrop =
+        busyEdges.length >= 2 ||
+        (busyEdges.length >= 1 && ratio > .82) ||
+        ratio > 1.35 ||
+        ratio < .55;
+      return {
+        mode: keepCrop ? 'keep-crop' : 'flatlay',
+        reason: keepCrop
+          ? `edge/crop risk${edgeNames ? ` (${edgeNames})` : ''}`
+          : 'full product framing'
+      };
+    }
+    function edgeStats(data,size,x,y,w,h,name){
+      const values=[];
+      let satTotal=0;
+      let dark=0;
+      for(let yy=y; yy<y+h; yy+=1){
+        for(let xx=x; xx<x+w; xx+=1){
+          const i=(yy*size+xx)*4;
+          const r=data[i], g=data[i+1], b=data[i+2];
+          const max=Math.max(r,g,b);
+          const min=Math.min(r,g,b);
+          const luma=.299*r+.587*g+.114*b;
+          const sat=max ? (max-min)/max : 0;
+          values.push([r,g,b,luma]);
+          satTotal+=sat;
+          if(luma<95) dark+=1;
+        }
+      }
+      const count=values.length || 1;
+      const mean=values.reduce((acc,p)=>[acc[0]+p[0],acc[1]+p[1],acc[2]+p[2],acc[3]+p[3]],[0,0,0,0]).map(v=>v/count);
+      const variance=values.reduce((sum,p)=>sum+(p[0]-mean[0])**2+(p[1]-mean[1])**2+(p[2]-mean[2])**2+(p[3]-mean[3])**2,0)/count;
+      const spread=Math.sqrt(variance);
+      const saturation=satTotal/count;
+      const darkShare=dark/count;
+      return {
+        name,
+        busy: spread>34 || saturation>.24 || darkShare>.18
+      };
+    }
     async function sanitizeImageForOpenAi(file,label){
       if(!file || !file.size) throw new Error(`${label} is missing.`);
       const img=await loadImageElement(file);
@@ -477,10 +539,25 @@
       const blob=await response.blob();
       return new File([blob],file.name || `yupoo-product-${Date.now()}.jpg`,{type:blob.type || file.type || 'image/jpeg'});
     }
-    async function productFileForGeneration(source){
+    async function rawFileForGeneration(source){
       const file=source.file;
-      const raw=file.isRemote ? await remoteFileForGeneration(file) : file;
+      return file.isRemote ? await remoteFileForGeneration(file) : file;
+    }
+    async function productFileForGeneration(source, rawOverride=null){
+      const file=source.file;
+      const raw=rawOverride || await rawFileForGeneration(source);
       return sanitizeImageForOpenAi(raw,file?.name || `Product ${source.index+1}`);
+    }
+    async function autoModeForSource(source, rawFile){
+      if(state.mode !== 'auto') return {mode:state.mode, reason:'manual'};
+      const signature=sourceSignature(source.file);
+      if(signature && state.autoModes[signature]) return state.autoModes[signature];
+      const choice=await inspectProductFraming(rawFile || source.file);
+      if(signature) state.autoModes[signature]=choice;
+      return choice;
+    }
+    function autoModeText(mode){
+      return mode === 'keep-crop' ? 'background-only' : '3:4 flat-lay';
     }
     async function backgroundFileForGeneration(background){
       return sanitizeImageForOpenAi(background,'XCLUSIVELINE background');
@@ -697,11 +774,13 @@
       const file=source.file;
       const label=file?.name || `product-${source.index+1}`;
       const form=new FormData();
-      const preparedProduct=await productFileForGeneration(source);
+      const rawProduct=await rawFileForGeneration(source);
+      const autoChoice=await autoModeForSource(source, rawProduct);
+      const preparedProduct=await productFileForGeneration(source, rawProduct);
       const preparedBackground=await backgroundFileForGeneration(background);
       form.append('products',preparedProduct,preparedProduct.name||file.name||'product.png');
       form.append('background',preparedBackground,preparedBackground.name||'xclusiveline-original-background.png');
-      form.append('mode',state.mode);
+      form.append('mode',autoChoice.mode);
       const r=await fetch(apiUrl('/api/generate'),{method:'POST',headers:auth(),body:form,signal});
       const d=await r.json().catch(()=>({ok:false,error:'Generation failed.'}));
       if(!r.ok || !d.ok) throw new Error(d.error||'Generation failed');
@@ -712,7 +791,8 @@
         sourceIndex: source.index,
         sourceName: label,
         sourceFile: file,
-        sourcePreview: source.preview
+        sourcePreview: source.preview,
+        autoChoice
       }));
       if(!newResults.length){
         throw new Error(workerErrors[0]?.error || 'No image was returned.');
@@ -720,13 +800,18 @@
       return newResults;
     }
     async function appendSelectedSourcesToForm(form, targets){
+      const choices=[];
       for(let index=0; index<targets.length; index+=1){
         if(state.cancelRequested) throw new DOMException('Generation cancelled.', 'AbortError');
         const source=targets[index];
-        setStatus(`Preparing image ${index+1} of ${targets.length} for OpenAI...`);
-        const preparedProduct=await productFileForGeneration(source);
+        const rawProduct=await rawFileForGeneration(source);
+        const autoChoice=await autoModeForSource(source, rawProduct);
+        setStatus(`Preparing image ${index+1} of ${targets.length} for OpenAI. Auto chose ${autoModeText(autoChoice.mode)}.`);
+        const preparedProduct=await productFileForGeneration(source, rawProduct);
         form.append('products',preparedProduct,preparedProduct.name||source.file.name||`product-${index+1}.png`);
+        choices.push(autoChoice);
       }
+      return choices;
     }
     function persistJobSources(job, targets){
       const map={};
@@ -769,10 +854,12 @@
       setStatus(`${duplicateText}Starting background job for ${targets.length} image${targets.length===1?'':'s'}...`);
       try{
         const form=new FormData();
-        await appendSelectedSourcesToForm(form, targets);
+        const modeChoices=await appendSelectedSourcesToForm(form, targets);
         const preparedBackground=await backgroundFileForGeneration(state.bgFile || await defaultBackgroundFile());
         form.append('background',preparedBackground,preparedBackground.name||'xclusiveline-background.png');
-        form.append('mode',state.mode);
+        const fallbackMode=modeChoices.some(choice=>choice.mode==='keep-crop') ? 'keep-crop' : 'flatlay';
+        form.append('mode',fallbackMode);
+        form.append('productModes',JSON.stringify(modeChoices.map(choice=>choice.mode)));
         state.generated=[];
         state.selected=new Set();
         state.knownJobResultIds=new Set();
