@@ -71,6 +71,11 @@
     .status{margin-top:12px;border:1px solid var(--line);border-radius:10px;background:var(--b3);padding:11px;color:var(--mut);font-size:13px}
     .status.ok{color:var(--green)}.status.bad{color:var(--red)}
     .job-panel{margin-top:12px;border:1px solid var(--line);border-radius:12px;background:var(--b3);padding:12px}
+    .background-jobs{border:1px solid rgba(245,168,0,.28);border-radius:12px;background:rgba(245,168,0,.08);padding:12px;margin-bottom:14px}
+    .background-jobs-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:10px}
+    .background-jobs-head h3{margin:0;font-family:var(--fd);font-size:22px;text-transform:uppercase}
+    .background-jobs-grid{display:grid;gap:8px}
+    .job-card{border:1px solid var(--line);border-radius:10px;background:rgba(10,10,10,.42);padding:10px}
     .job-bar{height:8px;border-radius:999px;background:rgba(250,250,250,.12);overflow:hidden;margin:9px 0}.job-fill{height:100%;width:0;background:var(--y);transition:.2s}
     .job-list{display:grid;gap:6px;margin-top:10px}.job-row{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;font-size:11px;color:var(--mut)}.job-row strong{color:var(--w);font-size:12px;word-break:break-word}.job-state{font-weight:900;text-transform:uppercase;color:var(--y)}
     .queue{display:grid;gap:8px;margin-top:12px}
@@ -212,6 +217,7 @@
           <button id="saveBtn" class="btn dark hidden" disabled>Save Selected</button>
           <button id="refreshMediaBtn" class="btn hidden">Refresh Saved</button>
         </div>
+        <div id="backgroundJobsPanel" class="background-jobs hidden"></div>
         <div id="generatedView">
           <div id="results" class="results">
             <div class="panel empty"><h3>No images yet</h3><p class="muted">Upload products and press Generate Images.</p></div>
@@ -1038,14 +1044,18 @@
     }
     function renderJob(job){
       const panel=$('jobPanel');
+      const mainPanel=$('backgroundJobsPanel');
       const jobs=state.trackedJobs.length ? state.trackedJobs : (job ? [job] : []);
       if(!jobs.length){
         panel.classList.add('hidden');
         panel.innerHTML='';
+        mainPanel.classList.add('hidden');
+        mainPanel.innerHTML='';
         return;
       }
       panel.classList.remove('hidden');
-      panel.innerHTML=jobs.map(entry=>{
+      mainPanel.classList.remove('hidden');
+      const cards=jobs.map(entry=>{
         const total=Number(entry.total||0);
         const complete=Number(entry.completed||0);
         const failed=Number(entry.failed||0);
@@ -1058,8 +1068,10 @@
           return `<div class="job-row"><strong>${esc(item.originalName||'Product image')}</strong><span class="job-state">${esc(stateText)}</span></div>`;
         }).join('');
         const cancelledText=cancelled ? `, ${cancelled} cancelled` : '';
-        return `<div class="job-card"><div class="job-row"><strong>${esc(entry.productName || `Yupoo job ${entry.id.slice(0,8)}`)}</strong><span class="job-state">${esc(statusLabel(entry.status))}</span></div><div class="job-bar" aria-label="Job progress"><div class="job-fill" style="width:${pct}%"></div></div><p class="tiny">${complete} complete, ${failed} failed${cancelledText}, ${total} total · ${esc(productText)}</p>${entry.error?`<p class="tiny">${esc(entry.error)}</p>`:''}${rows?`<div class="job-list">${rows}</div>`:''}</div>`;
+        return `<div class="job-card"><div class="job-row"><strong>${esc(entry.productName || `Yupoo job ${entry.id.slice(0,8)}`)}</strong><span class="job-state">${esc(statusLabel(entry.status))}</span></div><div class="job-bar" aria-label="Job progress"><div class="job-fill" style="width:${pct}%"></div></div><p class="tiny">${complete} complete, ${failed} failed${cancelledText}, ${total} total - ${esc(productText)}</p>${entry.error?`<p class="tiny">${esc(entry.error)}</p>`:''}${rows?`<div class="job-list">${rows}</div>`:''}</div>`;
       }).join('');
+      panel.innerHTML=cards;
+      mainPanel.innerHTML=`<div class="background-jobs-head"><div><span class="eyebrow">Running in background</span><h3>Background Products</h3></div><p class="tiny">You can import the next Yupoo link while these finish.</p></div><div class="background-jobs-grid">${cards}</div>`;
     }
     function persistTrackedJobs(){
       localStorage.setItem(AUTO_JOBS_KEY,JSON.stringify(state.trackedJobs));
