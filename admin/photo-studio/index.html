@@ -223,6 +223,9 @@
     const DEFAULT_API_BASE = 'https://xclusiveline-photo-studio.qmako41212.workers.dev';
     const DEFAULT_BACKGROUND_SRC = '../../assets/xclusiveline-studio-background.png';
     const PRODUCT_IMAGE_TRANSFER_KEY = 'xl-product-draft-images';
+    const AUTO_JOBS_KEY = 'xl-studio-auto-product-jobs';
+    const SUPABASE_URL = 'https://ptucjxjqyvirhumzdggo.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJwdHVjanhqcXl2aXJodW16ZGdnbyIsInJvbGUiOiJhbm9uIiwiaWF0IjoxNzQzNTMyODc0LCJleHAiOjIwNTkxMDg4NzR9.5y9tOmiBSaFIxNjd8oj7OtQXiHoVGBUCqMYRqxcYvnc';
     const state = {
       apiBase: normalizeApiBase(localStorage.getItem('xl-studio-api')),
       files: [],
@@ -244,6 +247,8 @@
       yupooImportLimit: 24,
       currentJobId: localStorage.getItem('xl-studio-job-id') || '',
       job: null,
+      trackedJobs: loadJson('xl-studio-auto-product-jobs', []),
+      lastYupooUrl: localStorage.getItem('xl-studio-last-yupoo-url') || '',
       jobPoll: null,
       knownJobResultIds: new Set(),
       activeView: localStorage.getItem('xl-studio-view') || 'generated',
@@ -297,7 +302,7 @@
       updateActionButtons();
       loadConfig();
       loadMedia({quiet:true});
-      if(state.currentJobId) loadJob({quiet:true});
+      if(state.trackedJobs.length || state.currentJobId) loadJob({quiet:true});
     }
 
     function isLiveAdminPage(){
@@ -347,6 +352,27 @@
       return apiUrl('/api/yupoo-preview?url='+encodeURIComponent(image.url)+'&pageUrl='+encodeURIComponent(image.pageUrl || image.url));
     }
     function auth(){ return {}; }
+    function supabaseToken(){
+      const raw=localStorage.getItem('xl-auth');
+      try{
+        const data=JSON.parse(raw || '{}');
+        return data.access_token || data.currentSession?.access_token || data.session?.access_token || SUPABASE_KEY;
+      }catch{
+        return SUPABASE_KEY;
+      }
+    }
+    async function sGet(qs){
+      const r=await fetch(`${SUPABASE_URL}/rest/v1/${qs}`,{headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${supabaseToken()}`}});
+      const d=await r.json().catch(()=>[]);
+      if(!r.ok) throw new Error(d.message || 'Supabase read failed');
+      return d;
+    }
+    async function sSend(method, qs, body){
+      const r=await fetch(`${SUPABASE_URL}/rest/v1/${qs}`,{method,headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${supabaseToken()}`,'Content-Type':'application/json',Prefer:'return=representation'},body:JSON.stringify(body)});
+      const d=await r.json().catch(()=>({}));
+      if(!r.ok) throw new Error(d.message || JSON.stringify(d));
+      return d;
+    }
     function setStatus(msg, cls=''){ $('status').className='status '+cls; $('status').textContent=msg; }
     function toast(msg){ const el=document.createElement('div'); el.textContent=msg; $('toast').appendChild(el); setTimeout(()=>el.remove(),3600); }
     function esc(v){ return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c])); }
@@ -647,6 +673,8 @@
       saveSettings();
       const url=$('yupooUrl').value.trim();
       if(!url){ setStatus('Paste a Yupoo link first.','bad'); return; }
+      state.lastYupooUrl=url;
+      localStorage.setItem('xl-studio-last-yupoo-url',url);
       setBusy(true); setStatus('Importing product photos from Yupoo...');
       try{
         const r=await fetch(apiUrl('/api/yupoo-images'),{
@@ -790,6 +818,9 @@
         renderResults();
         const errorNote=allErrors.length ? ` ${allErrors.length} image${allErrors.length===1?'':'s'} failed.` : '';
         setStatus(`Generated ${state.generated.length} realistic XCLUSIVELINE image${state.generated.length===1?'':'s'}.${errorNote}`,'ok');
+        if(!allErrors.length && targets.some(source=>source.file?.isRemote)){
+          await createProductForGeneratedBatch(targets);
+        }
       }catch(e){
         if(isAbortError(e) || state.cancelRequested){
           renderResults();
@@ -902,11 +933,13 @@
         state.currentJobId=d.job.id;
         localStorage.setItem('xl-studio-job-id',state.currentJobId);
         persistJobSources(d.job,targets);
+        trackAutoProductJob(d.job, targets);
         state.job=d.job;
         renderJob(d.job);
         applyJobResults(d.job);
         startJobPolling();
-        setStatus('Background job started. Finished images will appear here one by one.','ok');
+        resetQueueForNextYupoo();
+        setStatus('Background job started. This Yupoo product will be created when every requested image finishes. You can import the next Yupoo link now.','ok');
         toast('Background job started');
       }catch(e){
         if(isAbortError(e) || state.cancelRequested){
@@ -918,6 +951,10 @@
       }finally{ endOperation(); }
     }
     async function loadJob({quiet=false}={}){
+      if(state.trackedJobs.length){
+        await loadTrackedJobs({quiet});
+        return;
+      }
       if(!state.currentJobId) return;
       if(!quiet) setStatus('Checking background job...');
       try{
@@ -959,25 +996,173 @@
     }
     function renderJob(job){
       const panel=$('jobPanel');
-      if(!job){
+      const jobs=state.trackedJobs.length ? state.trackedJobs : (job ? [job] : []);
+      if(!jobs.length){
         panel.classList.add('hidden');
         panel.innerHTML='';
         return;
       }
-      const total=Number(job.total||0);
-      const complete=Number(job.completed||0);
-      const failed=Number(job.failed||0);
-      const cancelled=Number(job.cancelled||0);
-      const done=complete+failed+cancelled;
-      const pct=total ? Math.round((done/total)*100) : 0;
-      const rows=(job.items||[]).map(item=>{
-        const stateText=item.result?.deleted ? 'removed' : item.error ? item.error : statusLabel(item.status);
-        return `<div class="job-row"><strong>${esc(item.originalName||'Product image')}</strong><span class="job-state">${esc(stateText)}</span></div>`;
-      }).join('');
-      const actions=jobIsDone(job) ? '<div class="job-actions"><button class="mini-btn" onclick="startNewBatch()">Start New Batch</button></div>' : '';
       panel.classList.remove('hidden');
-      const cancelledText=cancelled ? `, ${cancelled} cancelled` : '';
-      panel.innerHTML=`<div class="job-row"><strong>Background job ${esc(job.id.slice(0,8))}</strong><span class="job-state">${esc(statusLabel(job.status))}</span></div><div class="job-bar" aria-label="Job progress"><div class="job-fill" style="width:${pct}%"></div></div><p class="tiny">${complete} complete, ${failed} failed${cancelledText}, ${total} total</p>${rows?`<div class="job-list">${rows}</div>`:''}${actions}`;
+      panel.innerHTML=jobs.map(entry=>{
+        const total=Number(entry.total||0);
+        const complete=Number(entry.completed||0);
+        const failed=Number(entry.failed||0);
+        const cancelled=Number(entry.cancelled||0);
+        const done=complete+failed+cancelled;
+        const pct=total ? Math.round((done/total)*100) : 0;
+        const productText=entry.productId ? `Created product ${entry.productId.slice(0,8)}` : entry.autoProductStatus==='creating' ? 'Creating product' : entry.autoProductStatus==='failed' ? 'Product create failed' : entry.autoProductStatus==='waiting' ? 'Waiting for all images' : 'Auto product queued';
+        const rows=(entry.items||[]).map(item=>{
+          const stateText=item.result?.deleted ? 'removed' : item.error ? item.error : statusLabel(item.status);
+          return `<div class="job-row"><strong>${esc(item.originalName||'Product image')}</strong><span class="job-state">${esc(stateText)}</span></div>`;
+        }).join('');
+        const cancelledText=cancelled ? `, ${cancelled} cancelled` : '';
+        return `<div class="job-card"><div class="job-row"><strong>${esc(entry.productName || `Yupoo job ${entry.id.slice(0,8)}`)}</strong><span class="job-state">${esc(statusLabel(entry.status))}</span></div><div class="job-bar" aria-label="Job progress"><div class="job-fill" style="width:${pct}%"></div></div><p class="tiny">${complete} complete, ${failed} failed${cancelledText}, ${total} total · ${esc(productText)}</p>${entry.error?`<p class="tiny">${esc(entry.error)}</p>`:''}${rows?`<div class="job-list">${rows}</div>`:''}</div>`;
+      }).join('');
+    }
+    function persistTrackedJobs(){
+      localStorage.setItem(AUTO_JOBS_KEY,JSON.stringify(state.trackedJobs));
+    }
+    function productNameFromYupooUrl(url){
+      try{
+        const u=new URL(url);
+        const parts=u.pathname.split('/').filter(Boolean);
+        const raw=decodeURIComponent(parts[parts.length-1] || parts[parts.length-2] || u.hostname);
+        const cleaned=raw.replace(/\.(html?|php)$/i,'').replace(/[-_]+/g,' ').replace(/\s+/g,' ').trim();
+        return cleaned && !/^\d+$/.test(cleaned) ? cleaned : `Yupoo Product ${new Date().toISOString().slice(0,10)}`;
+      }catch{
+        return `Yupoo Product ${new Date().toISOString().slice(0,10)}`;
+      }
+    }
+    function trackAutoProductJob(job, targets){
+      const existing=new Set(state.trackedJobs.map(x=>x.id));
+      if(existing.has(job.id)) return;
+      state.trackedJobs.unshift({
+        id:job.id,
+        status:job.status || 'queued',
+        total:job.total || targets.length,
+        completed:job.completed || 0,
+        failed:job.failed || 0,
+        cancelled:job.cancelled || 0,
+        productName:productNameFromYupooUrl(state.lastYupooUrl),
+        yupooUrl:state.lastYupooUrl,
+        autoProductStatus:'waiting',
+        productId:'',
+        createdAt:new Date().toISOString()
+      });
+      state.trackedJobs=state.trackedJobs.slice(0,12);
+      persistTrackedJobs();
+    }
+    function resetQueueForNextYupoo(){
+      state.files.forEach((file,index)=>{ if(!file?.isRemote && state.previews[index]) URL.revokeObjectURL(state.previews[index]); });
+      state.fileIds.forEach(id=>delete state.sourceModes[id]);
+      localStorage.setItem('xl-studio-source-modes',JSON.stringify(state.sourceModes));
+      state.files=[];
+      state.fileIds=[];
+      state.previews=[];
+      state.queueSelected=new Set();
+      $('yupooUrl').value='';
+      renderQueue();
+      updateActionButtons();
+    }
+    async function loadTrackedJobs({quiet=false}={}){
+      const jobs=[...state.trackedJobs];
+      let changed=false;
+      for(const entry of jobs){
+        try{
+          if(entry.productId || entry.autoProductStatus==='failed') continue;
+          const r=await fetch(apiUrl('/api/jobs?id='+encodeURIComponent(entry.id)),{headers:auth()});
+          const d=await r.json().catch(()=>({ok:false,error:'Background job could not be loaded.'}));
+          if(!r.ok || !d.ok){ entry.error=d.error || 'Could not load job'; changed=true; continue; }
+          Object.assign(entry,{
+            status:d.job.status,
+            total:d.job.total || entry.total,
+            completed:d.job.completed || 0,
+            failed:d.job.failed || 0,
+            cancelled:d.job.cancelled || 0,
+            items:d.job.items || []
+          });
+          if(entry.id===state.currentJobId){
+            state.job=d.job;
+            applyJobResults(d.job);
+          }
+          if(d.job.status==='complete' && Number(d.job.completed||0)===Number(d.job.total||0)){
+            await createProductForCompletedJob(d.job, entry);
+          }else if(jobIsDone(d.job)){
+            entry.autoProductStatus='failed';
+            entry.error=`Not all requested images generated (${d.job.completed||0}/${d.job.total||0}). Product was not created.`;
+          }
+          changed=true;
+        }catch(error){
+          entry.autoProductStatus='failed';
+          entry.error=error.message || 'Product creation failed.';
+          changed=true;
+        }
+      }
+      if(changed){
+        persistTrackedJobs();
+        renderJob(state.job);
+      }
+      if(state.trackedJobs.some(x=>!x.productId && x.autoProductStatus!=='failed')) startJobPolling();
+      else stopJobPolling();
+      if(!quiet) setStatus('Checked background product jobs.','ok');
+      updateActionButtons();
+    }
+    async function createProductForCompletedJob(job, entry){
+      if(entry.autoProductStatus==='creating' || entry.productId) return;
+      entry.autoProductStatus='creating';
+      persistTrackedJobs();
+      const completeItems=(job.items||[]).filter(item=>item.status==='complete' && item.result?.key);
+      if(completeItems.length !== Number(job.total||0)) return;
+      const urls=[];
+      for(const item of completeItems){
+        const saved=await saveJobResultToMedia(item.result);
+        urls.push(saved.publicUrl || apiUrl(saved.rawUrl));
+      }
+      const product=await createSupabaseProductFromStudio({
+        name:entry.productName,
+        images:urls,
+        yupooUrl:entry.yupooUrl
+      });
+      entry.productId=product.id;
+      entry.autoProductStatus='created';
+      entry.productCreatedAt=new Date().toISOString();
+      persistTrackedJobs();
+      toast(`Created product draft: ${entry.productName}`);
+      setStatus(`Created product draft "${entry.productName}" with ${urls.length} image${urls.length===1?'':'s'}. Set the price, then activate it in admin.`, 'ok');
+    }
+    async function saveJobResultToMedia(result){
+      const r=await fetch(apiUrl('/api/save'),{method:'POST',headers:{...auth(),'Content-Type':'application/json'},body:JSON.stringify({images:[{id:result.id,originalName:result.originalName,filename:result.filename,contentType:result.contentType,key:result.key}]})});
+      const d=await r.json().catch(()=>({ok:false,error:'Save failed.'}));
+      if(!r.ok || !d.ok) throw new Error(d.error || 'Save failed');
+      const saved=d.saved?.[0];
+      if(!saved) throw new Error('Saved image was not returned.');
+      return saved;
+    }
+    async function createSupabaseProductFromStudio({name,images,yupooUrl}){
+      const categoryName='Yupoo Imports';
+      const cats=await sGet('categories?select=id,name,slug');
+      let category=cats.find(x=>String(x.name||'').toLowerCase()===categoryName.toLowerCase());
+      if(!category){
+        category=(await sSend('POST','categories',{name:categoryName,slug:'yupoo-imports'}))[0];
+      }
+      const description=`7-10 days delivery.\n\nImported from Yupoo${yupooUrl ? `: ${yupooUrl}` : ''}`;
+      const product=(await sSend('POST','products',{name,brand:'XCLUSIVELINE',description,price_gbp:0.99,sale_price_gbp:null,size_type:'clothing',active:false,category_id:category.id}))[0];
+      if(category?.id) await sSend('POST','product_categories',[{product_id:product.id,category_id:category.id}]);
+      if(images.length) await sSend('POST','product_images',images.map((url,i)=>({product_id:product.id,url,position:i})));
+      return product;
+    }
+    async function createProductForGeneratedBatch(targets){
+      if(state.generated.length !== targets.length) return;
+      setStatus(`All requested Yupoo images finished. Creating product draft...`);
+      const urls=[];
+      for(let i=0;i<state.generated.length;i+=1){
+        urls.push(await saveGeneratedForProduct(state.generated[i]));
+      }
+      const name=productNameFromYupooUrl(state.lastYupooUrl);
+      const product=await createSupabaseProductFromStudio({name,images:urls,yupooUrl:state.lastYupooUrl});
+      resetQueueForNextYupoo();
+      setStatus(`Created product draft "${name}" with ${urls.length} image${urls.length===1?'':'s'}. Set the price, then activate it in admin.`, 'ok');
+      toast(`Created product draft ${product.id.slice(0,8)}`);
     }
     function applyJobResults(job){
       const previousIds=new Set(state.generated.map(x=>x.id));
