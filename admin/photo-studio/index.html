@@ -386,12 +386,14 @@
     function normalizeUiMode(mode){
       if(mode === 'flatlay') return 'flatlay';
       if(mode === 'skip') return 'skip';
+      if(mode === 'keep') return 'keep';
       return 'keep-crop';
     }
     function modeLabel(mode){
       const normalized=normalizeUiMode(mode);
       if(normalized === 'flatlay') return 'Full photo';
       if(normalized === 'skip') return 'Skip';
+      if(normalized === 'keep') return 'Keep';
       return 'Close up';
     }
     function sourceMode(id){
@@ -782,7 +784,7 @@
             const generatedCount=generatedCountForSource(f);
             const generatedBadge=generatedCount ? `<span class="badge done">${generatedCount} generated</span>` : '';
             const itemMode=sourceMode(id);
-            return `<div class="q"><div class="q-preview"><img src="${state.previews[i]}" alt=""><label class="queue-check" aria-label="Select ${esc(f.name)}"><input type="checkbox" ${state.queueSelected.has(id)?'checked':''} onchange="toggleQueue('${id}',this.checked)"></label></div><div><strong>${esc(f.name)}</strong><div class="source-meta"><span class="tiny">${f.isRemote?'Yupoo link':bytes(f.size)}</span><span class="badge">${modeLabel(itemMode)}</span>${generatedBadge}</div><div class="item-mode" aria-label="Generation mode for ${esc(f.name)}"><button class="${itemMode==='keep-crop'?'active':''}" onclick="setSourceMode('${id}','keep-crop')">Close up</button><button class="${itemMode==='flatlay'?'active':''}" onclick="setSourceMode('${id}','flatlay')">Full photo</button><button class="${itemMode==='skip'?'active':''}" onclick="setSourceMode('${id}','skip')">Skip</button></div></div><button class="icon-btn" onclick="removeFile(${i})" aria-label="Remove ${esc(f.name)}">&times;</button></div>`;
+            return `<div class="q"><div class="q-preview"><img src="${state.previews[i]}" alt=""><label class="queue-check" aria-label="Select ${esc(f.name)}"><input type="checkbox" ${state.queueSelected.has(id)?'checked':''} onchange="toggleQueue('${id}',this.checked)"></label></div><div><strong>${esc(f.name)}</strong><div class="source-meta"><span class="tiny">${f.isRemote?'Yupoo link':bytes(f.size)}</span><span class="badge">${modeLabel(itemMode)}</span>${generatedBadge}</div><div class="item-mode" aria-label="Generation mode for ${esc(f.name)}"><button class="${itemMode==='keep-crop'?'active':''}" onclick="setSourceMode('${id}','keep-crop')">Close up</button><button class="${itemMode==='flatlay'?'active':''}" onclick="setSourceMode('${id}','flatlay')">Full photo</button><button class="${itemMode==='keep'?'active':''}" onclick="setSourceMode('${id}','keep')">Keep</button><button class="${itemMode==='skip'?'active':''}" onclick="setSourceMode('${id}','skip')">Skip</button></div></div><button class="icon-btn" onclick="removeFile(${i})" aria-label="Remove ${esc(f.name)}">&times;</button></div>`;
           }).join('')
         : '';
       updateActionButtons();
@@ -791,8 +793,9 @@
     async function generate(){
       saveSettings();
       const targets=selectedQueueItems();
+      const generationTargets=targets.filter(source=>source.mode!=='keep');
       if(!state.files.length){ setStatus('Upload product images first.','bad'); return; }
-      if(!targets.length){ setStatus('Set at least one image to Close up or Full photo before generating.','bad'); return; }
+      if(!targets.length){ setStatus('Set at least one image to Close up, Full photo, or Keep before generating.','bad'); return; }
       if(!requireStudioProductPrice(targets)) return;
       const duplicateText=duplicateNotice(targets);
       const signal=beginOperation('generate');
@@ -803,10 +806,10 @@
         renderResults();
         const allErrors=[];
         const background=state.bgFile || await defaultBackgroundFile();
-        const total=targets.length;
+        const total=generationTargets.length;
         for(let position=0; position<total; position+=1){
           if(state.cancelRequested || signal.aborted) break;
-          const source=targets[position];
+          const source=generationTargets[position];
           const label=source.file?.name || `product-${source.index+1}`;
           setStatus(`Generating image ${position+1} of ${total}: ${label}. ${state.generated.length} finished so far.`);
           try{
@@ -832,7 +835,7 @@
           setStatus(`Cancelled generation. ${state.generated.length} finished image${state.generated.length===1?'':'s'} kept in the preview list.`,'ok');
           return;
         }
-        if(!state.generated.length){
+        if(!state.generated.length && generationTargets.length){
           const firstError=allErrors[0]?.error;
           throw new Error(firstError || 'No image was returned. Try one product photo first.');
         }
@@ -888,6 +891,7 @@
       for(let index=0; index<targets.length; index+=1){
         if(state.cancelRequested) throw new DOMException('Generation cancelled.', 'AbortError');
         const source=targets[index];
+        if(source.mode === 'keep') continue;
         const rawProduct=await rawFileForGeneration(source);
         const modeChoice={mode:source.mode || sourceMode(source.id), reason:'manual'};
         setStatus(`Preparing image ${index+1} of ${targets.length} for OpenAI as ${modeLabel(modeChoice.mode)}.`);
@@ -931,15 +935,25 @@
     async function startBackgroundJob(){
       saveSettings();
       const targets=selectedQueueItems();
+      const generationTargets=targets.filter(source=>source.mode!=='keep');
       if(!state.files.length){ setStatus('Upload product images first.','bad'); return; }
-      if(!targets.length){ setStatus('Set at least one image to Close up or Full photo before starting a background job.','bad'); return; }
+      if(!targets.length){ setStatus('Set at least one image to Close up, Full photo, or Keep before starting a background job.','bad'); return; }
       if(!requireStudioProductPrice(targets)) return;
       const duplicateText=duplicateNotice(targets);
       const signal=beginOperation('background-start');
       setStatus(`${duplicateText}Starting background job for ${targets.length} image${targets.length===1?'':'s'}...`);
       try{
+        const keepImages=await saveKeptSourcesForProduct(targets);
+        if(!generationTargets.length){
+          const name=productNameFromYupooUrl(state.lastYupooUrl);
+          const product=await createSupabaseProductFromStudio({name,images:keepImages,yupooUrl:state.lastYupooUrl,priceGbp:studioProductPrice()});
+          resetQueueForNextYupoo();
+          setStatus(`Created product draft "${name}" from kept original image${keepImages.length===1?'':'s'}.`, 'ok');
+          toast(`Created product draft ${product.id.slice(0,8)}`);
+          return;
+        }
         const form=new FormData();
-        const modeChoices=await appendSelectedSourcesToForm(form, targets);
+        const modeChoices=await appendSelectedSourcesToForm(form, generationTargets);
         const preparedBackground=await backgroundFileForGeneration(state.bgFile || await defaultBackgroundFile());
         form.append('background',preparedBackground,preparedBackground.name||'xclusiveline-background.png');
         const fallbackMode=modeChoices.some(choice=>choice.mode==='keep-crop') ? 'keep-crop' : 'flatlay';
@@ -954,8 +968,8 @@
         if(!r.ok || !d.ok) throw new Error(d.error||'Background job failed to start.');
         state.currentJobId=d.job.id;
         localStorage.setItem('xl-studio-job-id',state.currentJobId);
-        persistJobSources(d.job,targets);
-        trackAutoProductJob(d.job, targets);
+        persistJobSources(d.job,generationTargets);
+        trackAutoProductJob(d.job, targets, keepImages);
         state.job=d.job;
         renderJob(d.job);
         applyJobResults(d.job);
@@ -1055,7 +1069,7 @@
         return `Yupoo Product ${new Date().toISOString().slice(0,10)}`;
       }
     }
-    function trackAutoProductJob(job, targets){
+    function trackAutoProductJob(job, targets, keepImages=[]){
       const existing=new Set(state.trackedJobs.map(x=>x.id));
       if(existing.has(job.id)) return;
       state.trackedJobs.unshift({
@@ -1068,6 +1082,7 @@
         productName:productNameFromYupooUrl(state.lastYupooUrl),
         yupooUrl:state.lastYupooUrl,
         priceGbp:studioProductPrice(),
+        keepImages,
         autoProductStatus:'waiting',
         productId:'',
         createdAt:new Date().toISOString()
@@ -1137,6 +1152,7 @@
       const completeItems=(job.items||[]).filter(item=>item.status==='complete' && item.result?.key);
       if(completeItems.length !== Number(job.total||0)) return;
       const urls=[];
+      urls.push(...(entry.keepImages || []));
       for(const item of completeItems){
         const saved=await saveJobResultToMedia(item.result);
         urls.push(saved.publicUrl || apiUrl(saved.rawUrl));
@@ -1162,6 +1178,34 @@
       if(!saved) throw new Error('Saved image was not returned.');
       return saved;
     }
+    function fileToDataUrl(file){
+      return new Promise((resolve,reject)=>{
+        const reader=new FileReader();
+        reader.onload=()=>resolve(reader.result);
+        reader.onerror=()=>reject(reader.error || new Error('Could not read image.'));
+        reader.readAsDataURL(file);
+      });
+    }
+    async function saveOriginalSourceForProduct(source){
+      const raw=await rawFileForGeneration(source);
+      const clean=await sanitizeImageForOpenAi(raw,source.file?.name || `kept-product-${source.index+1}`);
+      const dataUrl=await fileToDataUrl(clean);
+      const r=await fetch(apiUrl('/api/save'),{method:'POST',headers:{...auth(),'Content-Type':'application/json'},body:JSON.stringify({images:[{id:source.id,originalName:source.file?.name || clean.name,filename:clean.name || `kept-product-${source.index+1}.jpg`,contentType:clean.type,dataUrl}]})});
+      const d=await r.json().catch(()=>({ok:false,error:'Save failed.'}));
+      if(!r.ok || !d.ok) throw new Error(d.error || 'Save failed');
+      const saved=d.saved?.[0];
+      if(!saved) throw new Error('Saved original image was not returned.');
+      return saved.publicUrl || apiUrl(saved.rawUrl);
+    }
+    async function saveKeptSourcesForProduct(targets){
+      const kept=targets.filter(source=>source.mode==='keep');
+      const urls=[];
+      for(let i=0;i<kept.length;i+=1){
+        setStatus(`Saving kept original image ${i+1} of ${kept.length}...`);
+        urls.push(await saveOriginalSourceForProduct(kept[i]));
+      }
+      return urls;
+    }
     async function createSupabaseProductFromStudio({name,images,yupooUrl,priceGbp}){
       const categoryName='Yupoo Imports';
       const cats=await sGet('categories?select=id,name,slug');
@@ -1177,11 +1221,13 @@
       return product;
     }
     async function createProductForGeneratedBatch(targets){
-      if(state.generated.length !== targets.length) return;
+      const generationTargets=targets.filter(source=>source.mode!=='keep');
+      if(state.generated.length !== generationTargets.length) return;
       setStatus(`All requested Yupoo images finished. Creating product draft...`);
-      const urls=[];
-      for(let i=0;i<state.generated.length;i+=1){
-        urls.push(await saveGeneratedForProduct(state.generated[i]));
+      const urls=await saveKeptSourcesForProduct(targets);
+      for(const source of generationTargets){
+        const result=state.generated.find(item=>item.sourceQueueId===source.id);
+        if(result) urls.push(await saveGeneratedForProduct(result));
       }
       const name=productNameFromYupooUrl(state.lastYupooUrl);
       const product=await createSupabaseProductFromStudio({name,images:urls,yupooUrl:state.lastYupooUrl,priceGbp:studioProductPrice()});
