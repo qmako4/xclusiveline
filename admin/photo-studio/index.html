@@ -51,10 +51,6 @@
     .import-block{margin-top:10px;border:1px solid var(--line);border-radius:12px;background:var(--b3);padding:12px}
     .link-row{display:grid;grid-template-columns:minmax(0,1fr) 92px;gap:8px;align-items:center}
     .link-row .btn{min-height:42px;padding:10px 12px}
-    .mode-block{margin-top:10px;border:1px solid var(--line);border-radius:12px;background:var(--b3);padding:12px}
-    .mode-options{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
-    .mode-choice{border:1px solid var(--line);border-radius:10px;background:var(--b2);color:var(--w);padding:10px;font-size:12px;font-weight:900;text-transform:uppercase;cursor:pointer}
-    .mode-choice.active{border-color:var(--y);background:rgba(245,168,0,.12);color:var(--y)}
     .item-mode{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
     .item-mode button{border:1px solid var(--line);border-radius:999px;background:#111;color:var(--muted);padding:6px 9px;font-size:11px;font-weight:900;text-transform:uppercase;cursor:pointer}
     .item-mode button.active{border-color:var(--y);background:rgba(245,168,0,.14);color:var(--y)}
@@ -174,14 +170,6 @@
           </div>
           <p class="tiny" style="margin-top:7px">Imports accessible Yupoo product photos into the queue.</p>
         </div>
-        <div class="mode-block">
-          <span class="eyebrow">Generation mode</span>
-          <div class="mode-options">
-            <button id="modeCloseUp" class="mode-choice" type="button" onclick="setMode('keep-crop')">Close up</button>
-            <button id="modeFullPhoto" class="mode-choice" type="button" onclick="setMode('flatlay')">Full photo</button>
-          </div>
-          <p id="modeHint" class="tiny" style="margin-top:7px"></p>
-        </div>
         <div class="primary-actions">
           <button id="generateBtn" class="btn y">Generate Images</button>
           <button id="cancelGenerationBtn" class="btn cancel hidden" disabled>Cancel Generation</button>
@@ -251,7 +239,7 @@
       cancelRequested: false,
       autoModes: {},
       sourceModes: loadJson('xl-studio-source-modes', {}),
-      mode: localStorage.getItem('xl-studio-mode') || 'keep-crop',
+      mode: 'keep-crop',
       maxBulkImages: 8,
       yupooImportLimit: 24,
       currentJobId: localStorage.getItem('xl-studio-job-id') || '',
@@ -304,7 +292,6 @@
         if(target && target.closest && target.closest('input,textarea,[contenteditable="true"]')) return;
         handlePaste(e);
       });
-      setMode(state.mode, false);
       setActiveView(state.activeView, false);
       renderQueue();
       updateActionButtons();
@@ -374,20 +361,11 @@
       if(normalized === 'skip') return 'Skip';
       return 'Close up';
     }
-    function modeHint(mode){
-      return normalizeUiMode(mode) === 'flatlay'
-        ? 'Full photo makes a realistic 3:4 flat-lay product shot on the XCLUSIVELINE background.'
-        : 'Close up keeps the original crop and only replaces the background, best for cropped/detail Yupoo photos.';
-    }
     function sourceMode(id){
       return normalizeUiMode(state.sourceModes[id] || state.mode);
     }
-    function setMode(mode, persist=true){
+    function setMode(mode){
       state.mode = normalizeUiMode(mode) === 'skip' ? 'keep-crop' : normalizeUiMode(mode);
-      if(persist) localStorage.setItem('xl-studio-mode', state.mode);
-      $('modeCloseUp').classList.toggle('active',state.mode==='keep-crop');
-      $('modeFullPhoto').classList.toggle('active',state.mode==='flatlay');
-      $('modeHint').textContent = modeHint(state.mode);
     }
     function setSourceMode(id, mode){
       state.sourceModes[id]=normalizeUiMode(mode);
