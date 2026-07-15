@@ -1183,7 +1183,11 @@ function consumePendingStudioProductImages(){
   if(!images.length) return false;
   adminTab('add');
   const added=addStudioImagesToForm(images,{silent:true});
-  toast(added ? `${added} Photo Studio image${added===1?'':'s'} added` : 'Photo Studio image already added');
+  if(payload?.variationSet){
+    toast(added ? `${added} generated variation image${added===1?'':'s'} added` : 'Generated variation images already added');
+  }else{
+    toast(added ? `${added} Photo Studio image${added===1?'':'s'} added` : 'Photo Studio image already added');
+  }
   return true;
 }
 function useStudioImageInProduct(src){

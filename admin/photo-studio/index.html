@@ -213,6 +213,7 @@
           <button id="newBatchBtn" class="btn hidden" disabled>Start New Batch</button>
           <button id="regenerateBtn" class="btn hidden" disabled>Regenerate Selected</button>
           <button id="removeGeneratedBtn" class="btn red hidden" disabled>Remove Selected</button>
+          <button id="useSelectedProductBtn" class="btn y hidden" disabled>Use Selected for Product</button>
           <button id="saveBtn" class="btn dark hidden" disabled>Save Selected</button>
           <button id="refreshMediaBtn" class="btn hidden">Refresh Saved</button>
         </div>
@@ -288,6 +289,7 @@
       $('refreshMediaBtn').onclick = () => loadMedia({quiet:false});
       $('regenerateBtn').onclick = regenerateSelected;
       $('removeGeneratedBtn').onclick = removeSelectedGenerated;
+      $('useSelectedProductBtn').onclick = useSelectedForProduct;
       $('saveBtn').onclick = saveSelected;
       const drop=$('drop');
       ['dragover','dragenter'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('drag')}));
@@ -1062,11 +1064,12 @@
       $('cancelGenerationBtn').classList.toggle('hidden',!canCancel);
       $('cancelGenerationBtn').disabled = !canCancel;
       $('cancelGenerationBtn').textContent = hasRunningJob && !state.activeAbort ? 'Cancel Background Job' : state.activeOperation === 'background-start' ? 'Cancel Background Start' : 'Cancel Generation';
-      ['saveBtn','regenerateBtn','removeGeneratedBtn'].forEach(id=>$(id).classList.toggle('hidden',!onGeneratedView || !hasGenerated));
+      ['saveBtn','regenerateBtn','removeGeneratedBtn','useSelectedProductBtn'].forEach(id=>$(id).classList.toggle('hidden',!onGeneratedView || !hasGenerated));
       $('newBatchBtn').classList.toggle('hidden',!onGeneratedView || !hasBatch);
       $('refreshMediaBtn').classList.toggle('hidden',state.activeView!=='saved');
       $('newBatchBtn').disabled = state.busy || !hasBatch;
       $('saveBtn').disabled = state.busy || !hasSelectedGenerated;
+      $('useSelectedProductBtn').disabled = state.busy || !hasSelectedGenerated;
       $('regenerateBtn').disabled = state.busy || !hasSelectedGenerated;
       $('removeGeneratedBtn').disabled = state.busy || !hasSelectedGenerated;
       $('refreshMediaBtn').disabled = state.busy;
@@ -1236,10 +1239,10 @@
       const value='/'+String(key || '');
       return value.includes('/jobs/') && value.includes('/outputs/');
     }
-    function openProductFormWithImages(urls){
+    function openProductFormWithImages(urls, meta={}){
       const images=[...new Set((urls||[]).filter(Boolean))];
       if(!images.length){ setStatus('No product image URL was available. Save the image first and try again.','bad'); return; }
-      localStorage.setItem(PRODUCT_IMAGE_TRANSFER_KEY,JSON.stringify({images,createdAt:Date.now(),source:'photo-studio'}));
+      localStorage.setItem(PRODUCT_IMAGE_TRANSFER_KEY,JSON.stringify({images,createdAt:Date.now(),source:'photo-studio',...meta}));
       toast(images.length===1 ? 'Opening product form' : 'Opening product form with images');
       window.location.href='../../#admin';
     }
@@ -1262,6 +1265,24 @@
       try{
         const url=await saveGeneratedForProduct(result);
         openProductFormWithImages([url]);
+      }catch(e){
+        setStatus(friendlyFetchError(e),'bad');
+      }finally{ setBusy(false); }
+    }
+    async function useSelectedForProduct(){
+      const selected=state.generated.filter(x=>state.selected.has(x.id));
+      if(!selected.length){ setStatus('Select the generated product images first.','bad'); return; }
+      setBusy(true); setStatus(`Saving ${selected.length} selected image${selected.length===1?'':'s'} for the product form...`);
+      try{
+        const urls=[];
+        for(let i=0;i<selected.length;i+=1){
+          setStatus(`Preparing product image ${i+1} of ${selected.length}...`);
+          urls.push(await saveGeneratedForProduct(selected[i]));
+        }
+        openProductFormWithImages(urls,{
+          variationSet:true,
+          imageNames:selected.map(x=>x.originalName || x.filename).filter(Boolean)
+        });
       }catch(e){
         setStatus(friendlyFetchError(e),'bad');
       }finally{ setBusy(false); }
