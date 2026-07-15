@@ -362,10 +362,15 @@
     function toast(msg){ const el=document.createElement('div'); el.textContent=msg; $('toast').appendChild(el); setTimeout(()=>el.remove(),3600); }
     function esc(v){ return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c])); }
     function normalizeUiMode(mode){
-      return mode === 'flatlay' ? 'flatlay' : 'keep-crop';
+      if(mode === 'flatlay') return 'flatlay';
+      if(mode === 'skip') return 'skip';
+      return 'keep-crop';
     }
     function modeLabel(mode){
-      return normalizeUiMode(mode) === 'flatlay' ? 'Full photo' : 'Close up';
+      const normalized=normalizeUiMode(mode);
+      if(normalized === 'flatlay') return 'Full photo';
+      if(normalized === 'skip') return 'Skip';
+      return 'Close up';
     }
     function modeHint(mode){
       return normalizeUiMode(mode) === 'flatlay'
@@ -376,7 +381,7 @@
       return normalizeUiMode(state.sourceModes[id] || state.mode);
     }
     function setMode(mode, persist=true){
-      state.mode = normalizeUiMode(mode);
+      state.mode = normalizeUiMode(mode) === 'skip' ? 'keep-crop' : normalizeUiMode(mode);
       if(persist) localStorage.setItem('xl-studio-mode', state.mode);
       $('modeCloseUp').classList.toggle('active',state.mode==='keep-crop');
       $('modeFullPhoto').classList.toggle('active',state.mode==='flatlay');
@@ -739,16 +744,17 @@
     function selectedQueueItems(){
       return state.files
         .map((file,index)=>({file,index,id:state.fileIds[index],preview:state.previews[index],mode:sourceMode(state.fileIds[index])}))
-        .filter(item=>state.queueSelected.has(item.id));
+        .filter(item=>state.queueSelected.has(item.id) && item.mode !== 'skip');
     }
     function renderQueue(){
+      const readyCount=state.fileIds.filter(id=>state.queueSelected.has(id) && sourceMode(id) !== 'skip').length;
       $('queue').innerHTML = state.files.length
-        ? `<div class="queue-head"><span class="tiny">${state.queueSelected.size} of ${state.files.length} selected</span><div class="queue-tools"><button class="mini-btn" onclick="setQueueSelection(true)">All</button><button class="mini-btn" onclick="setQueueSelection(false)">None</button><button class="mini-btn danger" onclick="clearQueue()">Clear</button></div></div>` + state.files.map((f,i)=>{
+        ? `<div class="queue-head"><span class="tiny">${readyCount} ready, ${state.files.length-readyCount} skipped/unselected</span><div class="queue-tools"><button class="mini-btn" onclick="setQueueSelection(true)">All</button><button class="mini-btn" onclick="setQueueSelection(false)">None</button><button class="mini-btn danger" onclick="clearQueue()">Clear</button></div></div>` + state.files.map((f,i)=>{
             const id=state.fileIds[i];
             const generatedCount=generatedCountForSource(f);
             const generatedBadge=generatedCount ? `<span class="badge done">${generatedCount} generated</span>` : '';
             const itemMode=sourceMode(id);
-            return `<div class="q"><div class="q-preview"><img src="${state.previews[i]}" alt=""><label class="queue-check" aria-label="Select ${esc(f.name)}"><input type="checkbox" ${state.queueSelected.has(id)?'checked':''} onchange="toggleQueue('${id}',this.checked)"></label></div><div><strong>${esc(f.name)}</strong><div class="source-meta"><span class="tiny">${f.isRemote?'Yupoo link':bytes(f.size)}</span><span class="badge">${modeLabel(itemMode)}</span>${generatedBadge}</div><div class="item-mode" aria-label="Generation mode for ${esc(f.name)}"><button class="${itemMode==='keep-crop'?'active':''}" onclick="setSourceMode('${id}','keep-crop')">Close up</button><button class="${itemMode==='flatlay'?'active':''}" onclick="setSourceMode('${id}','flatlay')">Full photo</button></div></div><button class="icon-btn" onclick="removeFile(${i})" aria-label="Remove ${esc(f.name)}">&times;</button></div>`;
+            return `<div class="q"><div class="q-preview"><img src="${state.previews[i]}" alt=""><label class="queue-check" aria-label="Select ${esc(f.name)}"><input type="checkbox" ${state.queueSelected.has(id)?'checked':''} onchange="toggleQueue('${id}',this.checked)"></label></div><div><strong>${esc(f.name)}</strong><div class="source-meta"><span class="tiny">${f.isRemote?'Yupoo link':bytes(f.size)}</span><span class="badge">${modeLabel(itemMode)}</span>${generatedBadge}</div><div class="item-mode" aria-label="Generation mode for ${esc(f.name)}"><button class="${itemMode==='keep-crop'?'active':''}" onclick="setSourceMode('${id}','keep-crop')">Close up</button><button class="${itemMode==='flatlay'?'active':''}" onclick="setSourceMode('${id}','flatlay')">Full photo</button><button class="${itemMode==='skip'?'active':''}" onclick="setSourceMode('${id}','skip')">Skip</button></div></div><button class="icon-btn" onclick="removeFile(${i})" aria-label="Remove ${esc(f.name)}">&times;</button></div>`;
           }).join('')
         : '';
       updateActionButtons();
@@ -758,7 +764,7 @@
       saveSettings();
       const targets=selectedQueueItems();
       if(!state.files.length){ setStatus('Upload product images first.','bad'); return; }
-      if(!targets.length){ setStatus('Select at least one queued image to generate.','bad'); return; }
+      if(!targets.length){ setStatus('Set at least one image to Close up or Full photo before generating.','bad'); return; }
       const duplicateText=duplicateNotice(targets);
       const signal=beginOperation('generate');
       setStatus(`${duplicateText}Generating realistic XCLUSIVELINE images. First run may take a moment.`);
@@ -894,7 +900,7 @@
       saveSettings();
       const targets=selectedQueueItems();
       if(!state.files.length){ setStatus('Upload product images first.','bad'); return; }
-      if(!targets.length){ setStatus('Select at least one queued image to generate.','bad'); return; }
+      if(!targets.length){ setStatus('Set at least one image to Close up or Full photo before starting a background job.','bad'); return; }
       const duplicateText=duplicateNotice(targets);
       const signal=beginOperation('background-start');
       setStatus(`${duplicateText}Starting background job for ${targets.length} image${targets.length===1?'':'s'}...`);
