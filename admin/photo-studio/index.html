@@ -172,6 +172,9 @@
           <label class="small" for="studioProductPrice" style="margin-top:10px">Product price GBP
             <input id="studioProductPrice" type="number" min="0.99" step="0.01" placeholder="24.99">
           </label>
+          <label class="small" for="studioProductName">Product name
+            <input id="studioProductName" type="text" placeholder="Example: Denim Tears Hoodie">
+          </label>
           <p class="tiny">Used when the finished Yupoo batch creates the product draft.</p>
         </div>
         <div class="primary-actions">
@@ -254,6 +257,7 @@
       trackedJobs: loadJson('xl-studio-auto-product-jobs', []),
       lastYupooUrl: localStorage.getItem('xl-studio-last-yupoo-url') || '',
       productPrice: localStorage.getItem('xl-studio-product-price') || '',
+      productName: localStorage.getItem('xl-studio-product-name') || '',
       jobPoll: null,
       knownJobResultIds: new Set(),
       activeView: localStorage.getItem('xl-studio-view') || 'generated',
@@ -272,9 +276,11 @@
       state.apiBase = normalizeApiBase(state.apiBase, true);
       $('apiBase').value = state.apiBase;
       $('studioProductPrice').value = state.productPrice;
+      $('studioProductName').value = state.productName;
       localStorage.removeItem('xl-studio-token');
       $('apiBase').addEventListener('change',()=>saveSettings());
       $('studioProductPrice').addEventListener('input',()=>{ state.productPrice=$('studioProductPrice').value; localStorage.setItem('xl-studio-product-price',state.productPrice); });
+      $('studioProductName').addEventListener('input',()=>{ state.productName=$('studioProductName').value; localStorage.setItem('xl-studio-product-name',state.productName); });
       $('productInput').onchange = e => addFiles(e.target.files);
       $('bgInput').onchange = e => setBg(e.target.files?.[0]);
       $('importYupooBtn').onclick = importYupoo;
@@ -1059,6 +1065,8 @@
       localStorage.setItem(AUTO_JOBS_KEY,JSON.stringify(state.trackedJobs));
     }
     function productNameFromYupooUrl(url){
+      const chosen=String($('studioProductName')?.value || state.productName || '').trim();
+      if(chosen) return chosen;
       try{
         const u=new URL(url);
         const parts=u.pathname.split('/').filter(Boolean);
@@ -1099,6 +1107,9 @@
       state.previews=[];
       state.queueSelected=new Set();
       $('yupooUrl').value='';
+      $('studioProductName').value='';
+      state.productName='';
+      localStorage.removeItem('xl-studio-product-name');
       renderQueue();
       updateActionButtons();
     }
