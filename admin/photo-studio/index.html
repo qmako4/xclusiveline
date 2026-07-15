@@ -47,7 +47,7 @@
     .grid{display:grid;grid-template-columns:340px minmax(0,1fr);gap:14px;align-items:start}
     .side,.main{padding:16px}
     label.small{display:grid;gap:6px;color:var(--mut);font-size:11px;font-weight:900;text-transform:uppercase;margin-bottom:10px}
-    input[type="text"],input[type="password"]{min-height:42px;border:1px solid var(--line);border-radius:9px;background:var(--b3);color:var(--w);padding:0 11px;font-size:13px;text-transform:none}
+    input[type="text"],input[type="password"],input[type="number"]{min-height:42px;border:1px solid var(--line);border-radius:9px;background:var(--b3);color:var(--w);padding:0 11px;font-size:13px;text-transform:none}
     .import-block{margin-top:10px;border:1px solid var(--line);border-radius:12px;background:var(--b3);padding:12px}
     .link-row{display:grid;grid-template-columns:minmax(0,1fr) 92px;gap:8px;align-items:center}
     .link-row .btn{min-height:42px;padding:10px 12px}
@@ -169,6 +169,10 @@
             <button id="importYupooBtn" class="btn">Import</button>
           </div>
           <p class="tiny" style="margin-top:7px">Imports accessible Yupoo product photos into the queue.</p>
+          <label class="small" for="studioProductPrice" style="margin-top:10px">Product price GBP
+            <input id="studioProductPrice" type="number" min="0.99" step="0.01" placeholder="24.99">
+          </label>
+          <p class="tiny">Used when the finished Yupoo batch creates the product draft.</p>
         </div>
         <div class="primary-actions">
           <button id="generateBtn" class="btn y">Generate Images</button>
@@ -249,6 +253,7 @@
       job: null,
       trackedJobs: loadJson('xl-studio-auto-product-jobs', []),
       lastYupooUrl: localStorage.getItem('xl-studio-last-yupoo-url') || '',
+      productPrice: localStorage.getItem('xl-studio-product-price') || '',
       jobPoll: null,
       knownJobResultIds: new Set(),
       activeView: localStorage.getItem('xl-studio-view') || 'generated',
@@ -266,8 +271,10 @@
     function init(){
       state.apiBase = normalizeApiBase(state.apiBase, true);
       $('apiBase').value = state.apiBase;
+      $('studioProductPrice').value = state.productPrice;
       localStorage.removeItem('xl-studio-token');
       $('apiBase').addEventListener('change',()=>saveSettings());
+      $('studioProductPrice').addEventListener('input',()=>{ state.productPrice=$('studioProductPrice').value; localStorage.setItem('xl-studio-product-price',state.productPrice); });
       $('productInput').onchange = e => addFiles(e.target.files);
       $('bgInput').onchange = e => setBg(e.target.files?.[0]);
       $('importYupooBtn').onclick = importYupoo;
@@ -754,6 +761,19 @@
         .map((file,index)=>({file,index,id:state.fileIds[index],preview:state.previews[index],mode:sourceMode(state.fileIds[index])}))
         .filter(item=>state.queueSelected.has(item.id) && item.mode !== 'skip');
     }
+    function studioProductPrice(){
+      const raw=Number($('studioProductPrice').value || state.productPrice || 0);
+      if(!Number.isFinite(raw) || raw < 0.99) return 0;
+      return Number((Math.floor(raw) + 0.99).toFixed(2));
+    }
+    function requireStudioProductPrice(targets){
+      if(!targets.some(source=>source.file?.isRemote)) return true;
+      const price=studioProductPrice();
+      if(price) return true;
+      setStatus('Enter the product price before generating a Yupoo product. Example: 24.99','bad');
+      $('studioProductPrice').focus();
+      return false;
+    }
     function renderQueue(){
       const readyCount=state.fileIds.filter(id=>state.queueSelected.has(id) && sourceMode(id) !== 'skip').length;
       $('queue').innerHTML = state.files.length
@@ -773,6 +793,7 @@
       const targets=selectedQueueItems();
       if(!state.files.length){ setStatus('Upload product images first.','bad'); return; }
       if(!targets.length){ setStatus('Set at least one image to Close up or Full photo before generating.','bad'); return; }
+      if(!requireStudioProductPrice(targets)) return;
       const duplicateText=duplicateNotice(targets);
       const signal=beginOperation('generate');
       setStatus(`${duplicateText}Generating realistic XCLUSIVELINE images. First run may take a moment.`);
@@ -912,6 +933,7 @@
       const targets=selectedQueueItems();
       if(!state.files.length){ setStatus('Upload product images first.','bad'); return; }
       if(!targets.length){ setStatus('Set at least one image to Close up or Full photo before starting a background job.','bad'); return; }
+      if(!requireStudioProductPrice(targets)) return;
       const duplicateText=duplicateNotice(targets);
       const signal=beginOperation('background-start');
       setStatus(`${duplicateText}Starting background job for ${targets.length} image${targets.length===1?'':'s'}...`);
@@ -1045,6 +1067,7 @@
         cancelled:job.cancelled || 0,
         productName:productNameFromYupooUrl(state.lastYupooUrl),
         yupooUrl:state.lastYupooUrl,
+        priceGbp:studioProductPrice(),
         autoProductStatus:'waiting',
         productId:'',
         createdAt:new Date().toISOString()
@@ -1121,7 +1144,8 @@
       const product=await createSupabaseProductFromStudio({
         name:entry.productName,
         images:urls,
-        yupooUrl:entry.yupooUrl
+        yupooUrl:entry.yupooUrl,
+        priceGbp:entry.priceGbp
       });
       entry.productId=product.id;
       entry.autoProductStatus='created';
@@ -1138,7 +1162,7 @@
       if(!saved) throw new Error('Saved image was not returned.');
       return saved;
     }
-    async function createSupabaseProductFromStudio({name,images,yupooUrl}){
+    async function createSupabaseProductFromStudio({name,images,yupooUrl,priceGbp}){
       const categoryName='Yupoo Imports';
       const cats=await sGet('categories?select=id,name,slug');
       let category=cats.find(x=>String(x.name||'').toLowerCase()===categoryName.toLowerCase());
@@ -1146,8 +1170,9 @@
         category=(await sSend('POST','categories',{name:categoryName,slug:'yupoo-imports'}))[0];
       }
       const description=`7-10 days delivery.\n\nImported from Yupoo${yupooUrl ? `: ${yupooUrl}` : ''}`;
-      const product=(await sSend('POST','products',{name,brand:'XCLUSIVELINE',description,price_gbp:0.99,sale_price_gbp:null,size_type:'clothing',active:false,category_id:category.id}))[0];
+      const product=(await sSend('POST','products',{name,brand:'XCLUSIVELINE',description,price_gbp:priceGbp || 0.99,sale_price_gbp:null,size_type:'clothing',active:false,category_id:category.id}))[0];
       if(category?.id) await sSend('POST','product_categories',[{product_id:product.id,category_id:category.id}]);
+      await sSend('POST','product_sizes',['S','M','L','XL'].map(size=>({product_id:product.id,size,stock:999999})));
       if(images.length) await sSend('POST','product_images',images.map((url,i)=>({product_id:product.id,url,position:i})));
       return product;
     }
@@ -1159,7 +1184,7 @@
         urls.push(await saveGeneratedForProduct(state.generated[i]));
       }
       const name=productNameFromYupooUrl(state.lastYupooUrl);
-      const product=await createSupabaseProductFromStudio({name,images:urls,yupooUrl:state.lastYupooUrl});
+      const product=await createSupabaseProductFromStudio({name,images:urls,yupooUrl:state.lastYupooUrl,priceGbp:studioProductPrice()});
       resetQueueForNextYupoo();
       setStatus(`Created product draft "${name}" with ${urls.length} image${urls.length===1?'':'s'}. Set the price, then activate it in admin.`, 'ok');
       toast(`Created product draft ${product.id.slice(0,8)}`);
