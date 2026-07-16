@@ -51,6 +51,9 @@
     .import-block{margin-top:10px;border:1px solid var(--line);border-radius:12px;background:var(--b3);padding:12px}
     .link-row{display:grid;grid-template-columns:minmax(0,1fr) 92px;gap:8px;align-items:center}
     .link-row .btn{min-height:42px;padding:10px 12px}
+    .option-grid{display:flex;flex-wrap:wrap;gap:6px;margin:7px 0 10px}
+    .option-pill{border:1px solid var(--line);border-radius:999px;background:#111;color:var(--mut);padding:6px 9px;font-size:11px;font-weight:900;text-transform:uppercase;cursor:pointer}
+    .option-pill.active{border-color:var(--y);background:rgba(245,168,0,.14);color:var(--y)}
     .item-mode{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
     .item-mode button{border:1px solid var(--line);border-radius:999px;background:#111;color:var(--muted);padding:6px 9px;font-size:11px;font-weight:900;text-transform:uppercase;cursor:pointer}
     .item-mode button.active{border-color:var(--y);background:rgba(245,168,0,.14);color:var(--y)}
@@ -180,6 +183,14 @@
           <label class="small" for="studioProductName">Product name
             <input id="studioProductName" type="text" placeholder="Example: Denim Tears Hoodie">
           </label>
+          <label class="small">Categories</label>
+          <div id="studioCategoryOptions" class="option-grid"></div>
+          <label class="small" for="studioCustomCategories">Custom categories
+            <input id="studioCustomCategories" type="text" placeholder="Accessories, Summer, Shirts">
+          </label>
+          <label class="small" for="studioProductColors">Colour options
+            <input id="studioProductColors" type="text" placeholder="Black, Grey, Blue">
+          </label>
           <p class="tiny">Used when the finished Yupoo batch creates the product draft.</p>
         </div>
         <div class="primary-actions">
@@ -239,6 +250,7 @@
     const AUTO_JOBS_KEY = 'xl-studio-auto-product-jobs';
     const SUPABASE_URL = 'https://ptucjxjqyvirhumzdggo.supabase.co';
     const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJwdHVjanhqcXl2aXJodW16ZGdnbyIsInJvbGUiOiJhbm9uIiwiaWF0IjoxNzQzNTMyODc0LCJleHAiOjIwNTkxMDg4NzR9.5y9tOmiBSaFIxNjd8oj7OtQXiHoVGBUCqMYRqxcYvnc';
+    const CATEGORY_PRESETS = ['Accessories','Shirts','T-Shirts','Hoodies','Tracksuits','Jackets','Bottoms','Shorts','Jeans','Cargo','Footwear','Sneakers','Summer','Winter','New In','Sale','Streetwear','Designer','Bags','Hats','Watches'];
     const state = {
       apiBase: normalizeApiBase(localStorage.getItem('xl-studio-api')),
       files: [],
@@ -264,6 +276,9 @@
       lastYupooUrl: localStorage.getItem('xl-studio-last-yupoo-url') || '',
       productPrice: localStorage.getItem('xl-studio-product-price') || '',
       productName: localStorage.getItem('xl-studio-product-name') || '',
+      productCategories: loadJson('xl-studio-product-categories', []),
+      customCategories: localStorage.getItem('xl-studio-custom-categories') || '',
+      productColors: localStorage.getItem('xl-studio-product-colors') || '',
       jobPoll: null,
       knownJobResultIds: new Set(),
       activeView: localStorage.getItem('xl-studio-view') || 'generated',
@@ -283,10 +298,15 @@
       $('apiBase').value = state.apiBase;
       $('studioProductPrice').value = state.productPrice;
       $('studioProductName').value = state.productName;
+      $('studioCustomCategories').value = state.customCategories;
+      $('studioProductColors').value = state.productColors;
+      renderCategoryOptions();
       localStorage.removeItem('xl-studio-token');
       $('apiBase').addEventListener('change',()=>saveSettings());
       $('studioProductPrice').addEventListener('input',()=>{ state.productPrice=$('studioProductPrice').value; localStorage.setItem('xl-studio-product-price',state.productPrice); });
       $('studioProductName').addEventListener('input',()=>{ state.productName=$('studioProductName').value; localStorage.setItem('xl-studio-product-name',state.productName); });
+      $('studioCustomCategories').addEventListener('input',()=>{ state.customCategories=$('studioCustomCategories').value; localStorage.setItem('xl-studio-custom-categories',state.customCategories); });
+      $('studioProductColors').addEventListener('input',()=>{ state.productColors=$('studioProductColors').value; localStorage.setItem('xl-studio-product-colors',state.productColors); });
       $('productInput').onchange = e => addFiles(e.target.files);
       $('bgInput').onchange = e => setBg(e.target.files?.[0]);
       $('importYupooBtn').onclick = importYupoo;
@@ -418,6 +438,29 @@
       state.sourceModes[id]=normalizeUiMode(mode);
       localStorage.setItem('xl-studio-source-modes',JSON.stringify(state.sourceModes));
       renderQueue();
+    }
+    function renderCategoryOptions(){
+      $('studioCategoryOptions').innerHTML=CATEGORY_PRESETS.map(name=>{
+        const active=state.productCategories.includes(name);
+        return `<button type="button" class="option-pill ${active?'active':''}" onclick="toggleProductCategory('${esc(name)}')">${esc(name)}</button>`;
+      }).join('');
+    }
+    function toggleProductCategory(name){
+      const value=String(name||'').trim();
+      if(!value) return;
+      if(state.productCategories.includes(value)) state.productCategories=state.productCategories.filter(x=>x!==value);
+      else state.productCategories=[...state.productCategories,value];
+      localStorage.setItem('xl-studio-product-categories',JSON.stringify(state.productCategories));
+      renderCategoryOptions();
+    }
+    function splitList(value){
+      return String(value||'').split(',').map(x=>x.trim()).filter(Boolean);
+    }
+    function studioProductCategories(){
+      return [...new Set([...state.productCategories, ...splitList($('studioCustomCategories').value || state.customCategories)])];
+    }
+    function studioProductColors(){
+      return [...new Set(splitList($('studioProductColors').value || state.productColors))];
     }
     function setActiveView(view, persist=true){
       state.activeView = view === 'saved' ? 'saved' : 'generated';
@@ -958,7 +1001,7 @@
         const keepImages=await saveKeptSourcesForProduct(targets);
         if(!generationTargets.length){
           const name=productNameFromYupooUrl(state.lastYupooUrl);
-          const product=await createSupabaseProductFromStudio({name,images:keepImages,yupooUrl:state.lastYupooUrl,priceGbp:studioProductPrice()});
+          const product=await createSupabaseProductFromStudio({name,images:keepImages,yupooUrl:state.lastYupooUrl,priceGbp:studioProductPrice(),categories:studioProductCategories(),colors:studioProductColors()});
           resetQueueForNextYupoo();
           setStatus(`Created product draft "${name}" from kept original image${keepImages.length===1?'':'s'}.`, 'ok');
           toast(`Created product draft ${product.id.slice(0,8)}`);
@@ -1102,6 +1145,8 @@
         productName:productNameFromYupooUrl(state.lastYupooUrl),
         yupooUrl:state.lastYupooUrl,
         priceGbp:studioProductPrice(),
+        categories:studioProductCategories(),
+        colors:studioProductColors(),
         keepImages,
         autoProductStatus:'waiting',
         productId:'',
@@ -1120,8 +1165,17 @@
       state.queueSelected=new Set();
       $('yupooUrl').value='';
       $('studioProductName').value='';
+      $('studioCustomCategories').value='';
+      $('studioProductColors').value='';
       state.productName='';
+      state.customCategories='';
+      state.productColors='';
+      state.productCategories=[];
       localStorage.removeItem('xl-studio-product-name');
+      localStorage.removeItem('xl-studio-custom-categories');
+      localStorage.removeItem('xl-studio-product-colors');
+      localStorage.removeItem('xl-studio-product-categories');
+      renderCategoryOptions();
       renderQueue();
       updateActionButtons();
     }
@@ -1184,7 +1238,9 @@
         name:entry.productName,
         images:urls,
         yupooUrl:entry.yupooUrl,
-        priceGbp:entry.priceGbp
+        priceGbp:entry.priceGbp,
+        categories:entry.categories,
+        colors:entry.colors
       });
       entry.productId=product.id;
       entry.autoProductStatus='created';
@@ -1229,17 +1285,28 @@
       }
       return urls;
     }
-    async function createSupabaseProductFromStudio({name,images,yupooUrl,priceGbp}){
-      const categoryName='Yupoo Imports';
+    async function createSupabaseProductFromStudio({name,images,yupooUrl,priceGbp,categories=[],colors=[]}){
+      const selectedCategories=[...new Set((categories||[]).filter(Boolean))];
+      const categoryNames=selectedCategories.length ? selectedCategories : ['Yupoo Imports'];
       const cats=await sGet('categories?select=id,name,slug');
-      let category=cats.find(x=>String(x.name||'').toLowerCase()===categoryName.toLowerCase());
-      if(!category){
-        category=(await sSend('POST','categories',{name:categoryName,slug:'yupoo-imports'}))[0];
+      const categoryRows=[];
+      for(const categoryName of categoryNames){
+        let category=cats.find(x=>String(x.name||'').toLowerCase()===categoryName.toLowerCase());
+        if(!category){
+          const slug=categoryName.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'') || 'yupoo-imports';
+          category=(await sSend('POST','categories',{name:categoryName,slug}))[0];
+          cats.push(category);
+        }
+        categoryRows.push(category);
       }
-      const description=`7-10 days delivery.\n\nImported from Yupoo${yupooUrl ? `: ${yupooUrl}` : ''}`;
-      const product=(await sSend('POST','products',{name,brand:'XCLUSIVELINE',description,price_gbp:priceGbp || 0.99,sale_price_gbp:null,size_type:'clothing',active:false,category_id:category.id}))[0];
-      if(category?.id) await sSend('POST','product_categories',[{product_id:product.id,category_id:category.id}]);
-      await sSend('POST','product_sizes',['S','M','L','XL'].map(size=>({product_id:product.id,size,stock:999999})));
+      const cleanColors=[...new Set((colors||[]).filter(Boolean))];
+      const colorText=cleanColors.length ? `\n\nColours: ${cleanColors.join(', ')}` : '';
+      const description=`7-10 days delivery.${colorText}\n\nImported from Yupoo${yupooUrl ? `: ${yupooUrl}` : ''}`;
+      const product=(await sSend('POST','products',{name,brand:'XCLUSIVELINE',description,price_gbp:priceGbp || 0.99,sale_price_gbp:null,size_type:'clothing',active:false,category_id:categoryRows[0]?.id||null}))[0];
+      if(categoryRows.length) await sSend('POST','product_categories',categoryRows.map(category=>({product_id:product.id,category_id:category.id})));
+      const baseSizes=['S','M','L','XL'];
+      const sizeRows=cleanColors.length ? cleanColors.flatMap(color=>baseSizes.map(size=>`${color} ${size}`)) : baseSizes;
+      await sSend('POST','product_sizes',sizeRows.map(size=>({product_id:product.id,size,stock:999999})));
       if(images.length) await sSend('POST','product_images',images.map((url,i)=>({product_id:product.id,url,position:i})));
       return product;
     }
@@ -1253,7 +1320,7 @@
         if(result) urls.push(await saveGeneratedForProduct(result));
       }
       const name=productNameFromYupooUrl(state.lastYupooUrl);
-      const product=await createSupabaseProductFromStudio({name,images:urls,yupooUrl:state.lastYupooUrl,priceGbp:studioProductPrice()});
+      const product=await createSupabaseProductFromStudio({name,images:urls,yupooUrl:state.lastYupooUrl,priceGbp:studioProductPrice(),categories:studioProductCategories(),colors:studioProductColors()});
       resetQueueForNextYupoo();
       setStatus(`Created product draft "${name}" with ${urls.length} image${urls.length===1?'':'s'}. Set the price, then activate it in admin.`, 'ok');
       toast(`Created product draft ${product.id.slice(0,8)}`);
@@ -1582,7 +1649,7 @@
     function isAbortError(error){
       return error?.name === 'AbortError' || /abort|cancel/i.test(error?.message || '');
     }
-    window.removeFile=removeFile; window.toggleSel=toggleSel; window.toggleQueue=toggleQueue; window.setQueueSelection=setQueueSelection; window.clearQueue=clearQueue; window.deleteGenerated=deleteGenerated; window.regenerateGenerated=regenerateGenerated; window.deleteSavedMedia=deleteSavedMedia; window.useGeneratedForProduct=useGeneratedForProduct; window.useSavedForProduct=useSavedForProduct; window.startNewBatch=startNewBatch;
+    window.removeFile=removeFile; window.toggleSel=toggleSel; window.toggleQueue=toggleQueue; window.setQueueSelection=setQueueSelection; window.clearQueue=clearQueue; window.deleteGenerated=deleteGenerated; window.regenerateGenerated=regenerateGenerated; window.deleteSavedMedia=deleteSavedMedia; window.useGeneratedForProduct=useGeneratedForProduct; window.useSavedForProduct=useSavedForProduct; window.startNewBatch=startNewBatch; window.toggleProductCategory=toggleProductCategory;
     init();
   </script>
 </body>
