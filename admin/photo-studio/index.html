@@ -94,6 +94,7 @@
     .tabs{display:flex;gap:6px;padding:4px;border:1px solid var(--line);border-radius:10px;background:var(--b3)}
     .tab{min-height:34px;border-radius:7px;background:transparent;color:var(--mut);padding:7px 10px;font-size:11px;font-weight:900;text-transform:uppercase}
     .tab.active{background:var(--y);color:var(--b)}
+    .admin-frame{width:100%;height:min(900px,calc(100vh - 150px));min-height:620px;border:1px solid var(--line);border-radius:12px;background:var(--b3)}
     .workspace-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;margin-bottom:14px}
     .results{display:grid;grid-template-columns:repeat(auto-fill,minmax(178px,1fr));gap:10px}
     .card{border:1px solid var(--line);border-radius:10px;background:var(--b3);overflow:hidden}
@@ -218,6 +219,7 @@
           <div class="tabs" role="tablist" aria-label="Photo studio view">
             <button id="generatedTab" class="tab active" type="button">Generated</button>
             <button id="savedTab" class="tab" type="button">Saved</button>
+            <button id="storeAdminTab" class="tab" type="button">Admin</button>
           </div>
         </div>
         <div class="workspace-actions">
@@ -236,6 +238,9 @@
         </div>
         <div id="savedView" class="hidden">
           <div id="media" class="media"><div class="panel empty"><p class="muted">Saved images appear here after Worker/R2 setup.</p></div></div>
+        </div>
+        <div id="storeAdminView" class="hidden">
+          <iframe class="admin-frame" src="../../#admin" title="XCLUSIVELINE store admin"></iframe>
         </div>
       </section>
     </section>
@@ -317,6 +322,7 @@
       $('refreshJobBtn').onclick = () => loadJob({quiet:false});
       $('generatedTab').onclick = () => setActiveView('generated');
       $('savedTab').onclick = () => setActiveView('saved');
+      $('storeAdminTab').onclick = () => setActiveView('admin');
       $('newBatchBtn').onclick = startNewBatch;
       $('refreshMediaBtn').onclick = () => loadMedia({quiet:false});
       $('regenerateBtn').onclick = regenerateSelected;
@@ -463,14 +469,16 @@
       return [...new Set(splitList($('studioProductColors').value || state.productColors))];
     }
     function setActiveView(view, persist=true){
-      state.activeView = view === 'saved' ? 'saved' : 'generated';
+      state.activeView = view === 'saved' || view === 'admin' ? view : 'generated';
       if(persist) localStorage.setItem('xl-studio-view', state.activeView);
       $('generatedTab').classList.toggle('active',state.activeView==='generated');
       $('savedTab').classList.toggle('active',state.activeView==='saved');
+      $('storeAdminTab').classList.toggle('active',state.activeView==='admin');
       $('generatedView').classList.toggle('hidden',state.activeView!=='generated');
       $('savedView').classList.toggle('hidden',state.activeView!=='saved');
-      $('workspaceEyebrow').textContent = state.activeView === 'saved' ? 'R2 media library' : 'Ready to save';
-      $('workspaceTitle').textContent = state.activeView === 'saved' ? 'Saved Images' : 'Generated Images';
+      $('storeAdminView').classList.toggle('hidden',state.activeView!=='admin');
+      $('workspaceEyebrow').textContent = state.activeView === 'admin' ? 'Store dashboard' : state.activeView === 'saved' ? 'R2 media library' : 'Ready to save';
+      $('workspaceTitle').textContent = state.activeView === 'admin' ? 'Admin Panel' : state.activeView === 'saved' ? 'Saved Images' : 'Generated Images';
       if(state.activeView==='saved') loadMedia({quiet:true});
       updateActionButtons();
     }
@@ -1379,6 +1387,7 @@
       const hasSelectedGenerated=Boolean(state.selected.size);
       const hasSelectedQueue=Boolean(selectedQueueItems().length);
       const onGeneratedView=state.activeView==='generated';
+      const onAdminView=state.activeView==='admin';
       const hasBatch=Boolean(state.currentJobId || state.job || state.generated.length);
       const hasRunningJob=Boolean(state.currentJobId && state.job && !jobIsDone(state.job));
       const canCancel=Boolean(state.activeAbort || hasRunningJob);
@@ -1391,6 +1400,7 @@
       ['saveBtn','regenerateBtn','removeGeneratedBtn','useSelectedProductBtn'].forEach(id=>$(id).classList.toggle('hidden',!onGeneratedView || !hasGenerated));
       $('newBatchBtn').classList.toggle('hidden',!onGeneratedView || !hasBatch);
       $('refreshMediaBtn').classList.toggle('hidden',state.activeView!=='saved');
+      $('backgroundJobsPanel').classList.toggle('hidden',onAdminView || !state.trackedJobs.length);
       $('newBatchBtn').disabled = state.busy || !hasBatch;
       $('saveBtn').disabled = state.busy || !hasSelectedGenerated;
       $('useSelectedProductBtn').disabled = state.busy || !hasSelectedGenerated;
