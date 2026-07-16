@@ -259,6 +259,7 @@
     const AUTO_JOBS_KEY = 'xl-studio-auto-product-jobs';
     const SUPABASE_URL = 'https://ptucjxjqyvirhumzdggo.supabase.co';
     const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJwdHVjanhqcXl2aXJodW16ZGdnbyIsInJvbGUiOiJhbm9uIiwiaWF0IjoxNzQzNTMyODc0LCJleHAiOjIwNTkxMDg4NzR9.5y9tOmiBSaFIxNjd8oj7OtQXiHoVGBUCqMYRqxcYvnc';
+    const STORE_API_BASE = 'https://xclusiveline-images.qmako41212.workers.dev';
     const CATEGORY_PRESETS = ['Accessories','Shirts','T-Shirts','Hoodies','Tracksuits','Jackets','Bottoms','Shorts','Jeans','Cargo','Footwear','Sneakers','Summer','Winter','New In','Sale','Streetwear','Designer','Bags','Hats','Watches'];
     const state = {
       apiBase: normalizeApiBase(localStorage.getItem('xl-studio-api')),
@@ -420,6 +421,17 @@
       const r=await fetch(`${SUPABASE_URL}/rest/v1/${qs}`,{method,headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${supabaseToken()}`,'Content-Type':'application/json',Prefer:'return=representation'},body:JSON.stringify(body)});
       const d=await r.json().catch(()=>({}));
       if(!r.ok) throw new Error(d.message || JSON.stringify(d));
+      return d;
+    }
+    async function storeApi(path,{method='GET',body,headers={}}={}){
+      const token=localStorage.getItem('xl-token') || '';
+      const r=await fetch(`${STORE_API_BASE}${path}`,{
+        method,
+        headers:{...headers, ...(token ? {Authorization:`Bearer ${token}`} : {}), ...(body!==undefined ? {'Content-Type':'application/json'} : {})},
+        body: body!==undefined ? JSON.stringify(body) : undefined
+      });
+      const d=await r.json().catch(()=>({}));
+      if(!r.ok) throw new Error(d.error || d.message || 'Store admin request failed');
       return d;
     }
     function setStatus(msg, cls=''){ $('status').className='status '+cls; $('status').textContent=msg; }
@@ -1306,26 +1318,23 @@
     async function createSupabaseProductFromStudio({name,images,yupooUrl,priceGbp,categories=[],colors=[]}){
       const selectedCategories=[...new Set((categories||[]).filter(Boolean))];
       const categoryNames=selectedCategories.length ? selectedCategories : ['Yupoo Imports'];
-      const cats=await sGet('categories?select=id,name,slug');
-      const categoryRows=[];
-      for(const categoryName of categoryNames){
-        let category=cats.find(x=>String(x.name||'').toLowerCase()===categoryName.toLowerCase());
-        if(!category){
-          const slug=categoryName.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'') || 'yupoo-imports';
-          category=(await sSend('POST','categories',{name:categoryName,slug}))[0];
-          cats.push(category);
-        }
-        categoryRows.push(category);
-      }
       const cleanColors=[...new Set((colors||[]).filter(Boolean))];
       const colorText=cleanColors.length ? `\n\nColours: ${cleanColors.join(', ')}` : '';
       const description=`7-10 days delivery.${colorText}\n\nImported from Yupoo${yupooUrl ? `: ${yupooUrl}` : ''}`;
-      const product=(await sSend('POST','products',{name,brand:'XCLUSIVELINE',description,price_gbp:priceGbp || 0.99,sale_price_gbp:null,size_type:'clothing',active:false,category_id:categoryRows[0]?.id||null}))[0];
-      if(categoryRows.length) await sSend('POST','product_categories',categoryRows.map(category=>({product_id:product.id,category_id:category.id})));
       const baseSizes=['S','M','L','XL'];
       const sizeRows=cleanColors.length ? cleanColors.flatMap(color=>baseSizes.map(size=>`${color} ${size}`)) : baseSizes;
-      await sSend('POST','product_sizes',sizeRows.map(size=>({product_id:product.id,size,stock:999999})));
-      if(images.length) await sSend('POST','product_images',images.map((url,i)=>({product_id:product.id,url,position:i})));
+      const product=await storeApi('/api/admin/products',{method:'POST',body:{
+        name,
+        brand:'XCLUSIVELINE',
+        description,
+        price_gbp:priceGbp || 0.99,
+        sale_price_gbp:null,
+        size_type:'clothing',
+        active:false,
+        categories:categoryNames,
+        sizes:sizeRows.map(size=>({size,stock:999999})),
+        images
+      }});
       return product;
     }
     async function createProductForGeneratedBatch(targets){

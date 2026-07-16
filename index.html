@@ -606,12 +606,13 @@ footer{border-top:1px solid var(--line);padding:3rem 0 2rem;margin-top:2rem}
 <script>
 /* ════════════ CONFIG ════════════ */
 const SUPABASE_URL = 'https://ptucjxjqyvirhumzdggo.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB0dWNqeGpxeXZpcmh1bXpkZ2dvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYyMDkzNzEsImV4cCI6MjA5MTc4NTM3MX0.o-kQ-zVRnEVIuPRS1mqFtkY2znkrEgIXh_qPMwIRvm4';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB0dWNqeGpxeXZpcmh1bXpkZ2dvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM1MzI4NzQsImV4cCI6MjA1OTEwODg3NH0.5y9tOmiBSaFIxNjd8oj7OtQXiHoVGBUCqMYRqxcYvnc';
 const PAYPAL_CLIENT_ID = 'AViPSrHXjYHOGpq30UOuIQB7iPkpRGCz2_SLMkUw3yk8w_X1QA0SJq-psuTff3JquBUtCdibI21McjV9';
+const STORE_API_BASE = 'https://xclusiveline-images.qmako41212.workers.dev';
 const PHOTO_STUDIO_API_BASE = 'https://xclusiveline-photo-studio.qmako41212.workers.dev';
 const PRODUCT_IMAGE_TRANSFER_KEY = 'xl-product-draft-images';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
-  auth: { persistSession:true, autoRefreshToken:true, detectSessionInUrl:true, storage:window.localStorage, storageKey:'xl-auth', lock:(name, acquireTimeout, fn)=>fn() }
+  auth: { persistSession:false, autoRefreshToken:false, detectSessionInUrl:false, storage:window.localStorage, storageKey:'xl-supabase-disabled', lock:(name, acquireTimeout, fn)=>fn() }
 });
 
 const syms = {GBP:'£',USD:'$',EUR:'€'};
@@ -619,7 +620,7 @@ const rates = {GBP:1,USD:1.27,EUR:1.17};
 
 /* ════════════ STATE ════════════ */
 const state = {
-  token: null,
+  token: localStorage.getItem('xl-token') || null,
   user: null,
   products: [],
   cart: JSON.parse(localStorage.getItem('xl-cart') || '[]'),
@@ -638,11 +639,32 @@ const state = {
 
 function authHashParams(){ return new URLSearchParams(location.hash.replace(/^#/, '')); }
 const recoveryAtLoad = authHashParams().get('type') === 'recovery';
+let cachedSession = null;
+let authReadyDone = false;
+let authReadyResolve;
+const authReady = new Promise(resolve => {
+  authReadyResolve = resolve;
+  setTimeout(() => markAuthReady(), 1500);
+});
+function markAuthReady(){
+  if(authReadyDone) return;
+  authReadyDone = true;
+  authReadyResolve();
+}
+function storedAuthSession(){
+  try{
+    const raw = localStorage.getItem('xl-auth');
+    if(!raw) return null;
+    const data = JSON.parse(raw);
+    return data.currentSession || data.session || data;
+  }catch(e){ return null; }
+}
+function setCachedSession(session){
+  cachedSession = session || null;
+}
 sb.auth.onAuthStateChange((event, session) => {
-  if (session?.access_token) {
-    state.token = session.access_token;
-    localStorage.setItem('xl-token', session.access_token);
-  }
+  setCachedSession(session);
+  markAuthReady();
   if (event === 'PASSWORD_RECOVERY') openPasswordReset();
 });
 
@@ -650,7 +672,7 @@ sb.auth.onAuthStateChange((event, session) => {
    The UI was written against a small REST-style API. This shim maps those
    calls onto the existing Supabase backend (auth + Postgres + storage). */
 let catCache = null;
-async function getToken(){ try{ const {data:{session}}=await sb.auth.getSession(); return session?.access_token||SUPABASE_KEY; }catch(e){ return SUPABASE_KEY; } }
+async function getToken(){ await authReady; return state.token || cachedSession?.access_token || storedAuthSession()?.access_token || SUPABASE_KEY; }
 async function rGet(qs){ const t=await getToken(); const r=await fetch(`${SUPABASE_URL}/rest/v1/${qs}`,{headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${t}`}}); const d=await r.json(); if(!r.ok) throw new Error(d.message||'Error'); return d; }
 async function rSend(method,qs,body){ const t=await getToken(); const r=await fetch(`${SUPABASE_URL}/rest/v1/${qs}`,{method,headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${t}`,'Content-Type':'application/json',Prefer:'return=representation'},body:JSON.stringify(body)}); const d=await r.json().catch(()=>({})); if(!r.ok) throw new Error(d.message||JSON.stringify(d)); return d; }
 async function rDel(qs){ const t=await getToken(); const r=await fetch(`${SUPABASE_URL}/rest/v1/${qs}`,{method:'DELETE',headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${t}`}}); if(!r.ok){ const d=await r.json().catch(()=>({})); throw new Error(d.message||'Delete failed'); } }
@@ -662,12 +684,13 @@ function normProd(p, byId){
     categories:(p.product_categories||[]).map(pc=>byId[pc.category_id]).filter(Boolean) };
 }
 async function currentUser(){
-  const {data:{session}}=await sb.auth.getSession();
+  await authReady;
+  const session = cachedSession || storedAuthSession();
   if(!session) return null;
   let p={}; try{ p=(await rGet(`profiles?id=eq.${session.user.id}&select=*`))[0]||{}; }catch(e){}
   return { id:session.user.id, email:session.user.email, full_name:p.full_name, balance_gbp:p.balance_gbp||0, is_admin:!!p.is_admin, address:p.address||'', city:p.city||'', postcode:p.postcode||'', country:p.country||'' };
 }
-async function authResult(){ const {data:{session}}=await sb.auth.getSession(); const u=await currentUser(); return { token:session?.access_token||'', user:u }; }
+async function authResult(session = cachedSession){ if(session) setCachedSession(session); const u=await currentUser(); return { token:session?.access_token||state.token||'', user:u }; }
 const PROD_SELECT='id,name,brand,description,price_gbp,sale_price_gbp,size_type,active,created_at,product_images(id,url,position),product_sizes(id,size,stock),product_categories(category_id)';
 
 async function adminSaveProduct(id, b){
@@ -685,10 +708,22 @@ async function adminSaveProduct(id, b){
 
 /* maps the UI's API calls onto Supabase */
 async function api(path, {method='GET', body, raw, headers={}} = {}) {
+  const h = {...headers};
+  if(state.token) h.Authorization = `Bearer ${state.token}`;
+  if(!raw && body !== undefined) h['Content-Type'] = h['Content-Type'] || 'application/json';
+  const r = await fetch(`${STORE_API_BASE}${path}`, {
+    method,
+    headers:h,
+    body: raw ? body : body !== undefined ? JSON.stringify(body) : undefined
+  });
+  const data = await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(data.error || data.message || 'Request failed');
+  return data;
+
   const seg = path.split('?')[0];
   // auth
-  if(seg==='/api/auth/register'){ const {error}=await sb.auth.signUp({email:body.email,password:body.password,options:{data:{full_name:body.full_name}}}); if(error) throw new Error(error.message); const res=await authResult(); if(!res.user) throw new Error('Account created — check your email to confirm, then log in.'); try{ await rSend('PATCH',`profiles?id=eq.${res.user.id}`,{full_name:body.full_name||null,address:body.address||null,city:body.city||null,postcode:body.postcode||null,country:body.country||null}); res.user={...res.user,...{address:body.address,city:body.city,postcode:body.postcode,country:body.country}}; }catch(e){} return res; }
-  if(seg==='/api/auth/login'){ const {error}=await sb.auth.signInWithPassword({email:body.email,password:body.password}); if(error) throw new Error(error.message); return authResult(); }
+  if(seg==='/api/auth/register'){ const {data,error}=await sb.auth.signUp({email:body.email,password:body.password,options:{data:{full_name:body.full_name}}}); if(error) throw new Error(error.message); const res=await authResult(data.session); if(!res.user) throw new Error('Account created — check your email to confirm, then log in.'); try{ await rSend('PATCH',`profiles?id=eq.${res.user.id}`,{full_name:body.full_name||null,address:body.address||null,city:body.city||null,postcode:body.postcode||null,country:body.country||null}); res.user={...res.user,...{address:body.address,city:body.city,postcode:body.postcode,country:body.country}}; }catch(e){} return res; }
+  if(seg==='/api/auth/login'){ const {data,error}=await sb.auth.signInWithPassword({email:body.email,password:body.password}); if(error) throw new Error(error.message); return authResult(data.session); }
   if(seg==='/api/auth/me'){ const u=await currentUser(); if(!u) throw new Error('Not signed in'); return {user:u}; }
   // catalog
   if(seg==='/api/products'){ const byId=Object.fromEntries((await getCats()).map(c=>[c.id,c.name])); const rows=await rGet(`products?select=${PROD_SELECT}&active=eq.true&order=created_at.desc`); return {products:rows.map(p=>normProd(p,byId))}; }
@@ -740,7 +775,7 @@ async function init(){
   el('ticker').innerHTML = ('PREMIUM STREETWEAR • WORLDWIDE SHIPPING • FREE SHIPPING OVER £150 • 14-DAY RETURNS • WALLET TOP-UPS • ').repeat(2).split('•').filter(s=>s.trim()).map(s=>`<span>${s.trim()}</span>`).join('');
   el('curSel').innerHTML = Object.keys(syms).map(c=>`<option value="${c}" ${c===state.currency?'selected':''}>${c}</option>`).join('');
   updateCartUI();
-  try { const u=await currentUser(); if(u) state.user=u; } catch(e){}
+  try { if(state.token){ const {user}=await api('/api/auth/me'); state.user=user; } } catch(e){ state.token=null; localStorage.removeItem('xl-token'); }
   updateAuthUI();
   await loadProducts();
   routeFromHash();
@@ -931,8 +966,9 @@ async function ensureRecoverySession(){
   const access_token=params.get('access_token');
   const refresh_token=params.get('refresh_token');
   if(access_token && refresh_token){
-    const {error}=await sb.auth.setSession({access_token,refresh_token});
+    const {data,error}=await sb.auth.setSession({access_token,refresh_token});
     if(error) throw new Error(error.message);
+    setCachedSession(data.session);
   }
 }
 async function submitNewPassword(){
@@ -960,7 +996,7 @@ async function submitNewPassword(){
   }
   finally{ btn.disabled=false; btn.textContent=original; }
 }
-async function logout(){ try{ await sb.auth.signOut(); }catch(e){} state.token=null; state.user=null; localStorage.removeItem('xl-token'); updateAuthUI(); go('shop'); toast('Signed out'); }
+async function logout(){ state.token=null; state.user=null; localStorage.removeItem('xl-token'); localStorage.removeItem('xl-auth'); updateAuthUI(); go('shop'); toast('Signed out'); }
 function updateAuthUI(){
   const b=el('authBtn');
   if(state.user){ b.textContent='Account'; b.onclick=()=>go('account');
@@ -1026,14 +1062,14 @@ async function initPayPal(){
     const paypal = window.paypal || await loadPP();
     paypal.Buttons({
       style:{color:'gold',shape:'pill',height:42,label:'paypal'},
-      createOrder: (d,actions)=>actions.order.create({purchase_units:[{amount:{value:state.topup.toFixed(2),currency_code:'GBP'},description:'XCLUSIVELINE wallet top-up'}]}),
+      createOrder: async ()=>{
+        const {paypal_order_id}=await api('/api/topup/create',{method:'POST',body:{amount_gbp:state.topup}});
+        return paypal_order_id;
+      },
       onApprove: async (data,actions)=>{
         try{
-          const order=await actions.order.capture();
-          const u=await currentUser();
-          const ins=await rSend('POST','topups',{user_id:u.id,amount_gbp:state.topup,paypal_order_id:order.id,status:'pending'});
-          await sb.rpc('confirm_topup',{p_topup_id:ins[0].id});
-          const fresh=await currentUser(); state.user=fresh;
+          const fresh=await api('/api/topup/capture',{method:'POST',body:{paypal_order_id:data.orderID}});
+          state.user={...state.user,balance_gbp:fresh.balance_gbp};
           updateBalance(); el('balBig').textContent=money(fresh.balance_gbp);
           state.topup=0; renderTopupAmounts(); el('customTopup').value=''; holder.innerHTML=''; note.textContent='Topped up! 🎉';
           toast('Balance topped up 🎉');
@@ -1071,8 +1107,7 @@ function openCheckout(){
 }
 function goTopup(){ closeModal('checkoutModal'); go('account'); setTimeout(()=>{ const w=el('walletPanel'); if(w) w.scrollIntoView({behavior:'smooth',block:'start'}); }, 200); }
 async function saveAddress(s){
-  try{ await rSend('PATCH',`profiles?id=eq.${state.user.id}`,{full_name:s.name,address:s.address,city:s.city,postcode:s.postcode,country:s.country});
-    Object.assign(state.user,{full_name:s.name,address:s.address,city:s.city,postcode:s.postcode,country:s.country}); }catch(e){}
+  Object.assign(state.user,{full_name:s.name,address:s.address,city:s.city,postcode:s.postcode,country:s.country});
 }
 async function placeOrder(){
   const total=cartTotal();
@@ -1094,7 +1129,7 @@ async function placeOrder(){
 /* ════════════ ADMIN ════════════ */
 async function renderAdmin(){
   if(!state.user?.is_admin){
-    try{ const u=await currentUser(); if(u) state.user=u; updateAuthUI(); }catch(e){}
+    try{ if(state.token){ const {user}=await api('/api/auth/me'); state.user=user; updateAuthUI(); } }catch(e){}
   }
   if(!state.user?.is_admin){ go('shop'); toast('Admins only'); return; }
   if(consumePendingStudioProductImages()) return;
@@ -1142,7 +1177,8 @@ async function loadGallery(){
   let studio=[];
   let studioError='';
   try{
-    imgs=await rGet('product_images?select=id,url,products(name)');
+    const {products}=await api('/api/admin/products');
+    imgs=products.flatMap(p=>(p.images||[]).map((im,i)=>({id:`${p.id}-${i}`,url:im.url,products:{name:p.name}})));
   }catch(e){
     box.innerHTML=`<div class="empty">${escapeHtml(e.message)}</div>`;
     return;

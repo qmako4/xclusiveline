@@ -14,7 +14,7 @@ bucket_name = "xclusiveline-images"
 [[d1_databases]]
 binding = "DB"
 database_name = "xclusiveline"
-database_id = "REPLACE-WITH-YOUR-D1-DATABASE-ID"
+database_id = "b6f5a241-9754-4e99-b731-c6299d0a239a"
 
 [vars]
 # Public base URL where images are served from (R2 public/custom domain). No trailing slash.
