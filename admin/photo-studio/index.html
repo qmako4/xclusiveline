@@ -1354,7 +1354,8 @@
           return `<div class="job-thumb"><span>${esc(statusLabel(item.status))}</span></div>`;
         }).join('');
         const cancelledText=cancelled ? `, ${cancelled} cancelled` : '';
-        return `<div class="job-card"><div class="job-row"><strong>${esc(entry.productName || `Yupoo job ${entry.id.slice(0,8)}`)}</strong><span class="job-state">${esc(statusLabel(entry.status))}</span></div><div class="job-bar" aria-label="Job progress"><div class="job-fill" style="width:${pct}%"></div></div><p class="tiny">${complete} complete, ${failed} failed${cancelledText}, ${total} total - ${esc(productText)}</p>${thumbs?`<div class="job-thumbs">${thumbs}</div>`:''}${entry.error?`<p class="tiny">${esc(entry.error)}</p>`:''}${rows?`<div class="job-list">${rows}</div>`:''}</div>`;
+        const canCreateProduct=!entry.productId && ['complete','partial'].includes(String(entry.status||'')) && (complete || (entry.keepImages||[]).length);
+        return `<div class="job-card"><div class="job-row"><strong>${esc(entry.productName || `Yupoo job ${entry.id.slice(0,8)}`)}</strong><span class="job-state">${esc(statusLabel(entry.status))}</span></div><div class="job-bar" aria-label="Job progress"><div class="job-fill" style="width:${pct}%"></div></div><p class="tiny">${complete} complete, ${failed} failed${cancelledText}, ${total} total - ${esc(productText)}</p>${canCreateProduct?`<div class="job-actions"><button class="mini-btn" onclick="createProductFromTrackedJob(${jsString(entry.id)})">Create Product Now</button></div>`:''}${thumbs?`<div class="job-thumbs">${thumbs}</div>`:''}${entry.error?`<p class="tiny">${esc(entry.error)}</p>`:''}${rows?`<div class="job-list">${rows}</div>`:''}</div>`;
       }).join('');
       panel.innerHTML=cards;
       mainPanel.innerHTML=`<div class="background-jobs-head"><div><span class="eyebrow">Running in background</span><h3>Background Products</h3></div><p class="tiny">You can import the next Yupoo link while these finish.</p></div><div class="background-jobs-grid">${cards}</div>`;
@@ -1427,7 +1428,7 @@
       let changed=false;
       for(const entry of jobs){
         try{
-          if(entry.productId || entry.autoProductStatus==='failed') continue;
+          if(entry.productId) continue;
           const r=await fetch(apiUrl('/api/jobs?id='+encodeURIComponent(entry.id)),{headers:auth()});
           const d=await r.json().catch(()=>({ok:false,error:'Background job could not be loaded.'}));
           if(!r.ok || !d.ok){ entry.error=d.error || 'Could not load job'; changed=true; continue; }
@@ -1470,12 +1471,25 @@
       entry.autoProductStatus='creating';
       persistTrackedJobs();
       const completeItems=(job.items||[]).filter(item=>item.status==='complete' && item.result?.key);
-      if(completeItems.length !== Number(job.total||0)) return;
       const urls=[];
       urls.push(...(entry.keepImages || []));
+      if(completeItems.length !== Number(job.total||0)){
+        entry.autoProductStatus='failed';
+        entry.error=`Only ${completeItems.length}/${job.total||0} generated images were available. Press Create Product Now to use the available images.`;
+        persistTrackedJobs();
+        renderJob(state.job);
+        return;
+      }
       for(const item of completeItems){
         const saved=await saveJobResultToMedia(item.result);
         urls.push(saved.publicUrl || apiUrl(saved.rawUrl));
+      }
+      if(!urls.length){
+        entry.autoProductStatus='failed';
+        entry.error='No generated or kept image URLs were available for the product.';
+        persistTrackedJobs();
+        renderJob(state.job);
+        return;
       }
       const product=await createSupabaseProductFromStudio({
         name:entry.productName,
@@ -1491,6 +1505,55 @@
       persistTrackedJobs();
       toast(`Created live product: ${entry.productName}`);
       setStatus(`Created live product "${entry.productName}" with ${urls.length} image${urls.length===1?'':'s'}.`, 'ok');
+    }
+    async function createProductFromTrackedJob(id){
+      const entry=state.trackedJobs.find(job=>job.id===id);
+      if(!entry){ setStatus('Background product job was not found.','bad'); return; }
+      setBusy(true);
+      entry.autoProductStatus='creating';
+      entry.error='';
+      persistTrackedJobs();
+      renderJob(state.job);
+      try{
+        const r=await fetch(apiUrl('/api/jobs?id='+encodeURIComponent(entry.id)),{headers:auth()});
+        const d=await r.json().catch(()=>({ok:false,error:'Background job could not be loaded.'}));
+        if(!r.ok || !d.ok) throw new Error(d.error||'Background job could not be loaded.');
+        const completeItems=(d.job.items||[]).filter(item=>item.status==='complete' && item.result?.key);
+        const urls=[...(entry.keepImages || [])];
+        for(const item of completeItems){
+          const saved=await saveJobResultToMedia(item.result);
+          urls.push(saved.publicUrl || apiUrl(saved.rawUrl));
+        }
+        if(!urls.length) throw new Error('No completed or kept images are available for this product.');
+        const product=await createSupabaseProductFromStudio({
+          name:entry.productName,
+          images:urls,
+          yupooUrl:entry.yupooUrl,
+          priceGbp:entry.priceGbp,
+          categories:entry.categories,
+          colors:entry.colors
+        });
+        entry.productId=product.id;
+        entry.autoProductStatus='created';
+        entry.productCreatedAt=new Date().toISOString();
+        entry.status=d.job.status;
+        entry.completed=d.job.completed || completeItems.length;
+        entry.total=d.job.total || entry.total;
+        entry.items=d.job.items || entry.items || [];
+        persistTrackedJobs();
+        renderJob(state.job);
+        await loadStoreProducts();
+        toast(`Created live product: ${entry.productName}`);
+        setStatus(`Created live product "${entry.productName}" with ${urls.length} image${urls.length===1?'':'s'}.`, 'ok');
+      }catch(e){
+        entry.autoProductStatus='failed';
+        entry.error=e.message || 'Product creation failed.';
+        persistTrackedJobs();
+        renderJob(state.job);
+        setStatus(entry.error,'bad');
+      }finally{
+        setBusy(false);
+      }
     }
     async function saveJobResultToMedia(result){
       const r=await fetch(apiUrl('/api/save'),{method:'POST',headers:{...auth(),'Content-Type':'application/json'},body:JSON.stringify({images:[{id:result.id,originalName:result.originalName,filename:result.filename,contentType:result.contentType,key:result.key}]})});
@@ -1889,7 +1952,7 @@
     function isAbortError(error){
       return error?.name === 'AbortError' || /abort|cancel/i.test(error?.message || '');
     }
-    window.removeFile=removeFile; window.toggleSel=toggleSel; window.toggleQueue=toggleQueue; window.setQueueSelection=setQueueSelection; window.clearQueue=clearQueue; window.deleteGenerated=deleteGenerated; window.regenerateGenerated=regenerateGenerated; window.deleteSavedMedia=deleteSavedMedia; window.useGeneratedForProduct=useGeneratedForProduct; window.useSavedForProduct=useSavedForProduct; window.startNewBatch=startNewBatch; window.toggleProductCategory=toggleProductCategory; window.editStoreProduct=editStoreProduct; window.toggleStoreProduct=toggleStoreProduct; window.deleteStoreProduct=deleteStoreProduct;
+    window.removeFile=removeFile; window.toggleSel=toggleSel; window.toggleQueue=toggleQueue; window.setQueueSelection=setQueueSelection; window.clearQueue=clearQueue; window.deleteGenerated=deleteGenerated; window.regenerateGenerated=regenerateGenerated; window.deleteSavedMedia=deleteSavedMedia; window.useGeneratedForProduct=useGeneratedForProduct; window.useSavedForProduct=useSavedForProduct; window.startNewBatch=startNewBatch; window.toggleProductCategory=toggleProductCategory; window.editStoreProduct=editStoreProduct; window.toggleStoreProduct=toggleStoreProduct; window.deleteStoreProduct=deleteStoreProduct; window.createProductFromTrackedJob=createProductFromTrackedJob;
     init();
   </script>
 </body>
