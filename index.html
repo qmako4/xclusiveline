@@ -611,7 +611,7 @@ const PAYPAL_CLIENT_ID = 'AViPSrHXjYHOGpq30UOuIQB7iPkpRGCz2_SLMkUw3yk8w_X1QA0SJq
 const PHOTO_STUDIO_API_BASE = 'https://xclusiveline-photo-studio.qmako41212.workers.dev';
 const PRODUCT_IMAGE_TRANSFER_KEY = 'xl-product-draft-images';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
-  auth: { persistSession:true, autoRefreshToken:true, detectSessionInUrl:true, storage:window.localStorage, storageKey:'xl-auth' }
+  auth: { persistSession:true, autoRefreshToken:true, detectSessionInUrl:true, storage:window.localStorage, storageKey:'xl-auth', lock:(name, acquireTimeout, fn)=>fn() }
 });
 
 const syms = {GBP:'£',USD:'$',EUR:'€'};
@@ -636,7 +636,8 @@ const state = {
   studioMedia: [],
 };
 
-const recoveryAtLoad = new URLSearchParams(location.hash.replace(/^#/, '')).get('type') === 'recovery';
+function authHashParams(){ return new URLSearchParams(location.hash.replace(/^#/, '')); }
+const recoveryAtLoad = authHashParams().get('type') === 'recovery';
 sb.auth.onAuthStateChange((event, session) => {
   if (session?.access_token) {
     state.token = session.access_token;
@@ -925,6 +926,15 @@ function openPasswordReset(){
   el('rpErr').classList.remove('show','ok');
   openModal('resetModal');
 }
+async function ensureRecoverySession(){
+  const params=authHashParams();
+  const access_token=params.get('access_token');
+  const refresh_token=params.get('refresh_token');
+  if(access_token && refresh_token){
+    const {error}=await sb.auth.setSession({access_token,refresh_token});
+    if(error) throw new Error(error.message);
+  }
+}
 async function submitNewPassword(){
   const pass=el('rpPass').value, pass2=el('rpPass2').value, errEl=el('rpErr');
   errEl.classList.remove('ok');
@@ -933,6 +943,7 @@ async function submitNewPassword(){
   const btn=el('rpSubmit'), original=btn.textContent;
   btn.disabled=true; btn.textContent='Saving...';
   try{
+    await ensureRecoverySession();
     const {error}=await sb.auth.updateUser({password:pass});
     if(error) throw new Error(error.message);
     try{ state.user=await currentUser(); }catch(e){}
@@ -941,7 +952,12 @@ async function submitNewPassword(){
     history.replaceState(null,'',location.pathname+location.search);
     toast('Password updated');
     go('account');
-  }catch(e){ errEl.textContent=e.message; errEl.classList.add('show'); }
+  }catch(e){
+    errEl.textContent=/failed to fetch|network/i.test(e.message||'')
+      ? 'Could not reach Supabase to save the password. Refresh this reset link and try again, or send yourself a new reset email.'
+      : e.message;
+    errEl.classList.add('show');
+  }
   finally{ btn.disabled=false; btn.textContent=original; }
 }
 async function logout(){ try{ await sb.auth.signOut(); }catch(e){} state.token=null; state.user=null; localStorage.removeItem('xl-token'); updateAuthUI(); go('shop'); toast('Signed out'); }
