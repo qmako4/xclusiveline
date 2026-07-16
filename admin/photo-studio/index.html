@@ -79,6 +79,10 @@
     .background-jobs-head h3{margin:0;font-family:var(--fd);font-size:22px;text-transform:uppercase}
     .background-jobs-grid{display:grid;gap:8px}
     .job-card{border:1px solid var(--line);border-radius:10px;background:rgba(10,10,10,.42);padding:10px}
+    .job-thumbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:7px;margin-top:10px}
+    .job-thumb{position:relative;aspect-ratio:3/4;border-radius:8px;overflow:hidden;background:rgba(250,250,250,.08);border:1px solid var(--line)}
+    .job-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+    .job-thumb span{position:absolute;left:4px;right:4px;bottom:4px;border-radius:6px;background:rgba(10,10,10,.75);color:var(--w);font-size:9px;font-weight:900;text-align:center;text-transform:uppercase;padding:3px}
     .job-bar{height:8px;border-radius:999px;background:rgba(250,250,250,.12);overflow:hidden;margin:9px 0}.job-fill{height:100%;width:0;background:var(--y);transition:.2s}
     .job-list{display:grid;gap:6px;margin-top:10px}.job-row{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;font-size:11px;color:var(--mut)}.job-row strong{color:var(--w);font-size:12px;word-break:break-word}.job-state{font-weight:900;text-transform:uppercase;color:var(--y)}
     .queue{display:grid;gap:8px;margin-top:12px}
@@ -1118,8 +1122,14 @@
           const stateText=item.result?.deleted ? 'removed' : item.error ? item.error : statusLabel(item.status);
           return `<div class="job-row"><strong>${esc(item.originalName||'Product image')}</strong><span class="job-state">${esc(stateText)}</span></div>`;
         }).join('');
+        const thumbs=(entry.items||[]).map(item=>{
+          if(item.status==='complete' && item.result?.rawUrl && !item.result.deleted){
+            return `<div class="job-thumb"><img src="${apiUrl(item.result.rawUrl)}" alt=""><span>Done</span></div>`;
+          }
+          return `<div class="job-thumb"><span>${esc(statusLabel(item.status))}</span></div>`;
+        }).join('');
         const cancelledText=cancelled ? `, ${cancelled} cancelled` : '';
-        return `<div class="job-card"><div class="job-row"><strong>${esc(entry.productName || `Yupoo job ${entry.id.slice(0,8)}`)}</strong><span class="job-state">${esc(statusLabel(entry.status))}</span></div><div class="job-bar" aria-label="Job progress"><div class="job-fill" style="width:${pct}%"></div></div><p class="tiny">${complete} complete, ${failed} failed${cancelledText}, ${total} total - ${esc(productText)}</p>${entry.error?`<p class="tiny">${esc(entry.error)}</p>`:''}${rows?`<div class="job-list">${rows}</div>`:''}</div>`;
+        return `<div class="job-card"><div class="job-row"><strong>${esc(entry.productName || `Yupoo job ${entry.id.slice(0,8)}`)}</strong><span class="job-state">${esc(statusLabel(entry.status))}</span></div><div class="job-bar" aria-label="Job progress"><div class="job-fill" style="width:${pct}%"></div></div><p class="tiny">${complete} complete, ${failed} failed${cancelledText}, ${total} total - ${esc(productText)}</p>${thumbs?`<div class="job-thumbs">${thumbs}</div>`:''}${entry.error?`<p class="tiny">${esc(entry.error)}</p>`:''}${rows?`<div class="job-list">${rows}</div>`:''}</div>`;
       }).join('');
       panel.innerHTML=cards;
       mainPanel.innerHTML=`<div class="background-jobs-head"><div><span class="eyebrow">Running in background</span><h3>Background Products</h3></div><p class="tiny">You can import the next Yupoo link while these finish.</p></div><div class="background-jobs-grid">${cards}</div>`;

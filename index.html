@@ -1076,7 +1076,10 @@ async function placeOrder(){
 }
 
 /* ════════════ ADMIN ════════════ */
-function renderAdmin(){
+async function renderAdmin(){
+  if(!state.user?.is_admin){
+    try{ const u=await currentUser(); if(u) state.user=u; updateAuthUI(); }catch(e){}
+  }
   if(!state.user?.is_admin){ go('shop'); toast('Admins only'); return; }
   if(consumePendingStudioProductImages()) return;
   adminTab('products');
