@@ -212,7 +212,7 @@
           <label class="small" for="studioProductColors">Colour options
             <input id="studioProductColors" type="text" placeholder="Black, Grey, Blue">
           </label>
-          <p class="tiny">Used when the finished Yupoo batch creates the product draft.</p>
+          <p class="tiny">Used when the finished Yupoo batch creates the live product.</p>
         </div>
         <div class="primary-actions">
           <button id="generateBtn" class="btn y">Generate Images</button>
@@ -280,7 +280,7 @@
                 <label>Price GBP<input id="adminProductPrice" type="number" min="0.99" step="0.01" placeholder="24.99"></label>
                 <label>Sale Price GBP<input id="adminProductSale" type="number" min="0" step="0.01" placeholder="Optional"></label>
                 <label>Size Type<select id="adminProductType"><option value="clothing">Clothing</option><option value="shoe">Shoe</option></select></label>
-                <label>Status<select id="adminProductActive"><option value="false">Draft</option><option value="true">Live</option></select></label>
+                <label>Status<select id="adminProductActive"><option value="true">Live</option><option value="false">Draft</option></select></label>
                 <label class="wide">Categories<input id="adminProductCategories" type="text" placeholder="Shirts, Summer, Streetwear"></label>
                 <label class="wide">Sizes / Stock<textarea id="adminProductSizes" rows="3" placeholder="S:999999, M:999999, L:999999, XL:999999"></textarea></label>
                 <label class="wide">Image URLs<textarea id="adminProductImages" rows="5" placeholder="Paste one image URL per line"></textarea></label>
@@ -611,7 +611,7 @@
       $('adminProductForm').reset();
       $('adminProductBrand').value='XCLUSIVELINE';
       $('adminProductType').value='clothing';
-      $('adminProductActive').value='false';
+      $('adminProductActive').value='true';
       $('adminProductSizes').value='S:999999, M:999999, L:999999, XL:999999';
       $('adminProductDescription').value='7-10 days delivery.';
       $('adminSaveProductBtn').textContent='Save Product';
@@ -1240,8 +1240,8 @@
           const name=productNameFromYupooUrl(state.lastYupooUrl);
           const product=await createSupabaseProductFromStudio({name,images:keepImages,yupooUrl:state.lastYupooUrl,priceGbp:studioProductPrice(),categories:studioProductCategories(),colors:studioProductColors()});
           resetQueueForNextYupoo();
-          setStatus(`Created product draft "${name}" from kept original image${keepImages.length===1?'':'s'}.`, 'ok');
-          toast(`Created product draft ${product.id.slice(0,8)}`);
+          setStatus(`Created live product "${name}" from kept original image${keepImages.length===1?'':'s'}.`, 'ok');
+          toast(`Created live product ${product.id.slice(0,8)}`);
           return;
         }
         const form=new FormData();
@@ -1489,8 +1489,8 @@
       entry.autoProductStatus='created';
       entry.productCreatedAt=new Date().toISOString();
       persistTrackedJobs();
-      toast(`Created product draft: ${entry.productName}`);
-      setStatus(`Created product draft "${entry.productName}" with ${urls.length} image${urls.length===1?'':'s'}. Set the price, then activate it in admin.`, 'ok');
+      toast(`Created live product: ${entry.productName}`);
+      setStatus(`Created live product "${entry.productName}" with ${urls.length} image${urls.length===1?'':'s'}.`, 'ok');
     }
     async function saveJobResultToMedia(result){
       const r=await fetch(apiUrl('/api/save'),{method:'POST',headers:{...auth(),'Content-Type':'application/json'},body:JSON.stringify({images:[{id:result.id,originalName:result.originalName,filename:result.filename,contentType:result.contentType,key:result.key}]})});
@@ -1543,7 +1543,7 @@
         price_gbp:priceGbp || 0.99,
         sale_price_gbp:null,
         size_type:'clothing',
-        active:false,
+        active:true,
         categories:categoryNames,
         sizes:sizeRows.map(size=>({size,stock:999999})),
         images
@@ -1553,7 +1553,7 @@
     async function createProductForGeneratedBatch(targets){
       const generationTargets=targets.filter(source=>source.mode!=='keep');
       if(state.generated.length !== generationTargets.length) return;
-      setStatus(`All requested Yupoo images finished. Creating product draft...`);
+      setStatus(`All requested Yupoo images finished. Creating live product...`);
       const urls=await saveKeptSourcesForProduct(targets);
       for(const source of generationTargets){
         const result=state.generated.find(item=>item.sourceQueueId===source.id);
@@ -1562,8 +1562,8 @@
       const name=productNameFromYupooUrl(state.lastYupooUrl);
       const product=await createSupabaseProductFromStudio({name,images:urls,yupooUrl:state.lastYupooUrl,priceGbp:studioProductPrice(),categories:studioProductCategories(),colors:studioProductColors()});
       resetQueueForNextYupoo();
-      setStatus(`Created product draft "${name}" with ${urls.length} image${urls.length===1?'':'s'}. Set the price, then activate it in admin.`, 'ok');
-      toast(`Created product draft ${product.id.slice(0,8)}`);
+      setStatus(`Created live product "${name}" with ${urls.length} image${urls.length===1?'':'s'}.`, 'ok');
+      toast(`Created live product ${product.id.slice(0,8)}`);
     }
     function applyJobResults(job){
       const previousIds=new Set(state.generated.map(x=>x.id));
