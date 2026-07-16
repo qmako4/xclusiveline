@@ -142,6 +142,8 @@
     .media{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:10px}
     .media-card{border:1px solid var(--line);border-radius:10px;background:var(--b3);overflow:hidden}
     .media-card a{display:block}
+    .media-card.broken{border-color:rgba(229,72,77,.5)}
+    .media-card.broken img{object-fit:contain;padding:12px;opacity:.45}
     .media img{width:100%;aspect-ratio:3/4;object-fit:cover}.media span{display:block;padding:7px;font-size:11px;color:var(--mut);word-break:break-word}
     .media-actions{display:flex;justify-content:flex-end;padding:0 7px 8px}
     .job-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
@@ -599,7 +601,7 @@
       $('storeAdminView').classList.toggle('hidden',state.activeView!=='admin');
       $('workspaceEyebrow').textContent = state.activeView === 'admin' ? 'Store dashboard' : state.activeView === 'saved' ? 'R2 media library' : 'Ready to save';
       $('workspaceTitle').textContent = state.activeView === 'admin' ? 'Admin Panel' : state.activeView === 'saved' ? 'Saved Images' : 'Generated Images';
-      if(state.activeView==='saved') loadMedia({quiet:true});
+      if(state.activeView==='saved') loadMedia({quiet:false});
       if(state.activeView==='admin') refreshStoreAdmin();
       updateActionButtons();
     }
@@ -2007,18 +2009,28 @@
     }
     async function loadMedia({quiet=false}={}){
       saveSettings();
+      if(state.activeView==='saved'){
+        $('media').innerHTML='<div class="panel empty"><p class="muted">Loading saved media library...</p></div>';
+      }
       try{
-        const r=await fetch(apiUrl('/api/media?limit=60'),{headers:auth()});
-        const d=await r.json();
+        const r=await fetch(apiUrl('/api/media?limit=100'),{headers:auth()});
+        const d=await r.json().catch(()=>({ok:false,error:'Media response was not JSON.'}));
         if(!r.ok || !d.ok) throw new Error(d.error||'Media load failed');
-        state.media=d.objects||[];
+        state.media=(d.objects||[]).filter(o=>o && (o.publicUrl || o.rawUrl || o.key));
         $('media').innerHTML=state.media.length ? state.media.map((o,index)=>{
-          const src=o.publicUrl || apiUrl(o.rawUrl);
-          return `<article class="media-card"><a href="${src}" target="_blank" rel="noreferrer"><img src="${src}" alt=""><span>${esc(o.key.split('/').pop())}</span></a><div class="media-actions"><button class="mini-btn" onclick="useSavedForProduct(${index})">Use</button><button class="mini-btn danger" onclick="deleteSavedMedia(${index})">Delete</button></div></article>`;
-        }).join('') : '<div class="panel empty"><p class="muted">No saved studio images yet.</p></div>';
+          const src=savedMediaUrl(o);
+          const name=(o.key||o.filename||`saved-image-${index+1}`).split('/').pop();
+          return `<article class="media-card"><a href="${esc(src)}" target="_blank" rel="noreferrer"><img src="${esc(src)}" alt="${esc(name)}" loading="lazy" onerror="this.closest('.media-card').classList.add('broken')"><span>${esc(name)}</span></a><div class="media-actions"><button class="mini-btn" onclick="useSavedForProduct(${index})">Use</button><button class="mini-btn danger" onclick="deleteSavedMedia(${index})">Delete</button></div></article>`;
+        }).join('') + (d.truncated ? '<div class="panel empty"><p class="muted">More saved images exist. Delete older ones or ask me to add pagination.</p></div>' : '') : '<div class="panel empty"><p class="muted">No saved studio images yet. Save generated images first, then press Refresh Saved.</p></div>';
         renderAdminMediaPicker();
         if(!quiet) setStatus(`Loaded ${state.media.length} saved image${state.media.length===1?'':'s'}.`,'ok');
-      }catch(e){ if(!quiet) setStatus(friendlyFetchError(e),'bad'); }
+      }catch(e){
+        const msg=friendlyFetchError(e);
+        state.media=[];
+        $('media').innerHTML=`<div class="panel empty"><h3>Media library could not load</h3><p class="muted">${esc(msg)}</p><button class="btn y" type="button" onclick="loadMedia({quiet:false})">Try Again</button></div>`;
+        renderAdminMediaPicker();
+        if(!quiet || state.activeView==='saved') setStatus(msg,'bad');
+      }
     }
     function savedMediaUrl(item){
       if(!item) return '';
@@ -2112,7 +2124,7 @@
     function isAbortError(error){
       return error?.name === 'AbortError' || /abort|cancel/i.test(error?.message || '');
     }
-    window.removeFile=removeFile; window.toggleSel=toggleSel; window.toggleQueue=toggleQueue; window.setQueueSelection=setQueueSelection; window.clearQueue=clearQueue; window.deleteGenerated=deleteGenerated; window.regenerateGenerated=regenerateGenerated; window.deleteSavedMedia=deleteSavedMedia; window.useGeneratedForProduct=useGeneratedForProduct; window.useSavedForProduct=useSavedForProduct; window.startNewBatch=startNewBatch; window.toggleProductCategory=toggleProductCategory; window.editStoreProduct=editStoreProduct; window.handleAdminProductAction=handleAdminProductAction; window.toggleStoreProduct=toggleStoreProduct; window.deleteStoreProduct=deleteStoreProduct; window.createProductFromTrackedJob=createProductFromTrackedJob; window.removeAdminProductImage=removeAdminProductImage; window.addSavedMediaToAdminProduct=addSavedMediaToAdminProduct; window.makeAdminProductMain=makeAdminProductMain;
+    window.removeFile=removeFile; window.toggleSel=toggleSel; window.toggleQueue=toggleQueue; window.setQueueSelection=setQueueSelection; window.clearQueue=clearQueue; window.deleteGenerated=deleteGenerated; window.regenerateGenerated=regenerateGenerated; window.deleteSavedMedia=deleteSavedMedia; window.useGeneratedForProduct=useGeneratedForProduct; window.useSavedForProduct=useSavedForProduct; window.loadMedia=loadMedia; window.startNewBatch=startNewBatch; window.toggleProductCategory=toggleProductCategory; window.editStoreProduct=editStoreProduct; window.handleAdminProductAction=handleAdminProductAction; window.toggleStoreProduct=toggleStoreProduct; window.deleteStoreProduct=deleteStoreProduct; window.createProductFromTrackedJob=createProductFromTrackedJob; window.removeAdminProductImage=removeAdminProductImage; window.addSavedMediaToAdminProduct=addSavedMediaToAdminProduct; window.makeAdminProductMain=makeAdminProductMain;
     init();
   </script>
 </body>
