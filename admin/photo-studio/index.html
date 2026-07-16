@@ -362,7 +362,7 @@
       autoModes: {},
       sourceModes: loadJson('xl-studio-source-modes', {}),
       mode: 'keep-crop',
-      maxBulkImages: 16,
+      maxBulkImages: 24,
       yupooImportLimit: 24,
       currentJobId: localStorage.getItem('xl-studio-job-id') || '',
       job: null,
@@ -914,7 +914,7 @@
     function bytes(n){ return n<1024?n+' B':n<1048576?(n/1024).toFixed(1)+' KB':(n/1048576).toFixed(1)+' MB'; }
     function imageExt(type){ return ({'image/jpeg':'jpg','image/png':'png','image/webp':'webp','image/gif':'gif','image/avif':'avif'}[type] || 'png'); }
     function pastedName(type,index){ return `pasted-product-${Date.now()}-${index}.${imageExt(type)}`; }
-    function chunkSize(){ return Math.max(1, Math.min(Number(state.maxBulkImages||16), 20)); }
+    function chunkSize(){ return Math.max(1, Math.min(Number(state.maxBulkImages||24), 24)); }
     function comparableName(value){ return String(value||'').toLowerCase().replace(/[^a-z0-9._-]+/g,'-').replace(/^-+|-+$/g,''); }
     async function defaultBackgroundFile(){
       const response=await fetch(DEFAULT_BACKGROUND_SRC,{cache:'reload'});
@@ -1070,7 +1070,7 @@
         const r=await fetch(apiUrl('/api/config'));
         const d=await r.json();
         if(r.ok && d.ok){
-          state.maxBulkImages=Number(d.maxBulkImages||state.maxBulkImages||16);
+          state.maxBulkImages=Number(d.maxBulkImages||state.maxBulkImages||24);
           state.yupooImportLimit=Number(d.yupooImportLimit||state.yupooImportLimit||24);
         }
       }catch{}

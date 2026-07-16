@@ -1753,7 +1753,7 @@ function statusError(message, status) {
 }
 
 function maxBulkImages(env) {
-  return Math.max(1, Math.min(Number(env.XCLUSIVELINE_MAX_BULK_IMAGES || 16), 20));
+  return Math.max(1, Math.min(Number(env.XCLUSIVELINE_MAX_BULK_IMAGES || 24), 24));
 }
 
 function yupooImportLimit(env, requested) {
