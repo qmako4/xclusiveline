@@ -851,6 +851,11 @@
       try{ return decodeURIComponent(new URL(url).pathname.split('/').pop() || 'product image'); }
       catch{ return String(url||'').split('/').pop() || 'product image'; }
     }
+    function studioImageName(item){
+      if(!item) return 'saved image';
+      const value=item.key || item.filename || item.originalName || item.publicUrl || item.rawUrl || '';
+      return imageLabelFromUrl(value);
+    }
     function renderAdminSelectedImages(){
       const urls=splitAdminList($('adminProductImages')?.value || '');
       $('adminSelectedImages').innerHTML=urls.length ? urls.map((url,index)=>`<div class="admin-image-tile ${index===0?'is-main':''}" draggable="true" data-admin-image-index="${index}"><img src="${esc(url)}" alt="">${index===0?'<span class="admin-image-badge">Main</span>':''}<div class="admin-image-actions">${index>0?`<button class="mini-btn y" type="button" data-admin-image-action="main" data-index="${index}">Make Main</button>`:''}<button class="mini-btn danger" type="button" data-admin-image-action="remove" data-url="${esc(url)}">Remove</button></div><div class="admin-image-name">${index+1}. ${esc(imageLabelFromUrl(url))}</div></div>`).join('') : '<div class="panel empty">No images selected yet. Add from the saved media library below.</div>';
