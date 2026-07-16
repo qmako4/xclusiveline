@@ -98,7 +98,23 @@
     .tabs{display:flex;gap:6px;padding:4px;border:1px solid var(--line);border-radius:10px;background:var(--b3)}
     .tab{min-height:34px;border-radius:7px;background:transparent;color:var(--mut);padding:7px 10px;font-size:11px;font-weight:900;text-transform:uppercase}
     .tab.active{background:var(--y);color:var(--b)}
-    .admin-frame{width:100%;height:min(900px,calc(100vh - 150px));min-height:620px;border:1px solid var(--line);border-radius:12px;background:var(--b3)}
+    .admin-shell{display:grid;gap:12px}
+    .admin-tabs{display:flex;flex-wrap:wrap;gap:6px;padding:4px;border:1px solid var(--line);border-radius:10px;background:var(--b3)}
+    .admin-tab{min-height:34px;border-radius:7px;background:transparent;color:var(--mut);padding:7px 10px;font-size:11px;font-weight:900;text-transform:uppercase}
+    .admin-tab.active{background:var(--y);color:var(--b)}
+    .admin-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+    .admin-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
+    .admin-product{border:1px solid var(--line);border-radius:10px;background:var(--b3);overflow:hidden}
+    .admin-product img{width:100%;aspect-ratio:3/4;object-fit:cover;background:rgba(250,250,250,.05)}
+    .admin-product-body{display:grid;gap:8px;padding:10px}.admin-product-body strong{font-size:14px;line-height:1.2}
+    .admin-product-actions{display:flex;flex-wrap:wrap;gap:7px}
+    .admin-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+    .admin-form label{display:grid;gap:6px;font-size:11px;color:var(--mut);font-weight:900;text-transform:uppercase}
+    .admin-form .wide{grid-column:1/-1}
+    .admin-table{width:100%;border-collapse:separate;border-spacing:0 8px}
+    .admin-table th{font-size:11px;color:var(--mut);text-transform:uppercase;text-align:left;padding:0 8px}
+    .admin-table td{background:var(--b3);border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:9px 8px;font-size:13px}
+    .admin-table td:first-child{border-left:1px solid var(--line);border-radius:9px 0 0 9px}.admin-table td:last-child{border-right:1px solid var(--line);border-radius:0 9px 9px 0}
     .workspace-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;margin-bottom:14px}
     .results{display:grid;grid-template-columns:repeat(auto-fill,minmax(178px,1fr));gap:10px}
     .card{border:1px solid var(--line);border-radius:10px;background:var(--b3);overflow:hidden}
@@ -119,14 +135,14 @@
     .toast{position:fixed;right:16px;bottom:16px;display:grid;gap:8px;z-index:20}
     .toast div{background:var(--w);color:var(--b);border-radius:10px;padding:11px 13px;font-weight:900;box-shadow:0 16px 45px rgba(0,0,0,.35)}
     @media(max-width:980px){.hero,.grid,.bg-card{grid-template-columns:1fr}.workspace-head{align-items:flex-start;flex-direction:column}.results{grid-template-columns:repeat(2,minmax(0,1fr))}.media{grid-template-columns:repeat(3,minmax(0,1fr))}}
-    @media(max-width:620px){.wrap{width:min(100% - 20px,1280px);padding-top:12px}.top{align-items:flex-start;flex-direction:column}.intro,.side,.main{padding:14px}.results,.media{grid-template-columns:1fr}.actions .btn,.workspace-actions .btn{flex:1 1 auto}.tabs{width:100%;display:grid;grid-template-columns:1fr 1fr}.link-row{grid-template-columns:1fr}}
+    @media(max-width:620px){.wrap{width:min(100% - 20px,1280px);padding-top:12px}.top{align-items:flex-start;flex-direction:column}.intro,.side,.main{padding:14px}.results,.media{grid-template-columns:1fr}.actions .btn,.workspace-actions .btn{flex:1 1 auto}.tabs{width:100%;display:grid;grid-template-columns:1fr 1fr}.link-row{grid-template-columns:1fr}.admin-form{grid-template-columns:1fr}.admin-table,.admin-table tbody,.admin-table tr,.admin-table td{display:block;width:100%}.admin-table thead{display:none}.admin-table tr{border:1px solid var(--line);border-radius:10px;background:var(--b3);padding:8px}.admin-table td{border:0!important;border-radius:0!important;background:transparent;padding:5px 0}.admin-table td::before{content:attr(data-label);display:block;color:var(--mut);font-size:10px;font-weight:900;text-transform:uppercase}}
   </style>
 </head>
 <body>
   <main class="wrap">
     <header class="top">
       <div class="brand"><span class="bar"></span><span class="logo">XCLUSIVELINE</span></div>
-      <a class="back" href="../../#admin">Back to Admin</a>
+      <a class="back" href="../../">View Store</a>
     </header>
 
     <section class="hero">
@@ -244,7 +260,40 @@
           <div id="media" class="media"><div class="panel empty"><p class="muted">Saved images appear here after Worker/R2 setup.</p></div></div>
         </div>
         <div id="storeAdminView" class="hidden">
-          <iframe class="admin-frame" src="../../#admin" title="XCLUSIVELINE store admin"></iframe>
+          <div class="admin-shell">
+            <div class="admin-toolbar">
+              <div class="admin-tabs">
+                <button id="adminProductsTab" class="admin-tab active" type="button">Products</button>
+                <button id="adminAddTab" class="admin-tab" type="button">Add Product</button>
+                <button id="adminOrdersTab" class="admin-tab" type="button">Orders</button>
+                <button id="adminUsersTab" class="admin-tab" type="button">Users</button>
+              </div>
+              <button id="adminRefreshBtn" class="btn" type="button">Refresh</button>
+            </div>
+            <div id="adminProductsPanel">
+              <div id="adminProductsList" class="admin-grid"><div class="panel empty">Loading products...</div></div>
+            </div>
+            <div id="adminAddPanel" class="hidden">
+              <form id="adminProductForm" class="admin-form">
+                <label>Name<input id="adminProductName" type="text" placeholder="Product name"></label>
+                <label>Brand<input id="adminProductBrand" type="text" value="XCLUSIVELINE"></label>
+                <label>Price GBP<input id="adminProductPrice" type="number" min="0.99" step="0.01" placeholder="24.99"></label>
+                <label>Sale Price GBP<input id="adminProductSale" type="number" min="0" step="0.01" placeholder="Optional"></label>
+                <label>Size Type<select id="adminProductType"><option value="clothing">Clothing</option><option value="shoe">Shoe</option></select></label>
+                <label>Status<select id="adminProductActive"><option value="false">Draft</option><option value="true">Live</option></select></label>
+                <label class="wide">Categories<input id="adminProductCategories" type="text" placeholder="Shirts, Summer, Streetwear"></label>
+                <label class="wide">Sizes / Stock<textarea id="adminProductSizes" rows="3" placeholder="S:999999, M:999999, L:999999, XL:999999"></textarea></label>
+                <label class="wide">Image URLs<textarea id="adminProductImages" rows="5" placeholder="Paste one image URL per line"></textarea></label>
+                <label class="wide">Description<textarea id="adminProductDescription" rows="4" placeholder="7-10 days delivery."></textarea></label>
+                <div class="wide admin-product-actions">
+                  <button id="adminSaveProductBtn" class="btn y" type="submit">Save Product</button>
+                  <button id="adminResetProductBtn" class="btn" type="button">Clear</button>
+                </div>
+              </form>
+            </div>
+            <div id="adminOrdersPanel" class="hidden"><div id="adminOrdersList" class="panel empty">Open Orders to load orders.</div></div>
+            <div id="adminUsersPanel" class="hidden"><div id="adminUsersList" class="panel empty">Open Users to load users.</div></div>
+          </div>
         </div>
       </section>
     </section>
@@ -292,6 +341,9 @@
       jobPoll: null,
       knownJobResultIds: new Set(),
       activeView: localStorage.getItem('xl-studio-view') || 'generated',
+      adminSection: 'products',
+      adminProducts: [],
+      adminEditId: '',
       generatedSignatures: loadJson('xl-studio-generated-signatures', {}),
       jobSources: loadJson(localStorage.getItem('xl-studio-job-sources-key') || (localStorage.getItem('xl-studio-job-id') ? `xl-studio-job-sources-${localStorage.getItem('xl-studio-job-id')}` : ''), {})
     };
@@ -311,6 +363,7 @@
       $('studioCustomCategories').value = state.customCategories;
       $('studioProductColors').value = state.productColors;
       renderCategoryOptions();
+      resetAdminProductForm();
       localStorage.removeItem('xl-studio-token');
       $('apiBase').addEventListener('change',()=>saveSettings());
       $('studioProductPrice').addEventListener('input',()=>{ state.productPrice=$('studioProductPrice').value; localStorage.setItem('xl-studio-product-price',state.productPrice); });
@@ -328,6 +381,13 @@
       $('generatedTab').onclick = () => setActiveView('generated');
       $('savedTab').onclick = () => setActiveView('saved');
       $('storeAdminTab').onclick = () => setActiveView('admin');
+      $('adminProductsTab').onclick = () => setStoreAdminSection('products');
+      $('adminAddTab').onclick = () => setStoreAdminSection('add');
+      $('adminOrdersTab').onclick = () => setStoreAdminSection('orders');
+      $('adminUsersTab').onclick = () => setStoreAdminSection('users');
+      $('adminRefreshBtn').onclick = refreshStoreAdmin;
+      $('adminProductForm').onsubmit = saveAdminProduct;
+      $('adminResetProductBtn').onclick = resetAdminProductForm;
       $('newBatchBtn').onclick = startNewBatch;
       $('refreshMediaBtn').onclick = () => loadMedia({quiet:false});
       $('regenerateBtn').onclick = regenerateSelected;
@@ -424,10 +484,9 @@
       return d;
     }
     async function storeApi(path,{method='GET',body,headers={}}={}){
-      const token=localStorage.getItem('xl-token') || '';
       const r=await fetch(`${STORE_API_BASE}${path}`,{
         method,
-        headers:{...headers, ...(token ? {Authorization:`Bearer ${token}`} : {}), ...(body!==undefined ? {'Content-Type':'application/json'} : {})},
+        headers:{...headers, ...(body!==undefined ? {'Content-Type':'application/json'} : {})},
         body: body!==undefined ? JSON.stringify(body) : undefined
       });
       const d=await r.json().catch(()=>({}));
@@ -437,6 +496,7 @@
     function setStatus(msg, cls=''){ $('status').className='status '+cls; $('status').textContent=msg; }
     function toast(msg){ const el=document.createElement('div'); el.textContent=msg; $('toast').appendChild(el); setTimeout(()=>el.remove(),3600); }
     function esc(v){ return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c])); }
+    function jsString(v){ return JSON.stringify(String(v??'')).replace(/</g,'\\u003c'); }
     function normalizeUiMode(mode){
       if(mode === 'flatlay') return 'flatlay';
       if(mode === 'skip') return 'skip';
@@ -496,7 +556,160 @@
       $('workspaceEyebrow').textContent = state.activeView === 'admin' ? 'Store dashboard' : state.activeView === 'saved' ? 'R2 media library' : 'Ready to save';
       $('workspaceTitle').textContent = state.activeView === 'admin' ? 'Admin Panel' : state.activeView === 'saved' ? 'Saved Images' : 'Generated Images';
       if(state.activeView==='saved') loadMedia({quiet:true});
+      if(state.activeView==='admin') refreshStoreAdmin();
       updateActionButtons();
+    }
+    function setStoreAdminSection(section){
+      state.adminSection = ['products','add','orders','users'].includes(section) ? section : 'products';
+      ['Products','Add','Orders','Users'].forEach(name=>{
+        const key=name.toLowerCase();
+        const active=state.adminSection===key;
+        $(`admin${name}Tab`).classList.toggle('active',active);
+        $(`admin${name}Panel`).classList.toggle('hidden',!active);
+      });
+      refreshStoreAdmin();
+    }
+    async function refreshStoreAdmin(){
+      if(state.activeView!=='admin') return;
+      if(state.adminSection==='products') return loadStoreProducts();
+      if(state.adminSection==='orders') return loadStoreOrders();
+      if(state.adminSection==='users') return loadStoreUsers();
+    }
+    function splitAdminList(value){
+      return String(value||'').split(/[\n,]+/).map(x=>x.trim()).filter(Boolean);
+    }
+    function parseAdminSizes(value){
+      const parts=splitAdminList(value);
+      const sizes=parts.map(part=>{
+        const [rawSize,rawStock]=part.split(':');
+        const size=String(rawSize||'').trim();
+        if(!size) return null;
+        return {size,stock:parseInt(rawStock,10)||999999};
+      }).filter(Boolean);
+      return sizes.length ? sizes : ['S','M','L','XL'].map(size=>({size,stock:999999}));
+    }
+    function adminProductPayload(){
+      const price=parseFloat($('adminProductPrice').value);
+      if(!$('adminProductName').value.trim()) throw new Error('Product name is required.');
+      if(Number.isNaN(price)) throw new Error('Price is required.');
+      const sale=$('adminProductSale').value ? parseFloat($('adminProductSale').value) : null;
+      return {
+        name:$('adminProductName').value.trim(),
+        brand:$('adminProductBrand').value.trim() || 'XCLUSIVELINE',
+        price_gbp:price,
+        sale_price_gbp:Number.isNaN(sale) ? null : sale,
+        size_type:$('adminProductType').value,
+        active:$('adminProductActive').value==='true',
+        categories:splitAdminList($('adminProductCategories').value),
+        sizes:parseAdminSizes($('adminProductSizes').value),
+        images:splitAdminList($('adminProductImages').value),
+        description:$('adminProductDescription').value.trim()
+      };
+    }
+    function resetAdminProductForm(){
+      state.adminEditId='';
+      $('adminProductForm').reset();
+      $('adminProductBrand').value='XCLUSIVELINE';
+      $('adminProductType').value='clothing';
+      $('adminProductActive').value='false';
+      $('adminProductSizes').value='S:999999, M:999999, L:999999, XL:999999';
+      $('adminProductDescription').value='7-10 days delivery.';
+      $('adminSaveProductBtn').textContent='Save Product';
+    }
+    async function saveAdminProduct(event){
+      event?.preventDefault?.();
+      const btn=$('adminSaveProductBtn');
+      btn.disabled=true;
+      try{
+        const body=adminProductPayload();
+        if(state.adminEditId) await storeApi(`/api/admin/products/${state.adminEditId}`,{method:'PATCH',body});
+        else await storeApi('/api/admin/products',{method:'POST',body});
+        toast(state.adminEditId ? 'Product updated' : 'Product created');
+        resetAdminProductForm();
+        setStoreAdminSection('products');
+      }catch(e){ toast(e.message); }
+      finally{ btn.disabled=false; }
+    }
+    async function loadStoreProducts(){
+      $('adminProductsList').innerHTML='<div class="panel empty">Loading products...</div>';
+      try{
+        const {products=[]}=await storeApi('/api/admin/products');
+        state.adminProducts=products;
+        $('adminProductsList').innerHTML=products.length ? products.map(p=>{
+          const img=p.images?.[0]?.url || '';
+          return `<article class="admin-product">
+            ${img ? `<img src="${esc(img)}" alt="">` : '<div style="aspect-ratio:3/4;display:grid;place-items:center;color:var(--mut)">No image</div>'}
+            <div class="admin-product-body">
+              <strong>${esc(p.name)}</strong>
+              <div class="tiny">${esc(p.brand||'')} · £${Number(p.price_gbp||0).toFixed(2)} · ${p.active?'Live':'Draft'}</div>
+              <div class="admin-product-actions">
+                <button class="mini-btn" onclick="editStoreProduct(${jsString(p.id)})">Edit</button>
+                <button class="mini-btn" onclick="toggleStoreProduct(${jsString(p.id)},${p.active?'false':'true'})">${p.active?'Draft':'Make Live'}</button>
+                <button class="mini-btn danger" onclick="deleteStoreProduct(${jsString(p.id)},${jsString(p.name)})">Delete</button>
+              </div>
+            </div>
+          </article>`;
+        }).join('') : '<div class="panel empty">No products yet.</div>';
+      }catch(e){ $('adminProductsList').innerHTML=`<div class="panel empty">${esc(e.message)}</div>`; }
+    }
+    function editStoreProduct(id){
+      const p=state.adminProducts.find(x=>x.id===id);
+      if(!p) return;
+      state.adminEditId=id;
+      $('adminProductName').value=p.name||'';
+      $('adminProductBrand').value=p.brand||'XCLUSIVELINE';
+      $('adminProductPrice').value=p.price_gbp ?? '';
+      $('adminProductSale').value=p.sale_price_gbp ?? '';
+      $('adminProductType').value=p.size_type||'clothing';
+      $('adminProductActive').value=String(Boolean(p.active));
+      $('adminProductCategories').value=(p.categories||[]).join(', ');
+      $('adminProductSizes').value=(p.sizes||[]).map(s=>`${s.size}:${s.stock}`).join(', ') || 'S:999999, M:999999, L:999999, XL:999999';
+      $('adminProductImages').value=(p.images||[]).map(i=>i.url).join('\n');
+      $('adminProductDescription').value=p.description||'';
+      $('adminSaveProductBtn').textContent='Update Product';
+      setStoreAdminSection('add');
+    }
+    async function toggleStoreProduct(id, active){
+      const p=state.adminProducts.find(x=>x.id===id);
+      if(!p) return;
+      try{
+        await storeApi(`/api/admin/products/${id}`,{method:'PATCH',body:{...p,active:active==='true',images:(p.images||[]).map(i=>i.url)}});
+        toast(active==='true' ? 'Product is live' : 'Product moved to draft');
+        await loadStoreProducts();
+      }catch(e){ toast(e.message); }
+    }
+    async function deleteStoreProduct(id,name){
+      if(!confirm(`Delete "${name}"?`)) return;
+      try{ await storeApi(`/api/admin/products/${id}`,{method:'DELETE'}); toast('Product deleted'); await loadStoreProducts(); }
+      catch(e){ toast(e.message); }
+    }
+    async function loadStoreOrders(){
+      $('adminOrdersList').innerHTML='<div class="panel empty">Loading orders...</div>';
+      try{
+        const {orders=[]}=await storeApi('/api/admin/orders');
+        $('adminOrdersList').innerHTML=orders.length ? `<table class="admin-table"><thead><tr><th>Order</th><th>Customer</th><th>Total</th><th>Status</th></tr></thead><tbody>${orders.map(o=>`<tr><td data-label="Order">#${esc(String(o.id).slice(0,8).toUpperCase())}</td><td data-label="Customer">${esc(o.user_email||'')}</td><td data-label="Total">£${Number(o.total_gbp||0).toFixed(2)}</td><td data-label="Status">${esc(o.status||'')}</td></tr>`).join('')}</tbody></table>` : '<div class="panel empty">No orders yet.</div>';
+      }catch(e){ $('adminOrdersList').innerHTML=`<div class="panel empty">${esc(e.message)}</div>`; }
+    }
+    async function loadStoreUsers(){
+      $('adminUsersList').innerHTML='<div class="panel empty">Loading users...</div>';
+      try{
+        const {users=[]}=await storeApi('/api/admin/users');
+        $('adminUsersList').innerHTML=users.length ? `<table class="admin-table"><thead><tr><th>Email</th><th>Balance</th><th>Role</th></tr></thead><tbody>${users.map(u=>`<tr><td data-label="Email">${esc(u.email||'')}</td><td data-label="Balance">£${Number(u.balance_gbp||0).toFixed(2)}</td><td data-label="Role">${u.is_admin?'Admin':'User'}</td></tr>`).join('')}</tbody></table>` : '<div class="panel empty">No users yet.</div>';
+      }catch(e){ $('adminUsersList').innerHTML=`<div class="panel empty">${esc(e.message)}</div>`; }
+    }
+    function addImagesToAdminProductForm(urls){
+      const images=[...new Set((urls||[]).filter(Boolean))];
+      if(!images.length) return;
+      const existing=splitAdminList($('adminProductImages').value);
+      $('adminProductImages').value=[...new Set([...existing,...images])].join('\n');
+      if(!$('adminProductName').value.trim()){
+        $('adminProductName').value=$('studioProductName').value.trim() || 'New XCLUSIVELINE Product';
+      }
+      if(!$('adminProductPrice').value && $('studioProductPrice').value) $('adminProductPrice').value=$('studioProductPrice').value;
+      if(!$('adminProductCategories').value) $('adminProductCategories').value=studioProductCategories().join(', ');
+      setActiveView('admin');
+      setStoreAdminSection('add');
+      toast(images.length===1 ? 'Image added to product form' : 'Images added to product form');
     }
     function sourceSignature(file){
       if(!file) return '';
@@ -1595,9 +1808,7 @@
     function openProductFormWithImages(urls, meta={}){
       const images=[...new Set((urls||[]).filter(Boolean))];
       if(!images.length){ setStatus('No product image URL was available. Save the image first and try again.','bad'); return; }
-      localStorage.setItem(PRODUCT_IMAGE_TRANSFER_KEY,JSON.stringify({images,createdAt:Date.now(),source:'photo-studio',...meta}));
-      toast(images.length===1 ? 'Opening product form' : 'Opening product form with images');
-      window.location.href='../../#admin';
+      addImagesToAdminProductForm(images);
     }
     async function saveGeneratedForProduct(result){
       if((result.publicUrl || result.rawUrl || result.key) && !isTemporaryJobOutputKey(result.key)) return savedMediaUrl(result);
@@ -1678,7 +1889,7 @@
     function isAbortError(error){
       return error?.name === 'AbortError' || /abort|cancel/i.test(error?.message || '');
     }
-    window.removeFile=removeFile; window.toggleSel=toggleSel; window.toggleQueue=toggleQueue; window.setQueueSelection=setQueueSelection; window.clearQueue=clearQueue; window.deleteGenerated=deleteGenerated; window.regenerateGenerated=regenerateGenerated; window.deleteSavedMedia=deleteSavedMedia; window.useGeneratedForProduct=useGeneratedForProduct; window.useSavedForProduct=useSavedForProduct; window.startNewBatch=startNewBatch; window.toggleProductCategory=toggleProductCategory;
+    window.removeFile=removeFile; window.toggleSel=toggleSel; window.toggleQueue=toggleQueue; window.setQueueSelection=setQueueSelection; window.clearQueue=clearQueue; window.deleteGenerated=deleteGenerated; window.regenerateGenerated=regenerateGenerated; window.deleteSavedMedia=deleteSavedMedia; window.useGeneratedForProduct=useGeneratedForProduct; window.useSavedForProduct=useSavedForProduct; window.startNewBatch=startNewBatch; window.toggleProductCategory=toggleProductCategory; window.editStoreProduct=editStoreProduct; window.toggleStoreProduct=toggleStoreProduct; window.deleteStoreProduct=deleteStoreProduct;
     init();
   </script>
 </body>

@@ -23,6 +23,8 @@ PUBLIC_BASE = "https://pub-0c603d33592f4c888141122b8c344962.r2.dev"
 ALLOWED_ORIGIN = "*"
 # "sandbox" while testing, "live" when ready to take real payments.
 PAYPAL_ENV = "sandbox"
+# Lets the standalone Photo Studio admin page manage products without a storefront login.
+OPEN_ADMIN_ACCESS = "true"
 
 # Secrets (do NOT put these here — set with `wrangler secret put <NAME>`):
 #   JWT_SECRET          long random string for signing sessions
