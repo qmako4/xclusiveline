@@ -713,13 +713,18 @@
       if(action==='toggle') await toggleStoreProduct(id,btn?.dataset?.active);
       if(action==='delete') await deleteStoreProduct(id,btn?.dataset?.name || 'product');
     }
+    function normalizeAdminProductId(id){
+      return String(id || "").trim();
+    }
+
     async function editStoreProduct(id){
-      let p=state.adminProducts.find(x=>x.id===id);
+      const normalizedId = normalizeAdminProductId(id);
+      let p=state.adminProducts.find(x=>normalizeAdminProductId(x.id)===normalizedId);
       if(!p){
         try{
           const {products=[]}=await storeApi('/api/admin/products');
           state.adminProducts=products;
-          p=state.adminProducts.find(x=>x.id===id);
+          p=state.adminProducts.find(x=>normalizeAdminProductId(x.id)===normalizedId);
         }catch(e){
           toast(e.message || 'Could not load product');
           return;

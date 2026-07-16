@@ -1293,9 +1293,23 @@ function resetForm(){
   el('pType').value='shoe'; el('pActive').value='true';
   renderSizeBuilder(); renderImgPrev();
 }
+function sameProductId(a,b){
+  return String(a||'').trim()===String(b||'').trim();
+}
 async function editProduct(id){
-  const p=(state.adminProducts||[]).find(x=>x.id===id); if(!p) return;
-  state.editId=id;
+  let p=(state.adminProducts||[]).find(x=>sameProductId(x.id,id));
+  if(!p){
+    try{
+      const {products=[]}=await api('/api/admin/products');
+      state.adminProducts=products;
+      p=(state.adminProducts||[]).find(x=>sameProductId(x.id,id));
+    }catch(e){
+      toast(e.message || 'Could not load product');
+      return;
+    }
+  }
+  if(!p){ toast('Product not found. Press Refresh and try again.'); return; }
+  state.editId=p.id;
   adminTab('add');
   el('addTitle').textContent='Edit Product'; el('cancelEdit').classList.remove('hidden');
   el('pName').value=p.name; el('pBrand').value=p.brand||''; el('pPrice').value=p.price_gbp;
