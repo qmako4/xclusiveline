@@ -693,9 +693,9 @@
               <strong>${esc(p.name)}</strong>
               <div class="tiny">${esc(p.brand||'')} · £${Number(p.price_gbp||0).toFixed(2)} · ${p.active?'Live':'Draft'}</div>
               <div class="admin-product-actions">
-                <button class="mini-btn" type="button" data-admin-product-action="edit" data-id="${esc(p.id)}">Edit</button>
-                <button class="mini-btn" type="button" data-admin-product-action="toggle" data-id="${esc(p.id)}" data-active="${p.active?'false':'true'}">${p.active?'Draft':'Make Live'}</button>
-                <button class="mini-btn danger" type="button" data-admin-product-action="delete" data-id="${esc(p.id)}" data-name="${esc(p.name)}">Delete</button>
+                <button class="mini-btn" type="button" data-admin-product-action="edit" data-id="${esc(p.id)}" onclick="event.stopPropagation();handleAdminProductAction('edit',this)">Edit</button>
+                <button class="mini-btn" type="button" data-admin-product-action="toggle" data-id="${esc(p.id)}" data-active="${p.active?'false':'true'}" onclick="event.stopPropagation();handleAdminProductAction('toggle',this)">${p.active?'Draft':'Make Live'}</button>
+                <button class="mini-btn danger" type="button" data-admin-product-action="delete" data-id="${esc(p.id)}" data-name="${esc(p.name)}" onclick="event.stopPropagation();handleAdminProductAction('delete',this)">Delete</button>
               </div>
             </div>
           </article>`;
@@ -705,15 +705,27 @@
     function handleAdminProductClick(event){
       const btn=event.target.closest('[data-admin-product-action]');
       if(!btn) return;
-      const action=btn.dataset.adminProductAction;
-      const id=btn.dataset.id;
-      if(action==='edit') editStoreProduct(id);
-      if(action==='toggle') toggleStoreProduct(id,btn.dataset.active);
-      if(action==='delete') deleteStoreProduct(id,btn.dataset.name || 'product');
+      handleAdminProductAction(btn.dataset.adminProductAction,btn);
     }
-    function editStoreProduct(id){
-      const p=state.adminProducts.find(x=>x.id===id);
-      if(!p) return;
+    async function handleAdminProductAction(action,btn){
+      const id=btn?.dataset?.id || '';
+      if(action==='edit') await editStoreProduct(id);
+      if(action==='toggle') await toggleStoreProduct(id,btn?.dataset?.active);
+      if(action==='delete') await deleteStoreProduct(id,btn?.dataset?.name || 'product');
+    }
+    async function editStoreProduct(id){
+      let p=state.adminProducts.find(x=>x.id===id);
+      if(!p){
+        try{
+          const {products=[]}=await storeApi('/api/admin/products');
+          state.adminProducts=products;
+          p=state.adminProducts.find(x=>x.id===id);
+        }catch(e){
+          toast(e.message || 'Could not load product');
+          return;
+        }
+      }
+      if(!p){ toast('Product was not found. Press Refresh and try again.'); return; }
       state.adminEditId=id;
       $('adminProductName').value=p.name||'';
       $('adminProductBrand').value=p.brand||'XCLUSIVELINE';
@@ -2095,7 +2107,7 @@
     function isAbortError(error){
       return error?.name === 'AbortError' || /abort|cancel/i.test(error?.message || '');
     }
-    window.removeFile=removeFile; window.toggleSel=toggleSel; window.toggleQueue=toggleQueue; window.setQueueSelection=setQueueSelection; window.clearQueue=clearQueue; window.deleteGenerated=deleteGenerated; window.regenerateGenerated=regenerateGenerated; window.deleteSavedMedia=deleteSavedMedia; window.useGeneratedForProduct=useGeneratedForProduct; window.useSavedForProduct=useSavedForProduct; window.startNewBatch=startNewBatch; window.toggleProductCategory=toggleProductCategory; window.editStoreProduct=editStoreProduct; window.toggleStoreProduct=toggleStoreProduct; window.deleteStoreProduct=deleteStoreProduct; window.createProductFromTrackedJob=createProductFromTrackedJob; window.removeAdminProductImage=removeAdminProductImage; window.addSavedMediaToAdminProduct=addSavedMediaToAdminProduct; window.makeAdminProductMain=makeAdminProductMain;
+    window.removeFile=removeFile; window.toggleSel=toggleSel; window.toggleQueue=toggleQueue; window.setQueueSelection=setQueueSelection; window.clearQueue=clearQueue; window.deleteGenerated=deleteGenerated; window.regenerateGenerated=regenerateGenerated; window.deleteSavedMedia=deleteSavedMedia; window.useGeneratedForProduct=useGeneratedForProduct; window.useSavedForProduct=useSavedForProduct; window.startNewBatch=startNewBatch; window.toggleProductCategory=toggleProductCategory; window.editStoreProduct=editStoreProduct; window.handleAdminProductAction=handleAdminProductAction; window.toggleStoreProduct=toggleStoreProduct; window.deleteStoreProduct=deleteStoreProduct; window.createProductFromTrackedJob=createProductFromTrackedJob; window.removeAdminProductImage=removeAdminProductImage; window.addSavedMediaToAdminProduct=addSavedMediaToAdminProduct; window.makeAdminProductMain=makeAdminProductMain;
     init();
   </script>
 </body>
