@@ -281,6 +281,7 @@
               <div class="admin-tabs">
                 <button id="adminProductsTab" class="admin-tab active" type="button">Products</button>
                 <button id="adminAddTab" class="admin-tab" type="button">Add Product</button>
+                <button id="adminMediaTab" class="admin-tab" type="button">Media Library</button>
                 <button id="adminOrdersTab" class="admin-tab" type="button">Orders</button>
                 <button id="adminUsersTab" class="admin-tab" type="button">Users</button>
               </div>
@@ -288,6 +289,9 @@
             </div>
             <div id="adminProductsPanel">
               <div id="adminProductsList" class="admin-grid"><div class="panel empty">Loading products...</div></div>
+            </div>
+            <div id="adminMediaPanel" class="hidden">
+              <div id="adminMedia" class="media"><div class="panel empty"><p class="muted">Open Media Library to load saved images.</p></div></div>
             </div>
             <div id="adminAddPanel" class="hidden">
               <form id="adminProductForm" class="admin-form">
@@ -419,6 +423,7 @@
       $('storeAdminTab').onclick = () => setActiveView('admin');
       $('adminProductsTab').onclick = () => setStoreAdminSection('products');
       $('adminAddTab').onclick = () => setStoreAdminSection('add');
+      $('adminMediaTab').onclick = () => setStoreAdminSection('media');
       $('adminOrdersTab').onclick = () => setStoreAdminSection('orders');
       $('adminUsersTab').onclick = () => setStoreAdminSection('users');
       $('adminRefreshBtn').onclick = refreshStoreAdmin;
@@ -606,8 +611,8 @@
       updateActionButtons();
     }
     function setStoreAdminSection(section){
-      state.adminSection = ['products','add','orders','users'].includes(section) ? section : 'products';
-      ['Products','Add','Orders','Users'].forEach(name=>{
+      state.adminSection = ['products','add','media','orders','users'].includes(section) ? section : 'products';
+      ['Products','Add','Media','Orders','Users'].forEach(name=>{
         const key=name.toLowerCase();
         const active=state.adminSection===key;
         $(`admin${name}Tab`).classList.toggle('active',active);
@@ -622,6 +627,7 @@
     async function refreshStoreAdmin(){
       if(state.activeView!=='admin') return;
       if(state.adminSection==='products') return loadStoreProducts();
+      if(state.adminSection==='media') return loadMedia({quiet:false});
       if(state.adminSection==='orders') return loadStoreOrders();
       if(state.adminSection==='users') return loadStoreUsers();
     }
@@ -2009,27 +2015,33 @@
     }
     async function loadMedia({quiet=false}={}){
       saveSettings();
-      if(state.activeView==='saved'){
-        $('media').innerHTML='<div class="panel empty"><p class="muted">Loading saved media library...</p></div>';
+      const showMediaPanel=state.activeView==='saved' || (state.activeView==='admin' && state.adminSection==='media');
+      const setMediaHtml=html=>{
+        if($('media')) $('media').innerHTML=html;
+        if($('adminMedia')) $('adminMedia').innerHTML=html;
+      };
+      if(showMediaPanel){
+        setMediaHtml('<div class="panel empty"><p class="muted">Loading saved media library...</p></div>');
       }
       try{
         const r=await fetch(apiUrl('/api/media?limit=100'),{headers:auth()});
         const d=await r.json().catch(()=>({ok:false,error:'Media response was not JSON.'}));
         if(!r.ok || !d.ok) throw new Error(d.error||'Media load failed');
         state.media=(d.objects||[]).filter(o=>o && (o.publicUrl || o.rawUrl || o.key));
-        $('media').innerHTML=state.media.length ? state.media.map((o,index)=>{
+        const mediaHtml=state.media.length ? state.media.map((o,index)=>{
           const src=savedMediaUrl(o);
           const name=(o.key||o.filename||`saved-image-${index+1}`).split('/').pop();
           return `<article class="media-card"><a href="${esc(src)}" target="_blank" rel="noreferrer"><img src="${esc(src)}" alt="${esc(name)}" loading="lazy" onerror="this.closest('.media-card').classList.add('broken')"><span>${esc(name)}</span></a><div class="media-actions"><button class="mini-btn" onclick="useSavedForProduct(${index})">Use</button><button class="mini-btn danger" onclick="deleteSavedMedia(${index})">Delete</button></div></article>`;
         }).join('') + (d.truncated ? '<div class="panel empty"><p class="muted">More saved images exist. Delete older ones or ask me to add pagination.</p></div>' : '') : '<div class="panel empty"><p class="muted">No saved studio images yet. Save generated images first, then press Refresh Saved.</p></div>';
+        setMediaHtml(mediaHtml);
         renderAdminMediaPicker();
         if(!quiet) setStatus(`Loaded ${state.media.length} saved image${state.media.length===1?'':'s'}.`,'ok');
       }catch(e){
         const msg=friendlyFetchError(e);
         state.media=[];
-        $('media').innerHTML=`<div class="panel empty"><h3>Media library could not load</h3><p class="muted">${esc(msg)}</p><button class="btn y" type="button" onclick="loadMedia({quiet:false})">Try Again</button></div>`;
+        setMediaHtml(`<div class="panel empty"><h3>Media library could not load</h3><p class="muted">${esc(msg)}</p><button class="btn y" type="button" onclick="loadMedia({quiet:false})">Try Again</button></div>`);
         renderAdminMediaPicker();
-        if(!quiet || state.activeView==='saved') setStatus(msg,'bad');
+        if(!quiet || showMediaPanel) setStatus(msg,'bad');
       }
     }
     function savedMediaUrl(item){
