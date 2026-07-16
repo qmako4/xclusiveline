@@ -111,6 +111,20 @@
     .admin-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
     .admin-form label{display:grid;gap:6px;font-size:11px;color:var(--mut);font-weight:900;text-transform:uppercase}
     .admin-form .wide{grid-column:1/-1}
+    .admin-image-box{grid-column:1/-1;display:grid;gap:10px}
+    .admin-image-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+    .admin-selected-images,.admin-media-picker{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:9px}
+    .admin-image-tile{position:relative;border:1px solid var(--line);border-radius:10px;background:var(--b3);overflow:hidden}
+    .admin-image-tile[draggable="true"]{cursor:grab}
+    .admin-image-tile.dragging{opacity:.48}
+    .admin-image-tile.is-main{border-color:var(--y);box-shadow:0 0 0 1px rgba(245,168,0,.3)}
+    .admin-image-tile img{width:100%;aspect-ratio:3/4;object-fit:cover;display:block;background:rgba(250,250,250,.05)}
+    .admin-image-badge{position:absolute;left:6px;top:6px;border-radius:999px;background:var(--y);color:var(--b);font-size:9px;font-weight:1000;text-transform:uppercase;padding:4px 6px}
+    .admin-image-actions{position:absolute;left:6px;right:6px;bottom:6px;display:flex;justify-content:flex-end;gap:5px;flex-wrap:wrap}
+    .admin-image-actions .mini-btn{background:rgba(10,10,10,.82);padding:5px 7px;font-size:9px}
+    .admin-image-name{padding:7px;font-size:10px;color:var(--mut);word-break:break-word}
+    .admin-url-fallback{display:none}
+    .admin-url-fallback.open{display:grid}
     .admin-table{width:100%;border-collapse:separate;border-spacing:0 8px}
     .admin-table th{font-size:11px;color:var(--mut);text-transform:uppercase;text-align:left;padding:0 8px}
     .admin-table td{background:var(--b3);border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:9px 8px;font-size:13px}
@@ -283,7 +297,26 @@
                 <label>Status<select id="adminProductActive"><option value="true">Live</option><option value="false">Draft</option></select></label>
                 <label class="wide">Categories<input id="adminProductCategories" type="text" placeholder="Shirts, Summer, Streetwear"></label>
                 <label class="wide">Sizes / Stock<textarea id="adminProductSizes" rows="3" placeholder="S:999999, M:999999, L:999999, XL:999999"></textarea></label>
-                <label class="wide">Image URLs<textarea id="adminProductImages" rows="5" placeholder="Paste one image URL per line"></textarea></label>
+                <div class="admin-image-box">
+                  <div class="admin-image-head">
+                    <label class="small">Product images</label>
+                    <div class="admin-product-actions">
+                      <button id="adminRefreshMediaBtn" class="mini-btn" type="button">Refresh Media</button>
+                      <button id="adminToggleUrlBtn" class="mini-btn" type="button">Paste URL</button>
+                    </div>
+                  </div>
+                  <div id="adminSelectedImages" class="admin-selected-images"><div class="panel empty">No images selected yet.</div></div>
+                  <div id="adminUrlFallback" class="admin-url-fallback">
+                    <label class="wide">Image URLs<textarea id="adminProductImages" rows="4" placeholder="Paste one image URL per line"></textarea></label>
+                  </div>
+                  <div>
+                    <div class="admin-image-head" style="margin-bottom:8px">
+                      <span class="tiny">Saved media library</span>
+                      <span id="adminMediaCount" class="tiny">Loading...</span>
+                    </div>
+                    <div id="adminMediaPicker" class="admin-media-picker"><div class="panel empty">Loading saved media...</div></div>
+                  </div>
+                </div>
                 <label class="wide">Description<textarea id="adminProductDescription" rows="4" placeholder="7-10 days delivery."></textarea></label>
                 <div class="wide admin-product-actions">
                   <button id="adminSaveProductBtn" class="btn y" type="submit">Save Product</button>
@@ -344,6 +377,7 @@
       adminSection: 'products',
       adminProducts: [],
       adminEditId: '',
+      adminDragImageIndex: null,
       generatedSignatures: loadJson('xl-studio-generated-signatures', {}),
       jobSources: loadJson(localStorage.getItem('xl-studio-job-sources-key') || (localStorage.getItem('xl-studio-job-id') ? `xl-studio-job-sources-${localStorage.getItem('xl-studio-job-id')}` : ''), {})
     };
@@ -388,6 +422,16 @@
       $('adminRefreshBtn').onclick = refreshStoreAdmin;
       $('adminProductForm').onsubmit = saveAdminProduct;
       $('adminResetProductBtn').onclick = resetAdminProductForm;
+      $('adminRefreshMediaBtn').onclick = () => loadMedia({quiet:false});
+      $('adminToggleUrlBtn').onclick = () => $('adminUrlFallback').classList.toggle('open');
+      $('adminProductImages').addEventListener('input',renderAdminSelectedImages);
+      $('adminProductsList').addEventListener('click',handleAdminProductClick);
+      $('adminSelectedImages').addEventListener('click',handleAdminSelectedImageClick);
+      $('adminSelectedImages').addEventListener('dragstart',handleAdminSelectedImageDragStart);
+      $('adminSelectedImages').addEventListener('dragover',event=>event.preventDefault());
+      $('adminSelectedImages').addEventListener('drop',handleAdminSelectedImageDrop);
+      $('adminSelectedImages').addEventListener('dragend',handleAdminSelectedImageDragEnd);
+      $('adminMediaPicker').addEventListener('click',handleAdminMediaPickerClick);
       $('newBatchBtn').onclick = startNewBatch;
       $('refreshMediaBtn').onclick = () => loadMedia({quiet:false});
       $('regenerateBtn').onclick = regenerateSelected;
@@ -568,6 +612,10 @@
         $(`admin${name}Panel`).classList.toggle('hidden',!active);
       });
       refreshStoreAdmin();
+      if(state.adminSection==='add'){
+        renderAdminSelectedImages();
+        loadMedia({quiet:true});
+      }
     }
     async function refreshStoreAdmin(){
       if(state.activeView!=='admin') return;
@@ -615,6 +663,8 @@
       $('adminProductSizes').value='S:999999, M:999999, L:999999, XL:999999';
       $('adminProductDescription').value='7-10 days delivery.';
       $('adminSaveProductBtn').textContent='Save Product';
+      renderAdminSelectedImages();
+      renderAdminMediaPicker();
     }
     async function saveAdminProduct(event){
       event?.preventDefault?.();
@@ -643,14 +693,23 @@
               <strong>${esc(p.name)}</strong>
               <div class="tiny">${esc(p.brand||'')} · £${Number(p.price_gbp||0).toFixed(2)} · ${p.active?'Live':'Draft'}</div>
               <div class="admin-product-actions">
-                <button class="mini-btn" onclick="editStoreProduct(${jsString(p.id)})">Edit</button>
-                <button class="mini-btn" onclick="toggleStoreProduct(${jsString(p.id)},${p.active?'false':'true'})">${p.active?'Draft':'Make Live'}</button>
-                <button class="mini-btn danger" onclick="deleteStoreProduct(${jsString(p.id)},${jsString(p.name)})">Delete</button>
+                <button class="mini-btn" type="button" data-admin-product-action="edit" data-id="${esc(p.id)}">Edit</button>
+                <button class="mini-btn" type="button" data-admin-product-action="toggle" data-id="${esc(p.id)}" data-active="${p.active?'false':'true'}">${p.active?'Draft':'Make Live'}</button>
+                <button class="mini-btn danger" type="button" data-admin-product-action="delete" data-id="${esc(p.id)}" data-name="${esc(p.name)}">Delete</button>
               </div>
             </div>
           </article>`;
         }).join('') : '<div class="panel empty">No products yet.</div>';
       }catch(e){ $('adminProductsList').innerHTML=`<div class="panel empty">${esc(e.message)}</div>`; }
+    }
+    function handleAdminProductClick(event){
+      const btn=event.target.closest('[data-admin-product-action]');
+      if(!btn) return;
+      const action=btn.dataset.adminProductAction;
+      const id=btn.dataset.id;
+      if(action==='edit') editStoreProduct(id);
+      if(action==='toggle') toggleStoreProduct(id,btn.dataset.active);
+      if(action==='delete') deleteStoreProduct(id,btn.dataset.name || 'product');
     }
     function editStoreProduct(id){
       const p=state.adminProducts.find(x=>x.id===id);
@@ -667,6 +726,7 @@
       $('adminProductImages').value=(p.images||[]).map(i=>i.url).join('\n');
       $('adminProductDescription').value=p.description||'';
       $('adminSaveProductBtn').textContent='Update Product';
+      renderAdminSelectedImages();
       setStoreAdminSection('add');
     }
     async function toggleStoreProduct(id, active){
@@ -702,6 +762,7 @@
       if(!images.length) return;
       const existing=splitAdminList($('adminProductImages').value);
       $('adminProductImages').value=[...new Set([...existing,...images])].join('\n');
+      renderAdminSelectedImages();
       if(!$('adminProductName').value.trim()){
         $('adminProductName').value=$('studioProductName').value.trim() || 'New XCLUSIVELINE Product';
       }
@@ -710,6 +771,87 @@
       setActiveView('admin');
       setStoreAdminSection('add');
       toast(images.length===1 ? 'Image added to product form' : 'Images added to product form');
+    }
+    function removeAdminProductImage(url){
+      const next=splitAdminList($('adminProductImages').value).filter(item=>item!==url);
+      $('adminProductImages').value=next.join('\n');
+      renderAdminSelectedImages();
+      renderAdminMediaPicker();
+    }
+    function setAdminProductImageList(urls){
+      $('adminProductImages').value=[...new Set((urls||[]).filter(Boolean))].join('\n');
+      renderAdminSelectedImages();
+      renderAdminMediaPicker();
+    }
+    function makeAdminProductMain(index){
+      const urls=splitAdminList($('adminProductImages').value);
+      if(index<=0 || index>=urls.length) return;
+      const [main]=urls.splice(index,1);
+      setAdminProductImageList([main,...urls]);
+      toast('Main product image updated');
+    }
+    function handleAdminSelectedImageClick(event){
+      const btn=event.target.closest('[data-admin-image-action]');
+      if(!btn) return;
+      const index=Number(btn.dataset.index);
+      const url=btn.dataset.url || '';
+      if(btn.dataset.adminImageAction==='main') makeAdminProductMain(index);
+      if(btn.dataset.adminImageAction==='remove') removeAdminProductImage(url);
+    }
+    function handleAdminSelectedImageDragStart(event){
+      const tile=event.target.closest('[data-admin-image-index]');
+      if(!tile) return;
+      state.adminDragImageIndex=Number(tile.dataset.adminImageIndex);
+      event.dataTransfer?.setData?.('text/plain',String(state.adminDragImageIndex));
+      if(event.dataTransfer) event.dataTransfer.effectAllowed='move';
+      tile.classList.add('dragging');
+    }
+    function handleAdminSelectedImageDragEnd(event){
+      state.adminDragImageIndex=null;
+      event.target.closest('[data-admin-image-index]')?.classList.remove('dragging');
+    }
+    function handleAdminSelectedImageDrop(event){
+      const tile=event.target.closest('[data-admin-image-index]');
+      if(!tile) return;
+      event.preventDefault();
+      const targetIndex=Number(tile.dataset.adminImageIndex);
+      const from=Number(event.dataTransfer?.getData?.('text/plain') || state.adminDragImageIndex);
+      const urls=splitAdminList($('adminProductImages').value);
+      if(!Number.isInteger(from) || from<0 || from>=urls.length || targetIndex<0 || targetIndex>=urls.length || from===targetIndex) return;
+      const [moved]=urls.splice(from,1);
+      urls.splice(targetIndex,0,moved);
+      setAdminProductImageList(urls);
+    }
+    function imageLabelFromUrl(url){
+      try{ return decodeURIComponent(new URL(url).pathname.split('/').pop() || 'product image'); }
+      catch{ return String(url||'').split('/').pop() || 'product image'; }
+    }
+    function renderAdminSelectedImages(){
+      const urls=splitAdminList($('adminProductImages')?.value || '');
+      $('adminSelectedImages').innerHTML=urls.length ? urls.map((url,index)=>`<div class="admin-image-tile ${index===0?'is-main':''}" draggable="true" data-admin-image-index="${index}"><img src="${esc(url)}" alt="">${index===0?'<span class="admin-image-badge">Main</span>':''}<div class="admin-image-actions">${index>0?`<button class="mini-btn y" type="button" data-admin-image-action="main" data-index="${index}">Make Main</button>`:''}<button class="mini-btn danger" type="button" data-admin-image-action="remove" data-url="${esc(url)}">Remove</button></div><div class="admin-image-name">${index+1}. ${esc(imageLabelFromUrl(url))}</div></div>`).join('') : '<div class="panel empty">No images selected yet. Add from the saved media library below.</div>';
+      renderAdminMediaPicker();
+    }
+    function renderAdminMediaPicker(){
+      const picker=$('adminMediaPicker');
+      if(!picker) return;
+      const selected=new Set(splitAdminList($('adminProductImages')?.value || ''));
+      $('adminMediaCount').textContent=state.media.length ? `${state.media.length} saved` : 'No saved media';
+      picker.innerHTML=state.media.length ? state.media.map((item,index)=>{
+        const src=savedMediaUrl(item);
+        const added=selected.has(src);
+        return `<div class="admin-image-tile"><img src="${esc(src)}" alt=""><div class="admin-image-actions"><button class="mini-btn ${added?'':'y'}" type="button" ${added?'disabled':''} data-admin-media-index="${index}">${added?'Added':'Add'}</button></div><div class="admin-image-name">${esc(studioImageName(item))}</div></div>`;
+      }).join('') : '<div class="panel empty">No saved media yet. Save generated images first, then press Refresh Media.</div>';
+    }
+    function handleAdminMediaPickerClick(event){
+      const btn=event.target.closest('[data-admin-media-index]');
+      if(!btn) return;
+      addSavedMediaToAdminProduct(Number(btn.dataset.adminMediaIndex));
+    }
+    function addSavedMediaToAdminProduct(index){
+      const item=state.media[index];
+      const url=savedMediaUrl(item);
+      if(!url){ toast('Saved image was not found'); return; }
+      addImagesToAdminProductForm([url]);
     }
     function sourceSignature(file){
       if(!file) return '';
@@ -1857,6 +1999,7 @@
           const src=o.publicUrl || apiUrl(o.rawUrl);
           return `<article class="media-card"><a href="${src}" target="_blank" rel="noreferrer"><img src="${src}" alt=""><span>${esc(o.key.split('/').pop())}</span></a><div class="media-actions"><button class="mini-btn" onclick="useSavedForProduct(${index})">Use</button><button class="mini-btn danger" onclick="deleteSavedMedia(${index})">Delete</button></div></article>`;
         }).join('') : '<div class="panel empty"><p class="muted">No saved studio images yet.</p></div>';
+        renderAdminMediaPicker();
         if(!quiet) setStatus(`Loaded ${state.media.length} saved image${state.media.length===1?'':'s'}.`,'ok');
       }catch(e){ if(!quiet) setStatus(friendlyFetchError(e),'bad'); }
     }
@@ -1952,7 +2095,7 @@
     function isAbortError(error){
       return error?.name === 'AbortError' || /abort|cancel/i.test(error?.message || '');
     }
-    window.removeFile=removeFile; window.toggleSel=toggleSel; window.toggleQueue=toggleQueue; window.setQueueSelection=setQueueSelection; window.clearQueue=clearQueue; window.deleteGenerated=deleteGenerated; window.regenerateGenerated=regenerateGenerated; window.deleteSavedMedia=deleteSavedMedia; window.useGeneratedForProduct=useGeneratedForProduct; window.useSavedForProduct=useSavedForProduct; window.startNewBatch=startNewBatch; window.toggleProductCategory=toggleProductCategory; window.editStoreProduct=editStoreProduct; window.toggleStoreProduct=toggleStoreProduct; window.deleteStoreProduct=deleteStoreProduct; window.createProductFromTrackedJob=createProductFromTrackedJob;
+    window.removeFile=removeFile; window.toggleSel=toggleSel; window.toggleQueue=toggleQueue; window.setQueueSelection=setQueueSelection; window.clearQueue=clearQueue; window.deleteGenerated=deleteGenerated; window.regenerateGenerated=regenerateGenerated; window.deleteSavedMedia=deleteSavedMedia; window.useGeneratedForProduct=useGeneratedForProduct; window.useSavedForProduct=useSavedForProduct; window.startNewBatch=startNewBatch; window.toggleProductCategory=toggleProductCategory; window.editStoreProduct=editStoreProduct; window.toggleStoreProduct=toggleStoreProduct; window.deleteStoreProduct=deleteStoreProduct; window.createProductFromTrackedJob=createProductFromTrackedJob; window.removeAdminProductImage=removeAdminProductImage; window.addSavedMediaToAdminProduct=addSavedMediaToAdminProduct; window.makeAdminProductMain=makeAdminProductMain;
     init();
   </script>
 </body>
