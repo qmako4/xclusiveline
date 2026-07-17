@@ -63,19 +63,10 @@ nav{position:sticky;top:0;z-index:90;background:rgba(10,10,10,.82);backdrop-filt
 .burger span{width:18px;height:2px;background:var(--w);border-radius:2px}
 
 /* HERO */
-.hero{position:relative;min-height:min(56.25vw,810px);padding:4rem 0;display:flex;align-items:center;background:var(--b);border-bottom:1px solid var(--line);overflow:hidden}
-.hero::before{content:"";position:absolute;z-index:1;inset:0;background:rgba(10,10,10,.24);pointer-events:none}
+.hero{position:relative;min-height:min(56.25vw,810px);padding:0;background:var(--b);border-bottom:1px solid var(--line);overflow:hidden}
 .hero-media{position:absolute;z-index:0;inset:0;overflow:hidden;background:var(--b) url('assets/xclusiveline-hero-desktop.jpg') center/cover no-repeat}
 .hero-video{width:100%;height:100%;display:block;object-fit:cover}
 .hero-video-mobile{display:none}
-.hero-content{position:relative;z-index:2;width:100%}
-.hero-eyebrow{font-family:var(--fd);font-size:13px;font-weight:700;letter-spacing:.28em;text-transform:uppercase;color:var(--y);margin-bottom:1rem}
-.hero h1{font-family:var(--fd);font-size:6.5rem;font-weight:900;line-height:.92;letter-spacing:0;text-transform:uppercase;max-width:14ch}
-.hero h1 em{font-style:normal;color:var(--y)}
-.hero p{color:rgba(250,250,250,.72);max-width:46ch;margin:1.4rem 0 2rem;font-size:1.05rem}
-.hero-cta{display:flex;gap:12px;flex-wrap:wrap}
-.hero-trust{display:flex;flex-wrap:wrap;gap:18px;margin-top:1.6rem;color:var(--mut);font-size:13px;font-weight:500}
-.hero-trust span{white-space:nowrap}
 
 /* SECTION HEAD */
 .sec{padding:4rem 0}
@@ -154,6 +145,7 @@ nav{position:sticky;top:0;z-index:90;background:rgba(10,10,10,.82);backdrop-filt
 /* MARQUEE FEATURES */
 .feat-strip{border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--b2)}
 .feat-strip .wrap{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;padding-top:1.6rem;padding-bottom:1.6rem}
+.feat-strip+footer{margin-top:0}
 .feat{display:flex;align-items:center;gap:11px;font-size:13px;color:var(--mut)}
 .feat svg{width:22px;height:22px;color:var(--y);flex-shrink:0}
 .feat b{display:block;color:var(--w);font-family:var(--fd);font-size:15px;letter-spacing:.03em;text-transform:uppercase}
@@ -356,13 +348,10 @@ footer{border-top:1px solid var(--line);padding:3rem 0 2rem;margin-top:2rem}
   .logo-img{height:38px;width:38px}
   .cur{padding:6px 7px;font-size:12px}
   .bal-chip{padding:6px 9px}
-  .hero{min-height:125vw;max-height:610px;padding:3rem 0 2.6rem;align-items:flex-end}
-  .hero::before{background:rgba(10,10,10,.46)}
+  .hero{min-height:125vw;max-height:610px;padding:0}
   .hero-media{background-image:url('assets/xclusiveline-hero-mobile.jpg')}
   .hero-video-desktop{display:none}
   .hero-video-mobile{display:block}
-  .hero h1{font-size:3rem}
-  .hero-trust{gap:8px 14px;margin-top:1.1rem;font-size:11px}
   /* Akimbo-style two-card catalog geometry on mobile */
   #shopSec{padding:2.5rem 0 3rem}
   #shopSec .catalog-wrap{padding-inline:10px}
@@ -426,27 +415,7 @@ footer{border-top:1px solid var(--line);padding:3rem 0 2rem;margin-top:2rem}
         <source src="assets/xclusiveline-hero-mobile.mp4" type="video/mp4" media="(max-width: 860px)">
       </video>
     </div>
-    <div class="wrap hero-content">
-    <div class="hero-eyebrow">Premium Streetwear</div>
-    <h1>Wear the <em>exclusive</em> line.</h1>
-    <p>Curated sneakers, apparel & essentials — shipped fast worldwide. Top up your wallet and cop the drop before it's gone.</p>
-    <div class="hero-cta">
-      <button class="btn" onclick="document.getElementById('shopSec').scrollIntoView({behavior:'smooth'})">Shop the drop →</button>
-      <button class="btn ghost" onclick="go('account')">Top up wallet</button>
-    </div>
-    <div class="hero-trust">
-      <span>✓ Free shipping over £150</span>
-      <span>✓ 14-day returns</span>
-      <span>✓ Secure checkout</span>
-    </div>
-  </div></section>
-
-  <div class="feat-strip"><div class="wrap">
-    <div class="feat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l2.6 6.6L21 9.3l-5 4.5 1.5 6.7L12 17l-5.5 3.5L8 13.8l-5-4.5 6.4-.7z"/></svg><div><b>Premium Quality</b>Hand-picked pieces</div></div>
-    <div class="feat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><path d="M16 8h4l3 3v5h-7z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg><div><b>Worldwide Shipping</b>Fast & tracked</div></div>
-    <div class="feat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg><div><b>Wallet Top-Ups</b>Pay your way</div></div>
-    <div class="feat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.2-8.6"/><path d="M22 4 12 14l-3-3"/></svg><div><b>Secure</b>Protected checkout</div></div>
-  </div></div>
+  </section>
 
   <section class="sec" id="shopSec"><div class="wrap catalog-wrap">
     <div class="sec-head">
@@ -471,6 +440,13 @@ footer{border-top:1px solid var(--line);padding:3rem 0 2rem;margin-top:2rem}
     </div>
     <div class="grid view-2" id="shopGrid"></div>
   </div></section>
+
+  <div class="feat-strip"><div class="wrap">
+    <div class="feat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l2.6 6.6L21 9.3l-5 4.5 1.5 6.7L12 17l-5.5 3.5L8 13.8l-5-4.5 6.4-.7z"/></svg><div><b>Premium Quality</b>Hand-picked pieces</div></div>
+    <div class="feat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><path d="M16 8h4l3 3v5h-7z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg><div><b>Worldwide Shipping</b>Fast & tracked</div></div>
+    <div class="feat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg><div><b>Wallet Top-Ups</b>Pay your way</div></div>
+    <div class="feat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.2-8.6"/><path d="M22 4 12 14l-3-3"/></svg><div><b>Secure</b>Protected checkout</div></div>
+  </div></div>
 
   <footer><div class="wrap">
     <div class="foot-grid">

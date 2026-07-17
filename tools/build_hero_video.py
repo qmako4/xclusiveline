@@ -49,22 +49,38 @@ def cover(image: Image.Image, size: tuple[int, int]) -> Image.Image:
     return ImageOps.fit(image, size, method=Image.Resampling.LANCZOS, centering=(0.5, 0.5))
 
 
+def motion_cover(
+    source: Image.Image,
+    size: tuple[int, int],
+    progress: float,
+    reverse: bool = False,
+) -> Image.Image:
+    width, height = size
+    scale = 1.0 + progress * 0.025
+    frame = cover(source, (int(width * scale), int(height * scale)))
+    travel_x = max(0, frame.width - width)
+    travel_y = max(0, frame.height - height)
+    left = int(travel_x * ((1 - progress) if reverse else progress))
+    top = travel_y // 2
+    return frame.crop((left, top, left + width, top + height))
+
+
 def desktop_frame(
     source: Image.Image,
-    texture: Image.Image,
+    companion: Image.Image,
     size: tuple[int, int],
     progress: float,
 ) -> Image.Image:
     width, height = size
-    canvas = Image.new("RGB", size, "#0A0A0A")
-    target_height = int(height * (1.0 + progress * 0.025))
-    target_width = int(target_height * source.width / source.height)
-    product = source.resize((target_width, target_height), Image.Resampling.LANCZOS)
-    x = int(width - target_width + (progress - 1) * 16)
-    y = int((height - target_height) / 2)
-    bar_x = max(0, x - 14)
-    canvas.paste("#F5A800", (bar_x, 0, x, height))
-    canvas.paste(product, (x, y))
+    divider = 8
+    left_width = (width - divider) // 2
+    right_width = width - divider - left_width
+    canvas = Image.new("RGB", size, "#F5A800")
+    canvas.paste(motion_cover(source, (left_width, height), progress), (0, 0))
+    canvas.paste(
+        motion_cover(companion, (right_width, height), progress, reverse=True),
+        (left_width + divider, 0),
+    )
     return canvas
 
 
@@ -80,7 +96,6 @@ def mobile_frame(source: Image.Image, size: tuple[int, int], progress: float) ->
 
 def render_video(
     images: list[Image.Image],
-    texture: Image.Image,
     output: Path,
     poster: Path,
     size: tuple[int, int],
@@ -110,13 +125,14 @@ def render_video(
             for frame_index in range(frames_per_scene):
                 progress = frame_index / max(1, frames_per_scene - 1)
                 if mode == "desktop":
-                    frame = renderer(image, texture, size, progress)
+                    frame = renderer(image, next_image, size, progress)
                 else:
                     frame = renderer(image, size, progress)
                 if frame_index >= frames_per_scene - fade_frames:
                     fade = (frame_index - (frames_per_scene - fade_frames) + 1) / fade_frames
                     if mode == "desktop":
-                        upcoming = renderer(next_image, texture, size, fade * 0.08)
+                        following_image = images[(scene_index + 2) % len(images)]
+                        upcoming = renderer(next_image, following_image, size, fade * 0.08)
                     else:
                         upcoming = renderer(next_image, size, fade * 0.08)
                     frame = Image.blend(frame, upcoming, fade)
@@ -132,10 +148,8 @@ def render_video(
 
 def main() -> None:
     images = load_products()
-    texture = Image.open(ASSETS / "xclusiveline-flatlay-background.jpg").convert("RGB")
     render_video(
         images,
-        texture,
         ASSETS / "xclusiveline-hero-desktop.mp4",
         ASSETS / "xclusiveline-hero-desktop.jpg",
         (1280, 720),
@@ -143,7 +157,6 @@ def main() -> None:
     )
     render_video(
         images,
-        texture,
         ASSETS / "xclusiveline-hero-mobile.mp4",
         ASSETS / "xclusiveline-hero-mobile.jpg",
         (720, 900),
