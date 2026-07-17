@@ -111,6 +111,9 @@
     .admin-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
     .admin-form label{display:grid;gap:6px;font-size:11px;color:var(--mut);font-weight:900;text-transform:uppercase}
     .admin-form .wide{grid-column:1/-1}
+    .admin-sticky-actions{position:sticky;top:10px;z-index:8;grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;border:1px solid rgba(245,168,0,.32);border-radius:10px;background:rgba(10,10,10,.92);padding:10px;box-shadow:0 14px 38px rgba(0,0,0,.34);backdrop-filter:blur(10px)}
+    .admin-sticky-actions strong{display:block;font-size:13px;line-height:1.2}
+    .admin-sticky-actions span{display:block;font-size:11px;color:var(--mut)}
     .admin-image-box{grid-column:1/-1;display:grid;gap:10px}
     .admin-image-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
     .admin-selected-images,.admin-media-picker{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:9px}
@@ -295,6 +298,13 @@
             </div>
             <div id="adminAddPanel" class="hidden">
               <form id="adminProductForm" class="admin-form">
+                <div class="admin-sticky-actions">
+                  <div><strong id="adminFormMode">New product</strong><span>Save changes without scrolling to the bottom.</span></div>
+                  <div class="admin-product-actions">
+                    <button id="adminTopSaveProductBtn" class="btn y" type="submit">Save Product</button>
+                    <button id="adminTopResetProductBtn" class="btn" type="button">Clear</button>
+                  </div>
+                </div>
                 <label>Name<input id="adminProductName" type="text" placeholder="Product name"></label>
                 <label>Brand<input id="adminProductBrand" type="text" value="XCLUSIVELINE"></label>
                 <label>Price GBP<input id="adminProductPrice" type="number" min="0.99" step="0.01" placeholder="24.99"></label>
@@ -429,6 +439,7 @@
       $('adminRefreshBtn').onclick = refreshStoreAdmin;
       $('adminProductForm').onsubmit = saveAdminProduct;
       $('adminResetProductBtn').onclick = resetAdminProductForm;
+      $('adminTopResetProductBtn').onclick = resetAdminProductForm;
       $('adminRefreshMediaBtn').onclick = () => loadMedia({quiet:false});
       $('adminToggleUrlBtn').onclick = () => $('adminUrlFallback').classList.toggle('open');
       $('adminProductImages').addEventListener('input',renderAdminSelectedImages);
@@ -662,6 +673,13 @@
         description:$('adminProductDescription').value.trim()
       };
     }
+    function setAdminProductFormMode(mode){
+      const isEdit=mode==='edit';
+      const label=isEdit ? 'Update Product' : 'Save Product';
+      $('adminSaveProductBtn').textContent=label;
+      $('adminTopSaveProductBtn').textContent=label;
+      $('adminFormMode').textContent=isEdit ? 'Editing product' : 'New product';
+    }
     function resetAdminProductForm(){
       state.adminEditId='';
       $('adminProductForm').reset();
@@ -670,14 +688,14 @@
       $('adminProductActive').value='true';
       $('adminProductSizes').value='S:999999, M:999999, L:999999, XL:999999';
       $('adminProductDescription').value='7-10 days delivery.';
-      $('adminSaveProductBtn').textContent='Save Product';
+      setAdminProductFormMode('new');
       renderAdminSelectedImages();
       renderAdminMediaPicker();
     }
     async function saveAdminProduct(event){
       event?.preventDefault?.();
-      const btn=$('adminSaveProductBtn');
-      btn.disabled=true;
+      const buttons=[$('adminSaveProductBtn'),$('adminTopSaveProductBtn')];
+      buttons.forEach(btn=>btn.disabled=true);
       try{
         const body=adminProductPayload();
         if(state.adminEditId) await storeApi(`/api/admin/products/${state.adminEditId}`,{method:'PATCH',body});
@@ -686,7 +704,7 @@
         resetAdminProductForm();
         setStoreAdminSection('products');
       }catch(e){ toast(e.message); }
-      finally{ btn.disabled=false; }
+      finally{ buttons.forEach(btn=>btn.disabled=false); }
     }
     async function loadStoreProducts(){
       $('adminProductsList').innerHTML='<div class="panel empty">Loading products...</div>';
@@ -750,7 +768,7 @@
       $('adminProductSizes').value=(p.sizes||[]).map(s=>`${s.size}:${s.stock}`).join(', ') || 'S:999999, M:999999, L:999999, XL:999999';
       $('adminProductImages').value=(p.images||[]).map(i=>i.url).join('\n');
       $('adminProductDescription').value=p.description||'';
-      $('adminSaveProductBtn').textContent='Update Product';
+      setAdminProductFormMode('edit');
       renderAdminSelectedImages();
       setStoreAdminSection('add');
     }
