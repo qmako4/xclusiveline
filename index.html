@@ -101,25 +101,51 @@ nav{position:sticky;top:0;z-index:90;background:rgba(10,10,10,.82);backdrop-filt
 .chip:hover{color:var(--w)}
 .chip.on{background:var(--y);color:var(--b);border-color:var(--y);font-weight:600}
 
-/* PRODUCT GRID (editorial / minimal) */
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:1.8rem 1.2rem}
+/* PRODUCT CATALOG */
+#shopSec{background:var(--w);color:var(--b);padding:3rem 0 4rem}
+#shopSec .catalog-wrap{max-width:none;padding-inline:48px}
+#shopSec .sec-title,#shopSec .card-name,#shopSec .card-price .now{color:var(--b)}
+#shopSec .sec-title em{color:var(--b)}
+#shopSec .sec-sub{color:rgba(10,10,10,.55)}
+#shopSec .shopbar{border-color:rgba(10,10,10,.18);border-radius:0}
+#shopSec .sb-seg{color:var(--b);border-color:rgba(10,10,10,.18)}
+#shopSec .sb-seg.active,#shopSec .sb-seg:hover{background:var(--y);color:var(--b)}
+#shopSec .sb-sort select option{background:var(--w);color:var(--b)}
+#shopSec .vt{color:rgba(10,10,10,.38)}
+#shopSec .vt.on{color:var(--b)}
+#shopSec .search{background:#f2f2f2;border-color:rgba(10,10,10,.16);border-radius:0}
+#shopSec .search input{color:var(--b)}
+#shopSec .search svg{color:rgba(10,10,10,.52)}
+#shopSec .chip{border-color:rgba(10,10,10,.2);color:rgba(10,10,10,.65);border-radius:0}
+#shopSec .chip:hover{color:var(--b);border-color:var(--b)}
+#shopSec .chip.on{background:var(--b);border-color:var(--b);color:var(--w)}
+.grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:32px 42px}
 .grid.view-1{grid-template-columns:1fr;max-width:620px;margin:0 auto}
-.card{background:none;border:none;cursor:pointer;display:flex;flex-direction:column}
-.card-img{position:relative;aspect-ratio:4/5;background:var(--b2);overflow:hidden;border-radius:8px}
-.card-img img{width:100%;height:100%;object-fit:cover;transition:transform .5s ease}
-.card:hover .card-img img{transform:scale(1.04)}
-.card-tag{position:absolute;top:10px;left:10px;background:var(--red);color:#fff;font-family:var(--fd);font-size:10.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;padding:4px 9px;border-radius:5px}
-.card-tag.soon{background:var(--red);color:#fff}
-.card-tag.low{background:rgba(10,10,10,.82);color:var(--y);border:1px solid var(--y)}
-.card-tag.right{left:auto;right:10px}
-.card-body{padding:11px 2px 4px;display:flex;flex-direction:column;gap:4px}
-.card-name{font-weight:500;font-size:12.5px;letter-spacing:.03em;text-transform:uppercase;line-height:1.35;color:var(--w);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:2.4em}
-.card-price{display:flex;align-items:baseline;gap:8px}
-.card-price .now{font-size:13px;color:var(--mut);font-weight:500}
-.card-price .was{font-size:12px;color:var(--mut2);text-decoration:line-through}
-.empty{text-align:center;color:var(--mut);padding:4rem 1rem;grid-column:1/-1}
-.skl{background:linear-gradient(90deg,var(--b2),var(--b3),var(--b2));background-size:200% 100%;animation:shim 1.3s infinite;border-radius:8px;aspect-ratio:4/5}
+.card{background:none;border:none;cursor:pointer;display:grid;grid-template-rows:auto auto;gap:20px;min-width:0}
+.card-img{position:relative;aspect-ratio:5/7;background:#f2f2f2;overflow:hidden;border-radius:0}
+.card-img img{width:100%;height:100%;object-fit:cover;transition:opacity .2s ease}
+.card:hover .card-img img{opacity:.92}
+.card-tag{position:absolute;z-index:2;top:8px;left:8px;background:var(--y);color:var(--b);font-family:var(--fb);font-size:11px;font-weight:600;line-height:18.15px;letter-spacing:0;text-transform:uppercase;padding:1px 5px;border-radius:0}
+.card-tag.soon{background:#e32c2b;color:#fff;font-weight:400}
+.card-tag.low{background:var(--b);color:var(--w);border:0}
+.card-tag.right{left:8px;right:auto}
+.card-body{padding:0;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0}
+.card-name{width:100%;font-weight:700;font-size:11px;letter-spacing:0;text-align:center;text-transform:uppercase;line-height:18.15px;color:var(--b);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:36.3px}
+.card-price{display:flex;align-items:baseline;justify-content:center;gap:8px;min-height:18.15px;text-align:center}
+.card-price .now{font-size:11px;line-height:18.15px;color:var(--b);font-weight:700}
+.card-price .was{font-size:11px;line-height:18.15px;color:rgba(10,10,10,.45);font-weight:500;text-decoration:line-through}
+#shopSec .empty{text-align:center;color:rgba(10,10,10,.55);padding:4rem 1rem;grid-column:1/-1}
+#shopSec .skl{background:linear-gradient(90deg,#ededed,#f7f7f7,#ededed);background-size:200% 100%;animation:shim 1.3s infinite;border-radius:0;aspect-ratio:5/7}
 @keyframes shim{from{background-position:200% 0}to{background-position:-200% 0}}
+
+@media(max-width:1319px) and (min-width:1100px){
+  .grid{grid-template-columns:repeat(5,minmax(0,1fr));gap:28px 34px}
+  #shopSec .catalog-wrap{padding-inline:40px}
+}
+@media(max-width:1099px) and (min-width:861px){
+  .grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:24px}
+  #shopSec .catalog-wrap{padding-inline:32px}
+}
 
 /* MARQUEE FEATURES */
 .feat-strip{border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--b2)}
@@ -326,11 +352,13 @@ footer{border-top:1px solid var(--line);padding:3rem 0 2rem;margin-top:2rem}
   .logo-img{height:38px;width:38px}
   .cur{padding:6px 7px;font-size:12px}
   .bal-chip{padding:6px 9px}
-  /* two-card product grid on mobile */
-  .grid{grid-template-columns:repeat(2,1fr);gap:1.2rem .8rem}
-  .card-body{padding:9px 1px 4px}
-  .card-name{font-size:11.5px;min-height:2.3em}
-  .card-price .now{font-size:12px}
+  /* Akimbo-style two-card catalog geometry on mobile */
+  #shopSec{padding:2.5rem 0 3rem}
+  #shopSec .catalog-wrap{padding-inline:10px}
+  .grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:17.5px 7px}
+  .card-body{padding:0}
+  .card-name{font-size:11px;line-height:18.15px;min-height:36.3px}
+  .card-price .now,.card-price .was{font-size:11px;line-height:18.15px}
   .sb-seg{padding:12px 6px;font-size:12px;letter-spacing:.08em}
   .sb-view{padding:0 12px;gap:12px}
 }
@@ -399,7 +427,7 @@ footer{border-top:1px solid var(--line);padding:3rem 0 2rem;margin-top:2rem}
     <div class="feat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.2-8.6"/><path d="M22 4 12 14l-3-3"/></svg><div><b>Secure</b>Protected checkout</div></div>
   </div></div>
 
-  <section class="sec" id="shopSec"><div class="wrap">
+  <section class="sec" id="shopSec"><div class="wrap catalog-wrap">
     <div class="sec-head">
       <div><div class="sec-title">The <em>Drop</em></div><div class="sec-sub" id="prodCount">Loading…</div></div>
     </div>
@@ -823,7 +851,7 @@ function cardHTML(p){
     const low = hasSizes && stock>0 && stock<=6;
     return `<div class="card" onclick="openProduct('${p.id}')">
       <div class="card-img">
-        ${onSale?`<span class="card-tag">-${discountPct(p)}%</span>`:''}
+        ${onSale&&!sold?'<span class="card-tag">Sale</span>':''}
         ${sold?'<span class="card-tag soon right">Sold out</span>':low?`<span class="card-tag low right">Only ${stock} left</span>`:''}
         ${img?`<img src="${img}" loading="lazy" alt="${escapeHtml(p.name)}">`:''}
       </div>
