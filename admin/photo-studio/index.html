@@ -217,6 +217,7 @@
             <button id="importYupooBtn" class="btn">Import</button>
           </div>
           <p class="tiny" style="margin-top:7px">Imports accessible Yupoo product photos into the queue.</p>
+          <div id="queue" class="queue"></div>
           <label class="small" for="studioProductPrice" style="margin-top:10px">Product price GBP
             <input id="studioProductPrice" type="number" min="0.99" step="0.01" placeholder="24.99">
           </label>
@@ -249,7 +250,6 @@
             <input id="apiBase" type="text" placeholder="https://xclusiveline-photo-studio.your-name.workers.dev">
           </label>
         </details>
-        <div id="queue" class="queue"></div>
       </aside>
 
       <section class="panel main">
@@ -1181,6 +1181,7 @@
         const failNote=d.failed ? ` ${d.failed} image${d.failed===1?'':'s'} could not download.` : '';
         setStatus(`${limitNote}${failNote} Press Generate Images when ready.`,'ok');
         toast(`Yupoo import added ${imported} image${imported===1?'':'s'}`);
+        scrollQueueIntoView();
       }catch(e){
         if(/worker url/i.test(e.message||'')) $('setupDetails').open=true;
         setStatus(friendlyFetchError(e),'bad');
@@ -1257,6 +1258,9 @@
       setStatus('Enter the product price before generating a Yupoo product. Example: 24.99','bad');
       $('studioProductPrice').focus();
       return false;
+    }
+    function scrollQueueIntoView(){
+      requestAnimationFrame(()=>$('queue')?.scrollIntoView({behavior:'smooth',block:'start'}));
     }
     function renderQueue(){
       const readyCount=state.fileIds.filter(id=>state.queueSelected.has(id) && sourceMode(id) !== 'skip').length;
