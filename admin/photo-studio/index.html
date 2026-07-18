@@ -1551,7 +1551,7 @@
         const canCreateProduct=!entry.productId && ['complete','partial'].includes(String(entry.status||'')) && (complete || (entry.keepImages||[]).length);
         const canRetryFailed=!entry.productId && failed>0;
         const actions=[
-          canRetryFailed ? `<button class="mini-btn" onclick="retryFailedJob(${jsString(entry.id)})">Retry Failed</button>` : '',
+          canRetryFailed ? `<button class="mini-btn" onclick='retryFailedJob(${jsString(entry.id)})'>Retry Failed</button>` : '',
           canCreateProduct ? `<button class="mini-btn" onclick="createProductFromTrackedJob(${jsString(entry.id)})">Create Product Now</button>` : ''
         ].filter(Boolean).join('');
         return `<div class="job-card"><div class="job-row"><strong>${esc(entry.productName || `Yupoo job ${entry.id.slice(0,8)}`)}</strong><span class="job-state">${esc(statusLabel(entry.status))}</span></div><div class="job-bar" aria-label="Job progress"><div class="job-fill" style="width:${pct}%"></div></div><p class="tiny">${complete} complete, ${failed} failed${cancelledText}, ${total} total - ${esc(productText)}</p>${actions?`<div class="job-actions">${actions}</div>`:''}${thumbs?`<div class="job-thumbs">${thumbs}</div>`:''}${entry.error?`<p class="tiny">${esc(entry.error)}</p>`:''}${rows?`<div class="job-list">${rows}</div>`:''}</div>`;
