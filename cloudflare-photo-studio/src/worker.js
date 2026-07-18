@@ -84,6 +84,11 @@ export default {
         return await resumeBackgroundJob(request, env, ctx);
       }
 
+      if (pathname === "/api/jobs/retry-failed" && request.method === "POST") {
+        await requireAdmin(request, env);
+        return await retryFailedBackgroundJob(request, env, ctx);
+      }
+
       if (pathname === "/api/jobs/cancel" && request.method === "POST") {
         await requireAdmin(request, env);
         return await cancelBackgroundJob(request, env);
@@ -449,6 +454,46 @@ async function resumeBackgroundJob(request, env, ctx) {
   }
   job = await resumeJobInPlace(env, job, ctx, "manual-resume");
   return json({ ok: true, job: publicJob(job) }, request, env, 202);
+}
+
+async function retryFailedBackgroundJob(request, env, ctx) {
+  if (!env.XCLUSIVELINE_MEDIA) {
+    throw statusError("XCLUSIVELINE_MEDIA R2 binding is not configured.", 500);
+  }
+
+  const body = await request.json().catch(() => ({}));
+  const id = body.id || new URL(request.url).searchParams.get("id");
+  if (!id) throw statusError("Missing background job id.", 400);
+
+  const job = await readJob(env, id);
+  if (!job) throw statusError("Background job was not found.", 404);
+
+  const now = new Date().toISOString();
+  let retryCount = 0;
+  for (const item of job.items || []) {
+    if (item.status !== "failed") continue;
+    item.status = "queued";
+    item.error = null;
+    item.finishedAt = null;
+    item.retriedAt = now;
+    item.retryCount = Number(item.retryCount || 0) + 1;
+    retryCount += 1;
+  }
+
+  if (!retryCount) {
+    return json({ ok: true, job: publicJob(job), retried: 0 }, request, env);
+  }
+
+  job.completed = (job.items || []).filter((entry) => entry.status === "complete").length;
+  job.failed = 0;
+  job.cancelled = (job.items || []).filter((entry) => entry.status === "cancelled").length;
+  job.status = "queued";
+  job.finishedAt = null;
+  job.lastRetriedAt = now;
+  await writeJob(env, job);
+  const queue = await enqueueBackgroundJob(env, job, ctx, "retry-failed");
+  const queuedJob = await readJob(env, id);
+  return json({ ok: true, job: publicJob(queuedJob || job), retried: retryCount, queue }, request, env, 202);
 }
 
 async function cancelBackgroundJob(request, env) {

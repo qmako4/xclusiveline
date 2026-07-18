@@ -1549,10 +1549,16 @@
         }).join('');
         const cancelledText=cancelled ? `, ${cancelled} cancelled` : '';
         const canCreateProduct=!entry.productId && ['complete','partial'].includes(String(entry.status||'')) && (complete || (entry.keepImages||[]).length);
-        return `<div class="job-card"><div class="job-row"><strong>${esc(entry.productName || `Yupoo job ${entry.id.slice(0,8)}`)}</strong><span class="job-state">${esc(statusLabel(entry.status))}</span></div><div class="job-bar" aria-label="Job progress"><div class="job-fill" style="width:${pct}%"></div></div><p class="tiny">${complete} complete, ${failed} failed${cancelledText}, ${total} total - ${esc(productText)}</p>${canCreateProduct?`<div class="job-actions"><button class="mini-btn" onclick="createProductFromTrackedJob(${jsString(entry.id)})">Create Product Now</button></div>`:''}${thumbs?`<div class="job-thumbs">${thumbs}</div>`:''}${entry.error?`<p class="tiny">${esc(entry.error)}</p>`:''}${rows?`<div class="job-list">${rows}</div>`:''}</div>`;
+        const canRetryFailed=!entry.productId && failed>0;
+        const actions=[
+          canRetryFailed ? `<button class="mini-btn" onclick="retryFailedJob(${jsString(entry.id)})">Retry Failed</button>` : '',
+          canCreateProduct ? `<button class="mini-btn" onclick="createProductFromTrackedJob(${jsString(entry.id)})">Create Product Now</button>` : ''
+        ].filter(Boolean).join('');
+        return `<div class="job-card"><div class="job-row"><strong>${esc(entry.productName || `Yupoo job ${entry.id.slice(0,8)}`)}</strong><span class="job-state">${esc(statusLabel(entry.status))}</span></div><div class="job-bar" aria-label="Job progress"><div class="job-fill" style="width:${pct}%"></div></div><p class="tiny">${complete} complete, ${failed} failed${cancelledText}, ${total} total - ${esc(productText)}</p>${actions?`<div class="job-actions">${actions}</div>`:''}${thumbs?`<div class="job-thumbs">${thumbs}</div>`:''}${entry.error?`<p class="tiny">${esc(entry.error)}</p>`:''}${rows?`<div class="job-list">${rows}</div>`:''}</div>`;
       }).join('');
       panel.innerHTML=cards;
-      mainPanel.innerHTML=`<div class="background-jobs-head"><div><span class="eyebrow">Running in background</span><h3>Background Products</h3></div><p class="tiny">You can import the next Yupoo link while these finish.</p></div><div class="background-jobs-grid">${cards}</div>`;
+      const failedJobs=jobs.filter(entry=>!entry.productId && Number(entry.failed||0)>0).length;
+      mainPanel.innerHTML=`<div class="background-jobs-head"><div><span class="eyebrow">Running in background</span><h3>Background Products</h3></div><div>${failedJobs?`<button class="mini-btn" onclick="retryAllFailedJobs()">Retry All Failed (${failedJobs})</button>`:'<p class="tiny">You can import the next Yupoo link while these finish.</p>'}</div></div><div class="background-jobs-grid">${cards}</div>`;
     }
     function persistTrackedJobs(){
       localStorage.setItem(AUTO_JOBS_KEY,JSON.stringify(state.trackedJobs));
@@ -1659,6 +1665,55 @@
       else stopJobPolling();
       if(!quiet) setStatus('Checked background product jobs.','ok');
       updateActionButtons();
+    }
+    async function retryFailedJob(id,{quiet=false}={}){
+      const entry=state.trackedJobs.find(job=>job.id===id);
+      if(!entry) throw new Error('Background product job was not found.');
+      const r=await fetch(apiUrl('/api/jobs/retry-failed'),{
+        method:'POST',
+        headers:{...auth(),'content-type':'application/json'},
+        body:JSON.stringify({id})
+      });
+      const d=await r.json().catch(()=>({ok:false,error:'Failed images could not be restarted.'}));
+      if(!r.ok || !d.ok) throw new Error(d.error||'Failed images could not be restarted.');
+      Object.assign(entry,{
+        status:d.job.status,
+        total:d.job.total || entry.total,
+        completed:d.job.completed || 0,
+        failed:d.job.failed || 0,
+        cancelled:d.job.cancelled || 0,
+        items:d.job.items || [],
+        autoProductStatus:'waiting',
+        error:''
+      });
+      persistTrackedJobs();
+      renderJob(state.job);
+      startJobPolling();
+      if(!quiet){
+        setStatus(`Restarted ${d.retried||0} failed image${Number(d.retried||0)===1?'':'s'} for ${entry.productName}.`,'ok');
+        toast('Failed images restarted');
+      }
+      return Number(d.retried||0);
+    }
+    async function retryAllFailedJobs(){
+      const jobs=state.trackedJobs.filter(entry=>!entry.productId && Number(entry.failed||0)>0);
+      if(!jobs.length){ toast('No failed images to retry'); return; }
+      setBusy(true);
+      let restarted=0;
+      let failedJobs=0;
+      try{
+        for(const entry of jobs){
+          try{ restarted+=await retryFailedJob(entry.id,{quiet:true}); }
+          catch(error){ entry.error=error.message||'Failed images could not be restarted.'; failedJobs+=1; }
+        }
+        persistTrackedJobs();
+        renderJob(state.job);
+        startJobPolling();
+        setStatus(`Restarted ${restarted} failed image${restarted===1?'':'s'} across ${jobs.length-failedJobs} product${jobs.length-failedJobs===1?'':'s'}.` ,failedJobs?'':'ok');
+        toast(failedJobs ? `Restarted ${restarted}; ${failedJobs} job${failedJobs===1?'':'s'} failed` : `Restarted ${restarted} failed images`);
+      }finally{
+        setBusy(false);
+      }
     }
     async function createProductForCompletedJob(job, entry){
       if(entry.autoProductStatus==='creating' || entry.productId) return;
