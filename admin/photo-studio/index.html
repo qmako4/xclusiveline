@@ -478,7 +478,11 @@
     }
 
     function isLiveAdminPage(){
-      return location.protocol === 'https:' && location.hostname === 'qmako4.github.io';
+      return location.protocol === 'https:' && [
+        'qmako4.github.io',
+        'xclusiveline.com',
+        'www.xclusiveline.com'
+      ].includes(location.hostname);
     }
     function isLocalWorkerUrl(url){
       return ['localhost','127.0.0.1','0.0.0.0','::1'].includes(url.hostname);
