@@ -370,8 +370,14 @@ footer{border-top:1px solid var(--line);padding:3rem 0 2rem;margin-top:2rem}
 .toast.show{transform:translateX(-50%) translateY(0);opacity:1;visibility:visible}
 
 /* MOBILE */
-.mob-menu{position:fixed;inset:0;background:var(--b);z-index:150;transform:translateX(100%);transition:transform .25s ease;padding:1.5rem;display:flex;flex-direction:column;gap:.4rem}
-.mob-menu.open{transform:translateX(0)}
+body.mob-menu-open{overflow:hidden}
+.mob-backdrop{position:fixed;inset:0;z-index:149;border:0;background:rgba(10,10,10,.48);opacity:0;visibility:hidden;transition:opacity .25s ease,visibility .25s ease}
+.mob-backdrop.open{opacity:1;visibility:visible}
+.mob-menu{position:fixed;top:0;right:0;bottom:0;width:min(82vw,340px);background:var(--b);z-index:150;transform:translateX(100%);visibility:hidden;transition:transform .25s ease,visibility .25s ease;padding:18px 22px 28px;display:flex;flex-direction:column;gap:.4rem;overflow-y:auto;box-shadow:-18px 0 45px rgba(0,0,0,.32)}
+.mob-menu.open{transform:translateX(0);visibility:visible}
+.mob-menu-head{height:48px;display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;border-bottom:1px solid var(--line)}
+.mob-menu-head strong{font-family:var(--fd);font-size:1rem;letter-spacing:.08em;text-transform:uppercase}
+.mob-close{width:40px;height:40px;display:grid;place-items:center;background:transparent;color:var(--w);font-size:30px;line-height:1;border:0}
 .mob-menu a{padding:14px 0;border-bottom:1px solid var(--line);font-family:var(--fd);font-size:1.3rem;font-weight:700;text-transform:uppercase}
 @media(max-width:860px){
   .nav-links{display:none}
@@ -445,12 +451,14 @@ footer{border-top:1px solid var(--line);padding:3rem 0 2rem;margin-top:2rem}
     </button>
     <button class="btn ghost hidden" id="adminBtn" onclick="go('admin')">Admin</button>
     <button class="btn ghost" id="authBtn" onclick="openAuth('login')">Login</button>
-    <button class="burger" onclick="toggleMob()"><span></span><span></span><span></span></button>
+    <button class="burger" onclick="toggleMob()" aria-label="Open menu" aria-controls="mobMenu" aria-expanded="false"><span></span><span></span><span></span></button>
   </div>
 </div></nav>
 
 <!-- MOBILE MENU -->
-<div class="mob-menu" id="mobMenu">
+<button class="mob-backdrop" id="mobBackdrop" onclick="toggleMob(false)" aria-label="Close menu"></button>
+<div class="mob-menu" id="mobMenu" aria-hidden="true">
+  <div class="mob-menu-head"><strong>Menu</strong><button class="mob-close" onclick="toggleMob(false)" aria-label="Close menu">&times;</button></div>
   <a onclick="goShopCat('All');toggleMob()">Shop</a>
   <a onclick="goShopCat('Footwear');toggleMob()">Footwear</a>
   <a onclick="goShopCat('T-Shirts');toggleMob()">Apparel</a>
@@ -892,7 +900,16 @@ function go(view){
   if (view==='admin') renderAdmin();
 }
 function goShopCat(cat){ state.cat=cat; go('shop'); renderChips(); renderShop(); el('shopSec').scrollIntoView({behavior:'smooth'}); }
-function toggleMob(){ el('mobMenu').classList.toggle('open'); }
+function toggleMob(force){
+  const menu=el('mobMenu');
+  const backdrop=el('mobBackdrop');
+  const open=typeof force==='boolean'?force:!menu.classList.contains('open');
+  menu.classList.toggle('open',open);
+  backdrop.classList.toggle('open',open);
+  menu.setAttribute('aria-hidden',String(!open));
+  document.body.classList.toggle('mob-menu-open',open);
+  document.querySelector('.burger')?.setAttribute('aria-expanded',String(open));
+}
 
 /* ════════════ INIT ════════════ */
 async function init(){
@@ -1581,7 +1598,7 @@ async function saveBalance(id){ try{ await api('/api/admin/users/'+id,{method:'P
 /* ════════════ MODAL UTIL ════════════ */
 function openModal(id){ el(id).classList.add('open'); document.body.style.overflow='hidden'; }
 function closeModal(id){ el(id).classList.remove('open'); document.body.style.overflow=''; }
-document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ document.querySelectorAll('.modal.open').forEach(m=>m.classList.remove('open')); closeCart(); document.body.style.overflow=''; }});
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ document.querySelectorAll('.modal.open').forEach(m=>m.classList.remove('open')); closeCart(); toggleMob(false); document.body.style.overflow=''; }});
 
 /* ════════════ BOOT ════════════ */
 setupDrop();
