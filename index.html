@@ -62,12 +62,6 @@ nav{position:sticky;top:0;z-index:90;background:rgba(10,10,10,.82);backdrop-filt
 .burger{display:none;flex-direction:column;gap:4px;width:40px;height:40px;border:1px solid var(--line);border-radius:10px;align-items:center;justify-content:center;background:var(--b3)}
 .burger span{width:18px;height:2px;background:var(--w);border-radius:2px}
 
-/* HERO */
-.hero{position:relative;min-height:min(56.25vw,810px);padding:0;background:var(--b);border-bottom:1px solid var(--line);overflow:hidden}
-.hero-media{position:absolute;z-index:0;inset:0;overflow:hidden;background:var(--b) url('assets/xclusiveline-hero-desktop.jpg') center/cover no-repeat}
-.hero-video{width:100%;height:100%;display:block;object-fit:cover}
-.hero-video-mobile{display:none}
-
 /* SECTION HEAD */
 .sec{padding:4rem 0}
 .sec-head{display:flex;align-items:flex-end;justify-content:space-between;gap:1rem;margin-bottom:2rem}
@@ -97,8 +91,9 @@ nav{position:sticky;top:0;z-index:90;background:rgba(10,10,10,.82);backdrop-filt
 .chip.on{background:var(--y);color:var(--b);border-color:var(--y);font-weight:600}
 
 /* PRODUCT CATALOG */
-#shopSec{background:var(--w);color:var(--b);padding:3rem 0 4rem}
+#shopSec{background:var(--w);color:var(--b);padding:16px 0 4rem}
 #shopSec .catalog-wrap{max-width:none;padding-inline:48px}
+#shopSec .sec-head,#shopSec .shopbar,#shopSec .filter-panel{display:none!important}
 #shopSec .sec-title,#shopSec .card-name,#shopSec .card-price .now{color:var(--b)}
 #shopSec .sec-title em{color:var(--b)}
 #shopSec .sec-sub{color:rgba(10,10,10,.55)}
@@ -394,12 +389,8 @@ footer{border-top:1px solid var(--line);padding:3rem 0 2rem;margin-top:2rem}
   .logo-img{height:38px;width:38px}
   .cur{padding:6px 7px;font-size:12px}
   .bal-chip{padding:6px 9px}
-  .hero{min-height:125vw;max-height:610px;padding:0}
-  .hero-media{background-image:url('assets/xclusiveline-hero-mobile.jpg')}
-  .hero-video-desktop{display:none}
-  .hero-video-mobile{display:block}
   /* Akimbo-style two-card catalog geometry on mobile */
-  #shopSec{padding:2.5rem 0 3rem}
+  #shopSec{padding:10px 0 3rem}
   #shopSec .catalog-wrap{padding-inline:10px}
   .grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:17.5px 7px}
   .card-body{padding:0}
@@ -429,7 +420,6 @@ footer{border-top:1px solid var(--line);padding:3rem 0 2rem;margin-top:2rem}
   .pd-page-foot div{flex-wrap:wrap;gap:12px 18px}
 }
 @media(min-width:861px){.atable-cards{display:none}}
-@media(prefers-reduced-motion:reduce){.hero-video{display:none}}
 </style>
 </head>
 <body>
@@ -439,9 +429,9 @@ footer{border-top:1px solid var(--line);padding:3rem 0 2rem;margin-top:2rem}
 
 <!-- NAV -->
 <nav><div class="wrap nav-i">
-  <div class="logo" onclick="go('shop')"><img class="logo-img" src="assets/logo.jpg" alt="XCLUSIVELINE logo"><div class="logo-txt">XCLUSIVELINE</div></div>
+  <div class="logo" onclick="goShopCat('All')"><img class="logo-img" src="assets/logo.jpg" alt="XCLUSIVELINE logo"><div class="logo-txt">XCLUSIVELINE</div></div>
   <ul class="nav-links">
-    <li><a onclick="go('shop')">Shop</a></li>
+    <li><a onclick="goShopCat('All')">Shop</a></li>
     <li><a onclick="goShopCat('Footwear')">Footwear</a></li>
     <li><a onclick="goShopCat('T-Shirts')">Apparel</a></li>
     <li><a onclick="go('contact')">Contact</a></li>
@@ -461,7 +451,7 @@ footer{border-top:1px solid var(--line);padding:3rem 0 2rem;margin-top:2rem}
 
 <!-- MOBILE MENU -->
 <div class="mob-menu" id="mobMenu">
-  <a onclick="go('shop');toggleMob()">Shop</a>
+  <a onclick="goShopCat('All');toggleMob()">Shop</a>
   <a onclick="goShopCat('Footwear');toggleMob()">Footwear</a>
   <a onclick="goShopCat('T-Shirts');toggleMob()">Apparel</a>
   <a onclick="go('account');toggleMob()">My Account</a>
@@ -472,17 +462,6 @@ footer{border-top:1px solid var(--line);padding:3rem 0 2rem;margin-top:2rem}
 
 <!-- ===== SHOP VIEW ===== -->
 <main id="view-shop">
-  <section class="hero">
-    <div class="hero-media" aria-hidden="true">
-      <video class="hero-video hero-video-desktop" autoplay muted loop playsinline preload="metadata" poster="assets/xclusiveline-hero-desktop.jpg" tabindex="-1">
-        <source src="assets/xclusiveline-hero-desktop.mp4" type="video/mp4" media="(min-width: 861px)">
-      </video>
-      <video class="hero-video hero-video-mobile" autoplay muted loop playsinline preload="metadata" poster="assets/xclusiveline-hero-mobile.jpg" tabindex="-1">
-        <source src="assets/xclusiveline-hero-mobile.mp4" type="video/mp4" media="(max-width: 860px)">
-      </video>
-    </div>
-  </section>
-
   <section class="sec" id="shopSec"><div class="wrap catalog-wrap">
     <div class="sec-head">
       <div><div class="sec-title">The <em>Drop</em></div><div class="sec-sub" id="prodCount">Loading…</div></div>
@@ -517,10 +496,10 @@ footer{border-top:1px solid var(--line);padding:3rem 0 2rem;margin-top:2rem}
   <footer><div class="wrap">
     <div class="foot-grid">
       <div class="foot-col foot-brand">
-        <div class="logo" onclick="go('shop')"><img class="logo-img-lg" src="assets/logo.jpg" alt="XCLUSIVELINE logo"></div>
+        <div class="logo" onclick="goShopCat('All')"><img class="logo-img-lg" src="assets/logo.jpg" alt="XCLUSIVELINE logo"></div>
         <p>Premium streetwear & sneakers, shipped worldwide. Curated drops for the culture.</p>
       </div>
-      <div class="foot-col"><h4>Shop</h4><a onclick="go('shop')">All Products</a><a onclick="goShopCat('Footwear')">Footwear</a><a onclick="goShopCat('T-Shirts')">Apparel</a></div>
+      <div class="foot-col"><h4>Shop</h4><a onclick="goShopCat('All')">All Products</a><a onclick="goShopCat('Footwear')">Footwear</a><a onclick="goShopCat('T-Shirts')">Apparel</a></div>
       <div class="foot-col"><h4>Checkout</h4><a onclick="goShopifyCart()">Cart</a><a onclick="go('contact')">Order help</a></div>
       <div class="foot-col"><h4>Help</h4><a onclick="go('contact')">Contact</a><a onclick="go('returns')">Returns</a><a onclick="go('shipping')">Shipping</a></div>
     </div>
@@ -1605,23 +1584,8 @@ function closeModal(id){ el(id).classList.remove('open'); document.body.style.ov
 document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ document.querySelectorAll('.modal.open').forEach(m=>m.classList.remove('open')); closeCart(); document.body.style.overflow=''; }});
 
 /* ════════════ BOOT ════════════ */
-function syncHeroVideo(){
-  const useMobile=matchMedia('(max-width: 860px)').matches;
-  const active=document.querySelector(useMobile?'.hero-video-mobile':'.hero-video-desktop');
-  const inactive=document.querySelector(useMobile?'.hero-video-desktop':'.hero-video-mobile');
-  if(inactive) inactive.pause();
-  if(!active) return;
-  active.muted=true;
-  const attempt=()=>active.play().catch(()=>{});
-  if(active.readyState>=2) attempt();
-  else active.addEventListener('canplay',attempt,{once:true});
-}
-window.addEventListener('resize',syncHeroVideo,{passive:true});
-document.addEventListener('visibilitychange',()=>{ if(!document.hidden) syncHeroVideo(); });
-
 setupDrop();
 init();
-syncHeroVideo();
 </script>
 </body>
 </html>
