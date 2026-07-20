@@ -193,6 +193,10 @@ footer{border-top:1px solid var(--line);padding:3rem 0 2rem;margin-top:2rem}
 .modal-card{background:var(--b2);border:1px solid var(--line);border-radius:16px;width:100%;max-width:920px;max-height:92vh;overflow-y:auto;position:relative}
 .modal-card.sm{max-width:420px}
 .modal-x{position:absolute;top:14px;right:14px;z-index:5}
+.blank-confirm-copy{color:var(--mut);font-size:15px;line-height:1.55;margin:-.35rem 0 1.35rem}
+.blank-confirm-copy b{display:block;color:var(--w);font-family:var(--fd);font-size:1.55rem;line-height:1.05;text-transform:uppercase;margin-bottom:.8rem}
+.blank-confirm-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.blank-confirm-actions .btn{width:100%;padding:13px 14px}
 .pd{display:grid;grid-template-columns:1fr 1fr}
 .pd-gallery{background:var(--b3);position:relative}
 .pd-main{aspect-ratio:1;width:100%}
@@ -678,6 +682,17 @@ body.mob-menu-open{overflow:hidden}
   <button class="btn block" id="placeBtn" onclick="placeOrder()">Pay from wallet</button>
 </div></div></div>
 
+<div class="modal" id="blankConfirmModal"><div class="modal-card sm"><button class="x modal-x" onclick="cancelBlankConfirm()">✕</button><div class="modal-pad">
+  <div class="blank-confirm-copy">
+    <b>Blank item = original item</b>
+    Buy the blank item shown at checkout. You will receive the original item you selected.
+  </div>
+  <div class="blank-confirm-actions">
+    <button class="btn ghost" onclick="cancelBlankConfirm()">Cancel</button>
+    <button class="btn" onclick="continueBlankConfirm()">Continue</button>
+  </div>
+</div></div></div>
+
 <div class="toast" id="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
@@ -689,6 +704,7 @@ const PAYPAL_CLIENT_ID = 'AViPSrHXjYHOGpq30UOuIQB7iPkpRGCz2_SLMkUw3yk8w_X1QA0SJq
 const STORE_API_BASE = 'https://xclusiveline-images.qmako41212.workers.dev';
 const PHOTO_STUDIO_API_BASE = 'https://xclusiveline-photo-studio.qmako41212.workers.dev';
 const PRODUCT_IMAGE_TRANSFER_KEY = 'xl-product-draft-images';
+let pendingBuyNowUrl = '';
 const SHOPIFY_STOREFRONT = 'https://w0rvm0-51.myshopify.com';
 const SHOPIFY_PRODUCT_URLS = Object.freeze({
   "d111b015-3dc5-4dbd-bce2-11bff1805825": "https://w0rvm0-51.myshopify.com/products/xl-saint-mxxx-japanese-long-sleeve-print-shirt-d111b015",
@@ -1072,7 +1088,18 @@ function shopifyProductUrl(product){
 function buyOnShopify(){
   const url=shopifyProductUrl(state.modalProduct);
   if(!url){ toast('Checkout is not available for this product yet'); return; }
-  window.location.assign(url);
+  pendingBuyNowUrl=url;
+  openModal('blankConfirmModal');
+}
+function cancelBlankConfirm(){
+  pendingBuyNowUrl='';
+  closeModal('blankConfirmModal');
+}
+function continueBlankConfirm(){
+  const url=pendingBuyNowUrl;
+  pendingBuyNowUrl='';
+  closeModal('blankConfirmModal');
+  if(url) window.location.assign(url);
 }
 function goShopifyCart(){
   window.location.assign(`${SHOPIFY_STOREFRONT}/cart`);
