@@ -216,8 +216,7 @@ footer{border-top:1px solid var(--line);padding:3rem 0 2rem;margin-top:2rem}
 .pd-desc{color:var(--mut);font-size:14px;white-space:pre-line;margin-bottom:1.4rem}
 .pd-label{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--mut2);margin-bottom:.6rem}
 .sizes{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:1.5rem}
-.size{min-width:46px;padding:10px 12px;border-radius:9px;border:1px solid var(--line);background:var(--b3);font-size:14px;text-align:center;transition:var(--trs)}
-.size:hover{border-color:var(--w)}
+.size{min-width:46px;padding:10px 12px;border-radius:9px;border:1px solid var(--line);background:var(--b3);font-size:14px;text-align:center;transition:var(--trs);cursor:default}
 .size.on{background:var(--y);color:var(--b);border-color:var(--y);font-weight:600}
 .size.out{opacity:.32;text-decoration:line-through;cursor:not-allowed}
 
@@ -246,8 +245,7 @@ footer{border-top:1px solid var(--line);padding:3rem 0 2rem;margin-top:2rem}
 .pd-page .pd-desc{color:rgba(10,10,10,.66);font-size:13px;line-height:1.75;white-space:pre-line;margin:0 0 26px;max-width:58ch;overflow-wrap:anywhere}
 .pd-page .pd-label{display:flex;justify-content:space-between;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--b);margin-bottom:10px}
 .pd-page .sizes{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;margin-bottom:18px}
-.pd-page .size{min-width:0;padding:12px 8px;border-radius:0;border:1px solid rgba(10,10,10,.22);background:transparent;color:var(--b);font-size:12px;font-weight:600;text-align:center;transition:var(--trs)}
-.pd-page .size:hover{border-color:var(--b)}
+.pd-page .size{min-width:0;padding:12px 8px;border-radius:0;border:1px solid rgba(10,10,10,.22);background:transparent;color:var(--b);font-size:12px;font-weight:600;text-align:center;transition:var(--trs);cursor:default}
 .pd-page .size.on{background:var(--b);color:var(--w);border-color:var(--b)}
 .pd-page .size.out{opacity:.28;text-decoration:line-through;cursor:not-allowed}
 .pd-page .btn.block{border-radius:0;background:var(--y);color:var(--b);padding:16px 18px;font-size:16px;letter-spacing:.06em}
@@ -1018,8 +1016,8 @@ function renderProductPageLegacy(){
         <div class="pd-price"><span class="now">${money(priceOf(p))}</span>${onSale?`<span class="was">${money(p.price_gbp)}</span>`:''}${onSale?`<span class="save">Save ${money(p.price_gbp-p.sale_price_gbp)}</span>`:''}</div>
         ${(()=>{ const st=totalStock(p); return (p.sizes||[]).length&&st>0&&st<=6?`<div class="pd-urgency">⚡ Selling fast — only ${st} left in stock</div>`:''; })()}
         ${p.description?`<div class="pd-desc">${escapeHtml(p.description)}</div>`:''}
-        <div class="pd-label">Select size</div>
-        <div class="sizes">${(p.sizes||[]).map(s=>`<button class="size ${s.stock<1?'out':''} ${state.modalSize===s.size?'on':''}" ${s.stock<1?'disabled':`onclick="state.modalSize='${escapeHtml(s.size)}';renderProductPage()"`}>${escapeHtml(s.size)}</button>`).join('')||'<span style="color:var(--mut)">One size</span>'}</div>
+        <div class="pd-label">Available sizes</div>
+        <div class="sizes">${(p.sizes||[]).map(s=>`<span class="size ${s.stock<1?'out':''}">${escapeHtml(s.size)}</span>`).join('')||'<span style="color:var(--mut)">One size</span>'}</div>
         <button class="btn block" onclick="buyOnShopify()">Buy now — ${money(priceOf(p))}</button>
         <div class="pd-assure"><span>✓ Secure checkout</span><span>✓ Worldwide shipping</span><span>✓ 14-day returns</span></div>
       </div>
@@ -1061,7 +1059,7 @@ function renderProductPage(){
         <div class="pd-price"><span class="now">${money(priceOf(p))}</span>${onSale?`<span class="was">${money(p.price_gbp)}</span><span class="save">Save ${money(p.price_gbp-p.sale_price_gbp)}</span>`:''}</div>
         ${(()=>{const st=totalStock(p);return hasSizes&&st>0&&st<=6?`<div class="pd-urgency">Selling fast - only ${st} left in stock</div>`:''})()}
         ${storefrontDescription?`<div class="pd-desc">${escapeHtml(storefrontDescription)}</div>`:''}
-        <div class="pd-label"><span>Available sizes</span>${hasSizes?'<span>Size</span>':''}</div>
+        <div class="pd-label"><span>Available sizes</span>${hasSizes?'<span>Choose at checkout</span>':''}</div>
         <div class="sizes">${(p.sizes||[]).map(s=>`<span class="size ${s.stock<1?'out':''}">${escapeHtml(s.size)}</span>`).join('')||'<span style="color:rgba(10,10,10,.55);font-size:12px">One size</span>'}</div>
         <button class="btn block" ${soldOut?'disabled':`onclick="buyOnShopify()"`}>${soldOut?'Sold out':`Buy now - ${money(priceOf(p))}`}</button>
         <div class="pd-assure">
