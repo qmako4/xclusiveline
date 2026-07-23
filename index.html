@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="referrer" content="no-referrer">
 <title>XCLUSIVELINE — Premium Streetwear</title>
 <meta name="description" content="XCLUSIVELINE — premium streetwear, sneakers & essentials shipped worldwide. Curated drops for the culture.">
 <link rel="icon" type="image/jpeg" href="assets/logo.jpg">
@@ -1168,10 +1169,19 @@ function continueBlankConfirm(){
   const url=pendingBuyNowUrl;
   pendingBuyNowUrl='';
   closeModal('blankConfirmModal');
-  if(url) window.location.assign(url);
+  if(url) navigateWithoutReferrer(url);
+}
+function navigateWithoutReferrer(url){
+  const a=document.createElement('a');
+  a.href=url;
+  a.rel='noreferrer';
+  a.referrerPolicy='no-referrer';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
 }
 function goShopifyCart(){
-  window.location.assign(`${SHOPIFY_STOREFRONT}/cart`);
+  navigateWithoutReferrer(`${SHOPIFY_STOREFRONT}/cart`);
 }
 function addToCart(){
   const p=state.modalProduct;
