@@ -1253,6 +1253,31 @@ function renderCart(){
     : `<div class="ship-msg">You're <b>${money(FREE_SHIP_GBP-total)}</b> away from free worldwide shipping<div class="ship-bar"><i style="width:${Math.min(100,total/FREE_SHIP_GBP*100)}%"></i></div></div>`;
   el('cartFoot').innerHTML=ship+`<div class="cart-total"><span>Total</span><span class="y">${money(total)}</span></div><button class="btn block" onclick="buyShopifyCart()">Buy now</button>`;
 }
+function openCart(){
+  renderCart();
+  el('cartOv').classList.remove('hidden');
+  el('cartDrawer').classList.remove('hidden');
+  requestAnimationFrame(()=>{
+    el('cartOv').classList.add('open');
+    el('cartDrawer').classList.add('open');
+  });
+  el('cartOv').setAttribute('aria-hidden','false');
+  el('cartDrawer').setAttribute('aria-hidden','false');
+  document.body.style.overflow='hidden';
+}
+function closeCart(){
+  el('cartOv').classList.remove('open');
+  el('cartDrawer').classList.remove('open');
+  el('cartOv').setAttribute('aria-hidden','true');
+  el('cartDrawer').setAttribute('aria-hidden','true');
+  document.body.style.overflow='';
+  setTimeout(()=>{
+    if(!el('cartDrawer').classList.contains('open')){
+      el('cartOv').classList.add('hidden');
+      el('cartDrawer').classList.add('hidden');
+    }
+  },260);
+}
 function cartPermalink(lines){
   const items=lines
     .filter(item=>item.variantId && item.qty>0)
