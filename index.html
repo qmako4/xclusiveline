@@ -216,7 +216,8 @@ footer{border-top:1px solid var(--line);padding:3rem 0 2rem;margin-top:2rem}
 .pd-desc{color:var(--mut);font-size:14px;white-space:pre-line;margin-bottom:1.4rem}
 .pd-label{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--mut2);margin-bottom:.6rem}
 .sizes{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:1.5rem}
-.size{min-width:46px;padding:10px 12px;border-radius:9px;border:1px solid var(--line);background:var(--b3);font-size:14px;text-align:center;transition:var(--trs);cursor:default}
+.size{min-width:46px;padding:10px 12px;border-radius:9px;border:1px solid var(--line);background:var(--b3);font-size:14px;text-align:center;transition:var(--trs);cursor:pointer}
+.size:hover{border-color:var(--w)}
 .size.on{background:var(--y);color:var(--b);border-color:var(--y);font-weight:600}
 .size.out{opacity:.32;text-decoration:line-through;cursor:not-allowed}
 
@@ -245,7 +246,8 @@ footer{border-top:1px solid var(--line);padding:3rem 0 2rem;margin-top:2rem}
 .pd-page .pd-desc{color:rgba(10,10,10,.66);font-size:13px;line-height:1.75;white-space:pre-line;margin:0 0 26px;max-width:58ch;overflow-wrap:anywhere}
 .pd-page .pd-label{display:flex;justify-content:space-between;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--b);margin-bottom:10px}
 .pd-page .sizes{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;margin-bottom:18px}
-.pd-page .size{min-width:0;padding:12px 8px;border-radius:0;border:1px solid rgba(10,10,10,.22);background:transparent;color:var(--b);font-size:12px;font-weight:600;text-align:center;transition:var(--trs);cursor:default}
+.pd-page .size{min-width:0;padding:12px 8px;border-radius:0;border:1px solid rgba(10,10,10,.22);background:transparent;color:var(--b);font-size:12px;font-weight:600;text-align:center;transition:var(--trs);cursor:pointer}
+.pd-page .size:hover{border-color:var(--b)}
 .pd-page .size.on{background:var(--b);color:var(--w);border-color:var(--b)}
 .pd-page .size.out{opacity:.28;text-decoration:line-through;cursor:not-allowed}
 .pd-page .btn.block{border-radius:0;background:var(--y);color:var(--b);padding:16px 18px;font-size:16px;letter-spacing:.06em}
@@ -703,6 +705,7 @@ const STORE_API_BASE = 'https://xclusiveline-images.qmako41212.workers.dev';
 const PHOTO_STUDIO_API_BASE = 'https://xclusiveline-photo-studio.qmako41212.workers.dev';
 const PRODUCT_IMAGE_TRANSFER_KEY = 'xl-product-draft-images';
 let pendingBuyNowUrl = '';
+const shopifyProductCache = new Map();
 const SHOPIFY_STOREFRONT = 'https://w0rvm0-51.myshopify.com';
 const SHOPIFY_PRODUCT_URLS = Object.freeze({
   "d111b015-3dc5-4dbd-bce2-11bff1805825": "https://w0rvm0-51.myshopify.com/products/xl-saint-mxxx-japanese-long-sleeve-print-shirt-d111b015",
@@ -1016,8 +1019,8 @@ function renderProductPageLegacy(){
         <div class="pd-price"><span class="now">${money(priceOf(p))}</span>${onSale?`<span class="was">${money(p.price_gbp)}</span>`:''}${onSale?`<span class="save">Save ${money(p.price_gbp-p.sale_price_gbp)}</span>`:''}</div>
         ${(()=>{ const st=totalStock(p); return (p.sizes||[]).length&&st>0&&st<=6?`<div class="pd-urgency">⚡ Selling fast — only ${st} left in stock</div>`:''; })()}
         ${p.description?`<div class="pd-desc">${escapeHtml(p.description)}</div>`:''}
-        <div class="pd-label">Available sizes</div>
-        <div class="sizes">${(p.sizes||[]).map(s=>`<span class="size ${s.stock<1?'out':''}">${escapeHtml(s.size)}</span>`).join('')||'<span style="color:var(--mut)">One size</span>'}</div>
+        <div class="pd-label">Select size</div>
+        <div class="sizes">${(p.sizes||[]).map(s=>`<button type="button" class="size ${s.stock<1?'out':''} ${state.modalSize===s.size?'on':''}" ${s.stock<1?'disabled':`onclick='selectBuyOption(${jsString(s.size)})'`}>${escapeHtml(s.size)}</button>`).join('')||'<span style="color:var(--mut)">One size</span>'}</div>
         <button class="btn block" onclick="buyOnShopify()">Buy now — ${money(priceOf(p))}</button>
         <div class="pd-assure"><span>✓ Secure checkout</span><span>✓ Worldwide shipping</span><span>✓ 14-day returns</span></div>
       </div>
@@ -1059,8 +1062,8 @@ function renderProductPage(){
         <div class="pd-price"><span class="now">${money(priceOf(p))}</span>${onSale?`<span class="was">${money(p.price_gbp)}</span><span class="save">Save ${money(p.price_gbp-p.sale_price_gbp)}</span>`:''}</div>
         ${(()=>{const st=totalStock(p);return hasSizes&&st>0&&st<=6?`<div class="pd-urgency">Selling fast - only ${st} left in stock</div>`:''})()}
         ${storefrontDescription?`<div class="pd-desc">${escapeHtml(storefrontDescription)}</div>`:''}
-        <div class="pd-label"><span>Available sizes</span>${hasSizes?'<span>Choose at checkout</span>':''}</div>
-        <div class="sizes">${(p.sizes||[]).map(s=>`<span class="size ${s.stock<1?'out':''}">${escapeHtml(s.size)}</span>`).join('')||'<span style="color:rgba(10,10,10,.55);font-size:12px">One size</span>'}</div>
+        <div class="pd-label"><span>Select size</span>${hasSizes?'<span>Auto-selected on Shopify</span>':''}</div>
+        <div class="sizes">${(p.sizes||[]).map(s=>`<button type="button" class="size ${s.stock<1?'out':''} ${state.modalSize===s.size?'on':''}" ${s.stock<1?'disabled':`onclick='selectBuyOption(${jsString(s.size)})'`}>${escapeHtml(s.size)}</button>`).join('')||'<span style="color:rgba(10,10,10,.55);font-size:12px">One size</span>'}</div>
         <button class="btn block" ${soldOut?'disabled':`onclick="buyOnShopify()"`}>${soldOut?'Sold out':`Buy now - ${money(priceOf(p))}`}</button>
         <div class="pd-assure">
           <span><b>Delivery</b> 7-10 working days</span>
@@ -1083,8 +1086,59 @@ function renderProductPage(){
 function shopifyProductUrl(product){
   return SHOPIFY_PRODUCT_URLS[String(product?.id||'')] || '';
 }
-function buyOnShopify(){
-  const url=shopifyProductUrl(state.modalProduct);
+function selectBuyOption(size){
+  state.modalSize=size;
+  renderProductPage();
+}
+function normalizeShopifyOption(value){
+  return String(value||'').trim().toUpperCase().replace(/\s*\/\s*/g,' ').replace(/\s+/g,' ');
+}
+function shopifyProductJsonUrl(url){
+  return `${url.split('?')[0].replace(/\/$/,'')}.js`;
+}
+function shopifyVariantUrl(url, variantId){
+  return `${url}${url.includes('?')?'&':'?'}variant=${encodeURIComponent(variantId)}`;
+}
+async function getShopifyProductJson(url){
+  const jsonUrl=shopifyProductJsonUrl(url);
+  if(shopifyProductCache.has(jsonUrl)) return shopifyProductCache.get(jsonUrl);
+  const product=await fetch(jsonUrl,{headers:{accept:'application/json,text/javascript,*/*'}}).then(r=>{
+    if(!r.ok) throw new Error(`Shopify product lookup failed: ${r.status}`);
+    return r.json();
+  });
+  shopifyProductCache.set(jsonUrl,product);
+  return product;
+}
+function findShopifyVariant(productJson, selectedOption){
+  const selected=normalizeShopifyOption(selectedOption);
+  if(!selected) return null;
+  const variants=productJson?.variants||[];
+  return variants.find(v=>normalizeShopifyOption(v.title)===selected)
+    || variants.find(v=>normalizeShopifyOption([v.option1,v.option2,v.option3].filter(Boolean).join(' '))===selected)
+    || variants.find(v=>[v.option1,v.option2,v.option3].some(option=>normalizeShopifyOption(option)===selected))
+    || null;
+}
+async function buildShopifyBuyUrl(product){
+  const url=shopifyProductUrl(product);
+  if(!url) return '';
+  if(!state.modalSize) return url;
+  const productJson=await getShopifyProductJson(url);
+  const variant=findShopifyVariant(productJson,state.modalSize);
+  return variant?.id ? shopifyVariantUrl(url,variant.id) : url;
+}
+async function buyOnShopify(){
+  const p=state.modalProduct;
+  const hasSizes=(p?.sizes||[]).length>0;
+  if(hasSizes && !state.modalSize){ toast('Choose a size first'); return; }
+  const baseUrl=shopifyProductUrl(p);
+  if(!baseUrl){ toast('Checkout is not available for this product yet'); return; }
+  let url=baseUrl;
+  try{
+    url=await buildShopifyBuyUrl(p);
+  }catch(err){
+    console.warn(err);
+    toast('Opening Shopify - check the size there');
+  }
   if(!url){ toast('Checkout is not available for this product yet'); return; }
   pendingBuyNowUrl=url;
   openModal('blankConfirmModal');
