@@ -252,6 +252,9 @@ footer{border-top:1px solid var(--line);padding:3rem 0 2rem;margin-top:2rem}
 .pd-page .size.out{opacity:.28;text-decoration:line-through;cursor:not-allowed}
 .pd-page .btn.block{border-radius:0;background:var(--y);color:var(--b);padding:16px 18px;font-size:16px;letter-spacing:.06em}
 .pd-page .btn.block:hover{background:var(--b);color:var(--w)}
+.pd-page .buy-actions{display:grid;grid-template-columns:1fr;gap:9px}
+.pd-page .btn.ghost.block{background:transparent;color:var(--b);border:1px solid rgba(10,10,10,.28)}
+.pd-page .btn.ghost.block:hover{background:var(--b);border-color:var(--b);color:var(--w)}
 .pd-page .pd-assure{display:grid;grid-template-columns:1fr;gap:0;margin-top:18px;border-top:1px solid rgba(10,10,10,.14);color:rgba(10,10,10,.68);font-size:11px}
 .pd-page .pd-assure span{display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-bottom:1px solid rgba(10,10,10,.14)}
 .pd-page .pd-assure b{color:var(--b);font-weight:700;text-transform:uppercase;letter-spacing:.05em}
@@ -449,7 +452,7 @@ body.mob-menu-open{overflow:hidden}
   <div class="nav-r">
     <select class="cur" id="curSel" onchange="setCurrency(this.value)"></select>
     <div class="bal-chip hidden" id="balChip" onclick="go('account')">£<b id="balChipAmt">0</b></div>
-    <button class="icon-btn" onclick="goShopifyCart()" title="Cart">
+    <button class="icon-btn" onclick="openCart()" title="Cart">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
       <span class="cart-count hidden" id="cartCount">0</span>
     </button>
@@ -1021,7 +1024,10 @@ function renderProductPageLegacy(){
         ${p.description?`<div class="pd-desc">${escapeHtml(p.description)}</div>`:''}
         <div class="pd-label">Select size</div>
         <div class="sizes">${(p.sizes||[]).map(s=>`<button type="button" class="size ${s.stock<1?'out':''} ${state.modalSize===s.size?'on':''}" ${s.stock<1?'disabled':`onclick='selectBuyOption(${jsString(s.size)})'`}>${escapeHtml(s.size)}</button>`).join('')||'<span style="color:var(--mut)">One size</span>'}</div>
-        <button class="btn block" onclick="buyOnShopify()">Buy now — ${money(priceOf(p))}</button>
+        <div class="buy-actions">
+          <button class="btn ghost block" onclick="addToCart()">Add to cart</button>
+          <button class="btn block" onclick="buyOnShopify()">Buy now — ${money(priceOf(p))}</button>
+        </div>
         <div class="pd-assure"><span>✓ Secure checkout</span><span>✓ Worldwide shipping</span><span>✓ 14-day returns</span></div>
       </div>
     </div>
@@ -1064,7 +1070,10 @@ function renderProductPage(){
         ${storefrontDescription?`<div class="pd-desc">${escapeHtml(storefrontDescription)}</div>`:''}
         <div class="pd-label"><span>Select size</span>${hasSizes?'<span>Auto-selected on Shopify</span>':''}</div>
         <div class="sizes">${(p.sizes||[]).map(s=>`<button type="button" class="size ${s.stock<1?'out':''} ${state.modalSize===s.size?'on':''}" ${s.stock<1?'disabled':`onclick='selectBuyOption(${jsString(s.size)})'`}>${escapeHtml(s.size)}</button>`).join('')||'<span style="color:rgba(10,10,10,.55);font-size:12px">One size</span>'}</div>
-        <button class="btn block" ${soldOut?'disabled':`onclick="buyOnShopify()"`}>${soldOut?'Sold out':`Buy now - ${money(priceOf(p))}`}</button>
+        <div class="buy-actions">
+          <button class="btn ghost block" ${soldOut?'disabled':`onclick="addToCart()"`}>Add to cart</button>
+          <button class="btn block" ${soldOut?'disabled':`onclick="buyOnShopify()"`}>${soldOut?'Sold out':`Buy now - ${money(priceOf(p))}`}</button>
+        </div>
         <div class="pd-assure">
           <span><b>Delivery</b> 7-10 working days</span>
           <span><b>Shipping</b> Tracked worldwide</span>
@@ -1111,8 +1120,10 @@ async function getShopifyProductJson(url){
 }
 function findShopifyVariant(productJson, selectedOption){
   const selected=normalizeShopifyOption(selectedOption);
-  if(!selected) return null;
   const variants=productJson?.variants||[];
+  if(!selected || selected==='OS' || selected==='ONE SIZE'){
+    return variants.length===1 ? variants[0] : null;
+  }
   return variants.find(v=>normalizeShopifyOption(v.title)===selected)
     || variants.find(v=>normalizeShopifyOption([v.option1,v.option2,v.option3].filter(Boolean).join(' '))===selected)
     || variants.find(v=>[v.option1,v.option2,v.option3].some(option=>normalizeShopifyOption(option)===selected))
@@ -1125,6 +1136,12 @@ async function buildShopifyBuyUrl(product){
   const productJson=await getShopifyProductJson(url);
   const variant=findShopifyVariant(productJson,state.modalSize);
   return variant?.id ? shopifyVariantUrl(url,variant.id) : url;
+}
+async function resolveShopifyVariant(product, selectedOption){
+  const url=shopifyProductUrl(product);
+  if(!url) return null;
+  const productJson=await getShopifyProductJson(url);
+  return findShopifyVariant(productJson,selectedOption);
 }
 async function buyOnShopify(){
   const p=state.modalProduct;
@@ -1189,6 +1206,81 @@ function renderCart(){
 }
 
 /* ════════════ CURRENCY ════════════ */
+async function addToCart(){
+  const p=state.modalProduct;
+  const hasSizes=(p?.sizes||[]).length>0;
+  if(hasSizes && !state.modalSize){ toast('Choose a size first'); return; }
+  const size=state.modalSize || 'OS';
+  let variant=null;
+  try{
+    variant=await resolveShopifyVariant(p,size);
+  }catch(err){
+    console.warn(err);
+  }
+  if(!variant?.id){ toast('Could not match that option on Shopify'); return; }
+  const variantId=String(variant.id);
+  const ex=state.cart.find(item=>String(item.variantId||'')===variantId);
+  if(ex) ex.qty++;
+  else state.cart.push({id:p.id,variantId,name:p.name,brand:p.brand,price:priceOf(p),size,img:(p.images||[])[0]?.url||'',qty:1});
+  saveCart();
+  updateCartUI();
+  openCart();
+  toast('Added to cart');
+}
+function cartQty(){ return state.cart.reduce((total,item)=>total+(Number(item.qty)||0),0); }
+function updateCartUI(){
+  const c=el('cartCount');
+  if(!c) return;
+  const count=cartQty();
+  c.textContent=count;
+  c.classList.toggle('hidden',count<1);
+}
+function renderCart(){
+  if(!state.cart.length){
+    el('cartBody').innerHTML='<div class="empty">Your cart is empty.</div>';
+    el('cartFoot').innerHTML='';
+    return;
+  }
+  el('cartBody').innerHTML=state.cart.map((item,idx)=>`<div class="cart-item">
+    ${item.img?`<img src="${item.img}" alt="${escapeHtml(item.name)}">`:''}
+    <div class="ci-info"><div class="nm">${escapeHtml(item.name)}</div><div class="meta">${escapeHtml(item.brand||'')} &middot; ${escapeHtml(item.size)}</div>
+      <div class="pr">${money(item.price)}</div>
+      <div class="qty"><button onclick="chgQty(${idx},-1)">-</button><span>${item.qty}</span><button onclick="chgQty(${idx},1)">+</button></div>
+    </div><button class="ci-rm" onclick="rmItem(${idx})">Remove</button></div>`).join('');
+  const total=cartTotal();
+  const ship=total>=FREE_SHIP_GBP
+    ? `<div class="ship-msg done">You've unlocked FREE worldwide shipping.</div>`
+    : `<div class="ship-msg">You're <b>${money(FREE_SHIP_GBP-total)}</b> away from free worldwide shipping<div class="ship-bar"><i style="width:${Math.min(100,total/FREE_SHIP_GBP*100)}%"></i></div></div>`;
+  el('cartFoot').innerHTML=ship+`<div class="cart-total"><span>Total</span><span class="y">${money(total)}</span></div><button class="btn block" onclick="buyShopifyCart()">Buy now</button>`;
+}
+function cartPermalink(lines){
+  const items=lines
+    .filter(item=>item.variantId && item.qty>0)
+    .map(item=>`${encodeURIComponent(item.variantId)}:${Math.max(1,Number(item.qty)||1)}`);
+  return items.length ? `${SHOPIFY_STOREFRONT}/cart/${items.join(',')}` : '';
+}
+async function resolveCartLine(item){
+  if(item.variantId) return item;
+  const product=state.products.find(p=>p.id===item.id);
+  if(!product || !item.size) return item;
+  const variant=await resolveShopifyVariant(product,item.size);
+  if(variant?.id) item.variantId=String(variant.id);
+  return item;
+}
+async function buyShopifyCart(){
+  if(!state.cart.length){ toast('Your cart is empty'); return; }
+  try{
+    await Promise.all(state.cart.map(resolveCartLine));
+    saveCart();
+    const url=cartPermalink(state.cart);
+    if(!url){ toast('Could not prepare Shopify cart'); return; }
+    pendingBuyNowUrl=url;
+    openModal('blankConfirmModal');
+  }catch(err){
+    console.warn(err);
+    toast('Could not prepare Shopify cart');
+  }
+}
 function setCurrency(c){ state.currency=c; localStorage.setItem('xl-cur',c); renderShop(); if(state.modalProduct)renderProductPage(); renderCart(); if(state.user)renderAccount(); }
 
 /* ════════════ AUTH ════════════ */
